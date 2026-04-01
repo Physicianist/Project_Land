@@ -101,11 +101,10 @@ function HeroSection() {
         <div>
           <div className="landingPill fit"><Sparkles size={14} /> 1 месяц полного доступа бесплатно</div>
           <h1 className="landingHeroTitle">
-            Проверяйте письменные работы <span>в 2–4 раза быстрее</span> — без потери контроля
+            Проверяйте работы <span>в 2–4 раза быстрее</span> — без потери контроля
           </h1>
           <p className="landingHeroText">
-            Ученик загружает фото или файл. Система распознаёт решение и делает первичную проверку.
-            Вы подтверждаете итог, исправляете при необходимости и отправляете результат. Работает и
+            Платформа оформляет работу в читабельный формат, распознаёт ход решения и делает первичную проверку. Преподаватель подтверждает результат. Работает и
             для индивидуальных учеников, и для потока работ.
           </p>
           <div className="landingCTAGroup">
@@ -193,7 +192,6 @@ function ForWhomSection() {
         <div className="landingSectionHead center">
           <div className="landingEyebrow">Для кого</div>
           <h2>Один инструмент — для разных форматов преподавания</h2>
-          <p>Основной фокус — частные репетиторы и мини-группы. Но и школьный учитель сразу видит для себя понятный сценарий применения.</p>
         </div>
         <div className="landingCardGrid three">
           {segments.map(({ icon: Icon, title, desc, points }) => (
@@ -257,10 +255,10 @@ function PainSection() {
 
 function HowItWorksSection() {
   const steps = [
-    { num: '01', icon: FileText, title: 'Создайте задание', desc: 'Укажите предмет, тему, дедлайн и прикрепите файл задания.' },
-    { num: '02', icon: Upload, title: 'Ученик загружает работу', desc: 'Фото, скан или PDF — несколько страниц, рукопись или печатный текст.' },
-    { num: '03', icon: Brain, title: 'Система делает первичный разбор', desc: 'OCR распознаёт решение, AI находит ошибки и предлагает баллы.' },
-    { num: '04', icon: Shield, title: 'Вы подтверждаете результат', desc: 'Видите исходник, распознанный текст и AI-анализ. Исправляете, если нужно.' },
+    { num: '01', icon: FileText, title: 'Создайте задание', desc: 'Укажите предмет, тему, дедлайн и прикрепите файл задания' },
+    { num: '02', icon: Upload, title: 'Ученик загружает работу', desc: 'Фото, скан или PDF — несколько страниц, рукопись или печатный текст' },
+    { num: '03', icon: Brain, title: 'Система делает первичный разбор', desc: 'OCR распознаёт решение, AI находит ошибки и предлагает баллы' },
+    { num: '04', icon: Shield, title: 'Вы подтверждаете результат', desc: 'Видите исходник, распознанный текст и AI-анализ' },
   ];
   return (
     <section id="how" className="landingSection landingSectionAlt">
@@ -268,7 +266,7 @@ function HowItWorksSection() {
         <div className="landingSectionHead center">
           <div className="landingEyebrow">Как это работает</div>
           <h2>Понятный workflow — от задания до результата</h2>
-          <p>ПроверьAI не пытается заменить преподавателя. Он убирает рутину, а вы сохраняете контроль над финальной оценкой.</p>
+          <p>ПроверьAI не пытается заменить преподавателя, он убирает рутину</p>
         </div>
         <div className="landingStepsGrid">
           {steps.map(({ num, icon: Icon, title, desc }) => (
@@ -293,7 +291,7 @@ function BenefitsSection() {
     { icon: Upload, title: 'Рукопись и печатный текст', desc: 'Фото, сканы и PDF — без сложной подготовки со стороны ученика.' },
     { icon: Brain, title: 'AI-первичный разбор', desc: 'Ошибки, комментарии и предложенные баллы появляются до ручной проверки преподавателя.' },
     { icon: Shield, title: 'Финальный контроль у вас', desc: 'Ни одна оценка не уходит ученику без вашего подтверждения.' },
-    { icon: BookOpen, title: 'Аналитика по темам и ошибкам', desc: 'Видно, где группа или ученик проваливается чаще всего.' },
+    { icon: BookOpen, title: 'Интерактивная аналитика по темам', desc: 'Видно, где группа или ученик проваливается чаще всего.' },
     { icon: Users, title: 'Подходит для групп и классов', desc: 'Сервис помогает масштабировать преподавание без хаоса и потери качества.' },
   ];
   return (
@@ -302,7 +300,7 @@ function BenefitsSection() {
         <div className="landingSectionHead center">
           <div className="landingEyebrow">Преимущества</div>
           <h2>Не просто AI-проверка, а рабочая система для ежедневного использования</h2>
-          <p>Сервис помогает преподавателю работать быстрее, системнее и увереннее, не превращая продукт в перегруженную LMS.</p>
+          <p>Сервис помогает преподавателю работать быстрее, системнее и увереннее</p>
         </div>
         <div className="landingCardGrid three">
           {items.map(({ icon: Icon, title, desc }) => (
@@ -356,14 +354,15 @@ function ImpactSection() {
   const claims = [
     { value: '2–4×', label: 'быстрее первичная проверка', sub: 'по типовым сценариям' },
     { value: '6–10 ч', label: 'экономии в неделю', sub: 'у преподавателей с потоком учеников' },
-    { value: '~80%', label: 'рутинных шагов берёт система', sub: 'распознавание, анализ, черновик комментария' },
+    { value: '~80%', label: 'рутинных шагов берёт система', sub: 'распознавание почерка, выявление ошибок, анлиз результатов, отчеты родителям' },
+    { value: '+20%', label: ' к доходам', sub: 'открывает возможность найти 1-3 новых учеников' },
   ];
   return (
     <section className="landingSection">
       <div className="landingContainer">
         <div className="landingSectionHead center">
           <div className="landingEyebrow">Эффект</div>
-          <h2>Сколько времени вы можете сэкономить</h2>
+          <h2>Преимущество в цифрах</h2>
           <p>Цифры для типовых сценариев преподавателей, у которых есть поток учеников и регулярная проверка письменных работ.</p>
         </div>
         <div className="landingImpactGrid">
@@ -396,8 +395,8 @@ function PricingSection() {
             <div className="landingPriceSub">После пробного периода</div>
             <div className="landingPriceValue">0 ₽ <span>/ мес</span></div>
             <ul className="landingBulletList compact">
-              <li><CheckCircle2 size={15} /> До 5 учеников</li>
-              <li><CheckCircle2 size={15} /> До 10 проверок в месяц</li>
+              <li><CheckCircle2 size={15} /> До 3 учеников</li>
+              <li><CheckCircle2 size={15} /> До 5 проверок в месяц</li>
               <li><CheckCircle2 size={15} /> Базовая аналитика</li>
             </ul>
             {/* Redirect to registration mode for free plan start */}
