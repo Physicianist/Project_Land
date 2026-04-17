@@ -1,0 +1,531 @@
+{
+  "teacher": {
+    "id": "t1",
+    "name": "Елена Викторовна Петрова",
+    "email": "teacher@demo.ru",
+    "phone": "+7 999 123-45-67",
+    "avatarUrl": "",
+    "plan": "Trial",
+    "subjects": [
+      "Математика",
+      "Физика",
+      "Химия"
+    ],
+    "notifications": {
+      "Новая работа загружена": true,
+      "Запрос на пересмотр": true,
+      "Дедлайн приближается": true,
+      "Еженедельная сводка": false
+    },
+    "reportPreferences": {
+      "Оценки за период": true,
+      "Динамику успеваемости": true,
+      "Слабые темы": true,
+      "Рекомендации": true,
+      "Просроченные задания": true
+    }
+  },
+  "accounts": [
+    {
+      "id": "acc-teacher-demo",
+      "role": "teacher",
+      "name": "Елена Викторовна Петрова",
+      "email": "teacher@demo.ru",
+      "phone": "+7 999 123-45-67",
+      "password": "demo12345",
+      "verified": true,
+      "createdAt": "2026-03-20T09:00:00.000Z",
+      "userId": "t1"
+    },
+    {
+      "id": "acc-student-demo",
+      "role": "student",
+      "name": "Алексей Смирнов",
+      "email": "student@demo.ru",
+      "phone": "+7 999 555-00-01",
+      "password": "demo12345",
+      "verified": true,
+      "createdAt": "2026-03-20T09:00:00.000Z",
+      "userId": "s1"
+    }
+  ],
+  "smsLogs": [],
+  "students": [
+    {
+      "id": "s1",
+      "name": "Алексей Смирнов",
+      "email": "student@demo.ru",
+      "parentName": "Наталья Смирнова",
+      "parentEmail": "smirnov.parent@mail.ru",
+      "level": "10 класс",
+      "subjects": [
+        "Математика",
+        "Физика"
+      ],
+      "active": true,
+      "lessonSlots": [
+        {
+          "id": "ls1",
+          "day": "ПН",
+          "time": "10:00",
+          "durationHours": 1,
+          "durationMinutes": 0
+        },
+        {
+          "id": "ls2",
+          "day": "ЧТ",
+          "time": "18:30",
+          "durationHours": 1,
+          "durationMinutes": 30
+        }
+      ],
+      "phone": "+7 999 555-00-01"
+    },
+    {
+      "id": "s2",
+      "name": "Мария Соколова",
+      "email": "sokolova@mail.ru",
+      "parentName": "Ирина Соколова",
+      "parentEmail": "sokolova.parent@mail.ru",
+      "level": "11 класс",
+      "subjects": [
+        "Математика",
+        "Химия"
+      ],
+      "active": true,
+      "lessonSlots": [
+        {
+          "id": "ls3",
+          "day": "ВТ",
+          "time": "12:00",
+          "durationHours": 1,
+          "durationMinutes": 0
+        }
+      ]
+    },
+    {
+      "id": "s3",
+      "name": "Илья Панов",
+      "email": "panov@mail.ru",
+      "parentName": "Сергей Панов",
+      "parentEmail": "panov.parent@mail.ru",
+      "level": "9 класс",
+      "subjects": [
+        "Физика"
+      ],
+      "active": true,
+      "lessonSlots": [
+        {
+          "id": "ls4",
+          "day": "СР",
+          "time": "16:00",
+          "durationHours": 1,
+          "durationMinutes": 0
+        }
+      ]
+    },
+    {
+      "id": "s4",
+      "name": "Дарья Крылова",
+      "email": "krylova@mail.ru",
+      "parentName": "Ольга Крылова",
+      "parentEmail": "krylova.parent@mail.ru",
+      "level": "10 класс",
+      "subjects": [
+        "Математика"
+      ],
+      "active": true,
+      "lessonSlots": [
+        {
+          "id": "ls5",
+          "day": "ПТ",
+          "time": "17:00",
+          "durationHours": 1,
+          "durationMinutes": 30
+        }
+      ]
+    },
+    {
+      "id": "s5",
+      "name": "Максим Орлов",
+      "email": "orlov@mail.ru",
+      "parentName": "Елена Орлова",
+      "parentEmail": "orlov.parent@mail.ru",
+      "level": "11 класс",
+      "subjects": [
+        "Химия"
+      ],
+      "active": true,
+      "lessonSlots": [
+        {
+          "id": "ls6",
+          "day": "СБ",
+          "time": "11:00",
+          "durationHours": 1,
+          "durationMinutes": 30
+        }
+      ]
+    },
+    {
+      "id": "s6",
+      "name": "Анна Беляева",
+      "email": "belyaeva@mail.ru",
+      "parentName": "",
+      "parentEmail": "",
+      "level": "1 курс",
+      "subjects": [
+        "Математика",
+        "Физика"
+      ],
+      "active": true,
+      "lessonSlots": [
+        {
+          "id": "ls7",
+          "day": "ПН",
+          "time": "19:00",
+          "durationHours": 1,
+          "durationMinutes": 30
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "id": "g1",
+      "name": "Мини-группа ЕГЭ",
+      "subject": "Математика",
+      "active": true,
+      "studentIds": [
+        "s1",
+        "s2",
+        "s4"
+      ],
+      "riskTopics": [
+        "Цепное правило",
+        "Логарифмические производные"
+      ],
+      "lessonSlots": []
+    },
+    {
+      "id": "g2",
+      "name": "Физика 10Б",
+      "subject": "Физика",
+      "active": true,
+      "studentIds": [
+        "s3",
+        "s6"
+      ],
+      "riskTopics": [
+        "Арифметические ошибки",
+        "Динамика"
+      ],
+      "lessonSlots": []
+    },
+    {
+      "id": "g3",
+      "name": "Химия ЕГЭ",
+      "subject": "Химия",
+      "active": true,
+      "studentIds": [
+        "s2",
+        "s5"
+      ],
+      "riskTopics": [
+        "Электронный баланс",
+        "Степени окисления"
+      ],
+      "lessonSlots": []
+    }
+  ],
+  "assignments": [
+    {
+      "id": "a1",
+      "title": "Производная и исследование функции",
+      "subject": "Математика",
+      "description": "Лист из 8 заданий на производные и исследование функции.",
+      "createdAt": "2026-03-18",
+      "deadline": "2026-04-04T23:00",
+      "maxScore": 40,
+      "recipientType": "group",
+      "recipientId": "g1",
+      "status": "Активно",
+      "attachments": [
+        {
+          "id": "att1",
+          "name": "Фото задания 1",
+          "url": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
+          "kind": "photo"
+        }
+      ]
+    },
+    {
+      "id": "a2",
+      "title": "Законы Ньютона и динамика",
+      "subject": "Физика",
+      "description": "Домашняя работа по законам Ньютона и связанным телам.",
+      "createdAt": "2026-03-16",
+      "deadline": "2026-04-02T23:00",
+      "maxScore": 50,
+      "recipientType": "group",
+      "recipientId": "g2",
+      "status": "Активно",
+      "attachments": [
+        {
+          "id": "att2",
+          "name": "Динамика.pdf",
+          "url": "/uploads/sample.pdf",
+          "kind": "file"
+        }
+      ]
+    },
+    {
+      "id": "a3",
+      "title": "ОВР и электронный баланс",
+      "subject": "Химия",
+      "description": "Контрольная на ОВР и степени окисления.",
+      "createdAt": "2026-03-10",
+      "deadline": "2026-03-22T23:00",
+      "maxScore": 25,
+      "recipientType": "group",
+      "recipientId": "g3",
+      "status": "Завершено",
+      "attachments": [
+        {
+          "id": "att3",
+          "name": "Фото контрольной",
+          "url": "https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=1200&q=80",
+          "kind": "photo"
+        }
+      ]
+    },
+    {
+      "id": "a4",
+      "title": "Интегралы: базовый лист",
+      "subject": "Математика",
+      "description": "Печатный лист с 10 базовыми интегралами.",
+      "createdAt": "2026-03-05",
+      "deadline": "2026-03-20T23:00",
+      "maxScore": 30,
+      "recipientType": "student",
+      "recipientId": "s6",
+      "status": "Завершено",
+      "attachments": []
+    },
+    {
+      "id": "a5",
+      "title": "Контрольная по молекулярной физике",
+      "subject": "Физика",
+      "description": "Пакет задач для школьной контрольной проверки.",
+      "createdAt": "2026-03-25",
+      "deadline": "",
+      "maxScore": 60,
+      "recipientType": "group",
+      "recipientId": null,
+      "status": "Черновик",
+      "attachments": []
+    }
+  ],
+  "works": [
+    {
+      "id": "w1",
+      "assignmentId": "a1",
+      "studentId": "s1",
+      "submittedAt": "2026-03-28",
+      "ocrText": "1) y = sin(x^2), y' = 2x cos(x^2)...\n5) Интервалы возрастания...",
+      "files": [
+        {
+          "id": "wf1",
+          "name": "s1-page1.jpg",
+          "url": "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=800&q=80",
+          "kind": "photo"
+        },
+        {
+          "id": "wf2",
+          "name": "s1-page2.jpg",
+          "url": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80",
+          "kind": "photo"
+        }
+      ],
+      "aiComment": "Ход решения в целом верный, но есть ошибки в применении цепного правила и анализе знаков производной.",
+      "aiErrors": [
+        {
+          "types": [
+            "Логическая",
+            "Вычислительная"
+          ],
+          "label": "Цепное правило",
+          "description": "Потерян множитель внутренней функции и неверно определены интервалы возрастания."
+        }
+      ],
+      "suggestedScore": 31,
+      "finalScore": 31,
+      "status": "Ожидает подтверждения"
+    },
+    {
+      "id": "w2",
+      "assignmentId": "a1",
+      "studentId": "s2",
+      "submittedAt": "2026-03-29",
+      "ocrText": "Производные вычислены, но в задаче 8 потерян множитель 1/2...",
+      "files": [
+        {
+          "id": "wf3",
+          "name": "s2-page1.jpg",
+          "url": "https://images.unsplash.com/photo-1456324504439-367cee3b3c32?auto=format&fit=crop&w=800&q=80",
+          "kind": "photo"
+        }
+      ],
+      "aiComment": "Сильная работа, но последняя задача требует аккуратности.",
+      "aiErrors": [
+        {
+          "types": [
+            "Вычислительная"
+          ],
+          "label": "Потерян коэффициент",
+          "description": "В последнем пункте потерян множитель 1/2."
+        }
+      ],
+      "suggestedScore": 34,
+      "finalScore": 33,
+      "status": "Проверена"
+    },
+    {
+      "id": "w3",
+      "assignmentId": "a2",
+      "studentId": "s3",
+      "submittedAt": "2026-03-27",
+      "ocrText": "F=ma, задача на наклонную плоскость, задача на блоки...",
+      "files": [
+        {
+          "id": "wf4",
+          "name": "s3-page1.jpg",
+          "url": "https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=800&q=80",
+          "kind": "photo"
+        }
+      ],
+      "aiComment": "Основной ход решения верный, но есть арифметическая ошибка и неполное оформление ответов.",
+      "aiErrors": [
+        {
+          "types": [
+            "Вычислительная",
+            "Оформление"
+          ],
+          "label": "Арифметика и единицы",
+          "description": "Вычисление ускорения выполнено с ошибкой, в ответе отсутствуют единицы измерения."
+        }
+      ],
+      "suggestedScore": 37,
+      "finalScore": 37,
+      "status": "Ожидает подтверждения"
+    },
+    {
+      "id": "w4",
+      "assignmentId": "a2",
+      "studentId": "s6",
+      "submittedAt": "2026-03-27",
+      "ocrText": "Решение задачи 3: a=(m1-m2)g/(m1+m2)...",
+      "files": [
+        {
+          "id": "wf5",
+          "name": "s6-page1.jpg",
+          "url": "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=800&q=80",
+          "kind": "photo"
+        }
+      ],
+      "aiComment": "Ученик просит пересмотр из-за описки в задаче 3.",
+      "aiErrors": [
+        {
+          "types": [
+            "Оформление"
+          ],
+          "label": "Спорная описка",
+          "description": "В задаче 3 вероятна описка, влияющая на итоговую формулу."
+        }
+      ],
+      "suggestedScore": 33,
+      "finalScore": 32,
+      "status": "На пересмотре"
+    },
+    {
+      "id": "w5",
+      "assignmentId": "a3",
+      "studentId": "s5",
+      "submittedAt": "2026-03-20",
+      "ocrText": "ОВР: 2Fe + 3Cl2 = 2FeCl3...",
+      "files": [
+        {
+          "id": "wf6",
+          "name": "s5-page1.jpg",
+          "url": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80",
+          "kind": "photo"
+        }
+      ],
+      "aiComment": "Нужно еще раз пройти электронный баланс.",
+      "aiErrors": [
+        {
+          "types": [
+            "Логическая",
+            "Терминология"
+          ],
+          "label": "Баланс ОВР",
+          "description": "Коэффициенты подобраны без полного электронного баланса, неверно определена степень окисления."
+        }
+      ],
+      "suggestedScore": 16,
+      "finalScore": 15,
+      "status": "Проверена"
+    }
+  ],
+  "reportConfigs": [
+    {
+      "id": "rc1",
+      "targetType": "student",
+      "targetId": "s1",
+      "frequency": "Еженедельно",
+      "period": "7",
+      "saved": true,
+      "nextRun": "2026-04-24T00:45:00.024Z"
+    },
+    {
+      "id": "rc2",
+      "targetType": "group",
+      "targetId": "g1",
+      "frequency": "Ежемесячно",
+      "period": "30",
+      "saved": true,
+      "nextRun": "2026-04-30T09:00:00.000Z"
+    }
+  ],
+  "reportLogs": [
+    {
+      "id": "log-1776386700024-rc1",
+      "createdAt": "2026-04-17T00:45:00.024Z",
+      "targetLabel": "Алексей Смирнов",
+      "recipients": [
+        {
+          "email": "smirnov.parent@mail.ru",
+          "name": "Наталья Смирнова",
+          "studentId": "s1"
+        }
+      ],
+      "fields": [
+        "Имя",
+        "Типы ошибок",
+        "Описание ошибок",
+        "Итоговый балл",
+        "Дата"
+      ],
+      "mode": "scheduled"
+    }
+  ],
+  "batchSessions": [],
+  "counters": {
+    "student": 100,
+    "group": 100,
+    "assignment": 100,
+    "work": 100,
+    "batch": 100,
+    "report": 100
+  },
+  "resetRequests": []
+}
