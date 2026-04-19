@@ -18,6 +18,10 @@
       "Еженедельная сводка": false
     },
     "reportPreferences": {
+      "Имя ученика": true,
+      "Частые типы ошибок": true,
+      "Частота посещаемости": true,
+      "Гистограмма оценок": true,
       "Оценки за период": true,
       "Динамику успеваемости": true,
       "Слабые темы": true,
@@ -35,7 +39,8 @@
       "password": "demo12345",
       "verified": true,
       "createdAt": "2026-03-20T09:00:00.000Z",
-      "userId": "t1"
+      "userId": "t1",
+      "onboardingCompleted": true
     },
     {
       "id": "acc-student-demo",
@@ -46,10 +51,33 @@
       "password": "demo12345",
       "verified": true,
       "createdAt": "2026-03-20T09:00:00.000Z",
-      "userId": "s1"
+      "userId": "s1",
+      "onboardingCompleted": true
+    },
+    {
+      "id": "acc-1776616520285",
+      "role": "teacher",
+      "name": "Артём Сокерин",
+      "email": "rambletot@gmail.com",
+      "phone": "89527381099",
+      "password": "12345678",
+      "verified": true,
+      "createdAt": "2026-04-19T16:35:20.285Z",
+      "userId": "t2",
+      "onboardingCompleted": true
     }
   ],
-  "smsLogs": [],
+  "smsLogs": [
+    {
+      "id": "sms-1776616520285",
+      "email": "rambletot@gmail.com",
+      "role": "teacher",
+      "phone": "89527381099",
+      "code": "1110",
+      "createdAt": "2026-04-19T16:35:20.285Z",
+      "used": true
+    }
+  ],
   "students": [
     {
       "id": "s1",
@@ -79,7 +107,12 @@
           "durationMinutes": 30
         }
       ],
-      "phone": "+7 999 555-00-01"
+      "phone": "+7 999 555-00-01",
+      "teacherId": "t1",
+      "parentContact": "smirnov.parent@mail.ru",
+      "teacherIds": [
+        "t1"
+      ]
     },
     {
       "id": "s2",
@@ -101,6 +134,12 @@
           "durationHours": 1,
           "durationMinutes": 0
         }
+      ],
+      "phone": "",
+      "teacherId": "t1",
+      "parentContact": "sokolova.parent@mail.ru",
+      "teacherIds": [
+        "t1"
       ]
     },
     {
@@ -122,6 +161,12 @@
           "durationHours": 1,
           "durationMinutes": 0
         }
+      ],
+      "phone": "",
+      "teacherId": "t1",
+      "parentContact": "panov.parent@mail.ru",
+      "teacherIds": [
+        "t1"
       ]
     },
     {
@@ -143,6 +188,12 @@
           "durationHours": 1,
           "durationMinutes": 30
         }
+      ],
+      "phone": "",
+      "teacherId": "t1",
+      "parentContact": "krylova.parent@mail.ru",
+      "teacherIds": [
+        "t1"
       ]
     },
     {
@@ -164,6 +215,12 @@
           "durationHours": 1,
           "durationMinutes": 30
         }
+      ],
+      "phone": "",
+      "teacherId": "t1",
+      "parentContact": "orlov.parent@mail.ru",
+      "teacherIds": [
+        "t1"
       ]
     },
     {
@@ -186,6 +243,12 @@
           "durationHours": 1,
           "durationMinutes": 30
         }
+      ],
+      "phone": "",
+      "teacherId": "t1",
+      "parentContact": "",
+      "teacherIds": [
+        "t1"
       ]
     }
   ],
@@ -204,7 +267,8 @@
         "Цепное правило",
         "Логарифмические производные"
       ],
-      "lessonSlots": []
+      "lessonSlots": [],
+      "teacherId": "t1"
     },
     {
       "id": "g2",
@@ -219,7 +283,8 @@
         "Арифметические ошибки",
         "Динамика"
       ],
-      "lessonSlots": []
+      "lessonSlots": [],
+      "teacherId": "t1"
     },
     {
       "id": "g3",
@@ -234,7 +299,8 @@
         "Электронный баланс",
         "Степени окисления"
       ],
-      "lessonSlots": []
+      "lessonSlots": [],
+      "teacherId": "t1"
     }
   ],
   "assignments": [
@@ -256,7 +322,9 @@
           "url": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
           "kind": "photo"
         }
-      ]
+      ],
+      "teacherId": "t1",
+      "recipientIds": []
     },
     {
       "id": "a2",
@@ -276,7 +344,9 @@
           "url": "/uploads/sample.pdf",
           "kind": "file"
         }
-      ]
+      ],
+      "teacherId": "t1",
+      "recipientIds": []
     },
     {
       "id": "a3",
@@ -296,7 +366,9 @@
           "url": "https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=1200&q=80",
           "kind": "photo"
         }
-      ]
+      ],
+      "teacherId": "t1",
+      "recipientIds": []
     },
     {
       "id": "a4",
@@ -309,7 +381,9 @@
       "recipientType": "student",
       "recipientId": "s6",
       "status": "Завершено",
-      "attachments": []
+      "attachments": [],
+      "teacherId": "t1",
+      "recipientIds": []
     },
     {
       "id": "a5",
@@ -322,7 +396,9 @@
       "recipientType": "group",
       "recipientId": null,
       "status": "Черновик",
-      "attachments": []
+      "attachments": [],
+      "teacherId": "t1",
+      "recipientIds": []
     }
   ],
   "works": [
@@ -359,7 +435,8 @@
       ],
       "suggestedScore": 31,
       "finalScore": 31,
-      "status": "Ожидает подтверждения"
+      "status": "Проверено",
+      "teacherId": "t1"
     },
     {
       "id": "w2",
@@ -387,7 +464,8 @@
       ],
       "suggestedScore": 34,
       "finalScore": 33,
-      "status": "Проверена"
+      "status": "Проверено",
+      "teacherId": "t1"
     },
     {
       "id": "w3",
@@ -416,7 +494,8 @@
       ],
       "suggestedScore": 37,
       "finalScore": 37,
-      "status": "Ожидает подтверждения"
+      "status": "Ожидает подтверждения",
+      "teacherId": "t1"
     },
     {
       "id": "w4",
@@ -444,7 +523,8 @@
       ],
       "suggestedScore": 33,
       "finalScore": 32,
-      "status": "На пересмотре"
+      "status": "Ожидает подтверждения",
+      "teacherId": "t1"
     },
     {
       "id": "w5",
@@ -473,7 +553,8 @@
       ],
       "suggestedScore": 16,
       "finalScore": 15,
-      "status": "Проверена"
+      "status": "Проверено",
+      "teacherId": "t1"
     }
   ],
   "reportConfigs": [
@@ -484,7 +565,8 @@
       "frequency": "Еженедельно",
       "period": "7",
       "saved": true,
-      "nextRun": "2026-04-24T00:45:00.024Z"
+      "nextRun": "2026-04-24T00:45:00.024Z",
+      "teacherId": "t1"
     },
     {
       "id": "rc2",
@@ -493,10 +575,32 @@
       "frequency": "Ежемесячно",
       "period": "30",
       "saved": true,
-      "nextRun": "2026-04-30T09:00:00.000Z"
+      "nextRun": "2026-04-30T09:00:00.000Z",
+      "teacherId": "t1"
     }
   ],
   "reportLogs": [
+    {
+      "id": "log-1776611139127",
+      "createdAt": "2026-04-19T15:05:39.127Z",
+      "targetLabel": "Алексей Смирнов",
+      "recipients": [
+        {
+          "email": "smirnov.parent@mail.ru",
+          "name": "Наталья Смирнова",
+          "studentId": "s1"
+        }
+      ],
+      "fields": [
+        "Имя",
+        "Типы ошибок",
+        "Описание ошибок",
+        "Итоговый балл",
+        "Дата"
+      ],
+      "mode": "manual",
+      "teacherId": "t1"
+    },
     {
       "id": "log-1776386700024-rc1",
       "createdAt": "2026-04-17T00:45:00.024Z",
@@ -515,7 +619,8 @@
         "Итоговый балл",
         "Дата"
       ],
-      "mode": "scheduled"
+      "mode": "scheduled",
+      "teacherId": "t1"
     }
   ],
   "batchSessions": [],
@@ -525,7 +630,77 @@
     "assignment": 100,
     "work": 100,
     "batch": 100,
-    "report": 100
+    "report": 100,
+    "teacher": 2
   },
-  "resetRequests": []
+  "resetRequests": [],
+  "teacherInvites": [
+    {
+      "id": "invite-1776616567743",
+      "teacherId": "t2",
+      "studentId": null,
+      "direction": "teacher_to_student",
+      "status": "pending",
+      "token": "8628bd860e646adcdf93f60f8d15128e",
+      "createdAt": "2026-04-19T16:36:07.744Z"
+    }
+  ],
+  "teachers": [
+    {
+      "id": "t1",
+      "name": "Елена Викторовна Петрова",
+      "email": "teacher@demo.ru",
+      "phone": "+7 999 123-45-67",
+      "avatarUrl": "",
+      "plan": "Trial",
+      "subjects": [
+        "Математика",
+        "Физика",
+        "Химия"
+      ],
+      "notifications": {
+        "Новая работа загружена": true,
+        "Запрос на пересмотр": true,
+        "Дедлайн приближается": true,
+        "Еженедельная сводка": false
+      },
+      "reportPreferences": {
+        "Имя ученика": true,
+        "Частые типы ошибок": true,
+        "Частота посещаемости": true,
+        "Гистограмма оценок": true,
+        "Оценки за период": true,
+        "Динамику успеваемости": true,
+        "Слабые темы": true,
+        "Рекомендации": true,
+        "Просроченные задания": true
+      }
+    },
+    {
+      "id": "t2",
+      "name": "Артём Сокерин",
+      "email": "rambletot@gmail.com",
+      "phone": "89527381099",
+      "avatarUrl": "",
+      "plan": "Trial",
+      "subjects": [
+        "Математика",
+        "Физика",
+        "Химия"
+      ],
+      "notifications": {
+        "Новая работа загружена": true,
+        "Запрос на пересмотр": true,
+        "Дедлайн приближается": true,
+        "Еженедельная сводка": true
+      },
+      "reportPreferences": {
+        "Имя ученика": true,
+        "Частые типы ошибок": true,
+        "Частота посещаемости": true,
+        "Гистограмма оценок": true
+      }
+    }
+  ],
+  "attendanceRecords": []
 }

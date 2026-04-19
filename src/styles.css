@@ -48,6 +48,8 @@ img { max-width: 100%; display: block; }
 .navItem:hover { background: rgba(148,163,184,.08); }
 .navItem.active { background: linear-gradient(180deg, var(--primary) 0%, var(--primary-2) 100%); color: white; box-shadow: 0 10px 24px rgba(37,99,235,.2); }
 .navItem.blocked { opacity: .7; }
+.navBadge { margin-left: auto; min-width: 22px; height: 22px; border-radius: 999px; background: rgba(37,99,235,.12); color: var(--primary); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+.navItem.active .navBadge { background: rgba(255,255,255,.18); color: white; }
 .sidebarFooter { display: flex; flex-direction: column; gap: 12px; }
 .userCard { display: flex; gap: 12px; align-items: center; background: rgba(248,250,252,.95); border: 1px solid var(--line); border-radius: 22px; padding: 12px; }
 .avatar { width: 40px; height: 40px; border-radius: 14px; background: linear-gradient(180deg, var(--primary) 0%, var(--primary-2) 100%); color: white; display: grid; place-items: center; font-weight: 700; }
@@ -71,6 +73,7 @@ img { max-width: 100%; display: block; }
 .row { display: flex; align-items: center; }
 .between { justify-content: space-between; }
 .wrap { flex-wrap: wrap; }
+.grow { flex: 1 1 auto; }
 .gap8 { gap: 8px; } .gap10 { gap: 10px; } .gap12 { gap: 12px; } .gap16 { gap: 16px; } .gap20 { gap: 20px; } .gap24 { gap: 24px; }
 .stack { display: flex; flex-direction: column; }
 .mt6 { margin-top: 6px; } .mt8 { margin-top: 8px; } .mt12 { margin-top: 12px; } .mt16 { margin-top: 16px; } .mt20 { margin-top: 20px; }
@@ -105,6 +108,7 @@ img { max-width: 100%; display: block; }
 .selectSmall { width: auto; min-width: 140px; }
 .field { display: flex; flex-direction: column; gap: 8px; }
 .field > span { font-size: 13px; color: #334155; font-weight: 600; }
+.compactField { min-width: 160px; }
 .toolbar { display: flex; gap: 12px; align-items: center; background: rgba(255,255,255,.92); border: 1px solid var(--line); border-radius: 20px; padding: 12px 16px; }
 .toolbarInput { border: 0; background: transparent; width: 100%; outline: none; }
 
@@ -218,6 +222,20 @@ body { overflow: hidden; }
 
 .kpiGrid.fourNoOverdue { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .alignedTop { align-items: start; }
+.compactToolbar { width: min(360px, 100%); }
+.onboardingGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.onboardingItem { height: 100%; }
+.tutorAvatar,
+.largeAvatar { width: 56px; height: 56px; border-radius: 18px; overflow: hidden; flex: 0 0 auto; }
+.tutorCard { padding: 0; }
+.slimField { min-width: 220px; }
+.grow { flex: 1 1 auto; }
+
+@media (max-width: 900px) {
+  .compactToolbar { width: 100%; }
+  .onboardingGrid { grid-template-columns: 1fr; }
+  .slimField { min-width: 100%; }
+}
 .alignStart { justify-content: flex-start; }
 .studentNameSerifless { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
 .studentMetaLine { font-size: 14px; color: var(--muted); font-weight: 500; }

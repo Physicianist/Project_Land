@@ -19,7 +19,13 @@ const PERIODS = [
 ];
 
 const api = {
-  bootstrap: () => fetch(`${API}/api/bootstrap`).then(r => r.json()),
+  bootstrap: (session = null) => {
+    const params = new URLSearchParams();
+    if (session?.role) params.set('role', session.role);
+    if (session?.userId) params.set('userId', session.userId);
+    const suffix = params.toString() ? `?${params.toString()}` : '';
+    return fetch(`${API}/api/bootstrap${suffix}`).then(r => r.json());
+  },
   upload: async (files) => {
     const fd = new FormData();
     Array.from(files).forEach(file => fd.append('files', file));
@@ -42,10 +48,11 @@ const api = {
   confirmWork: put('/api/works', 'confirm'),
   saveReportConfig: post('/api/reports/configs'),
   sendReport: post('/api/reports/send'),
-  createBatchSession: async (files, scale) => {
+  createBatchSession: async (files, scale, teacherId) => {
     const fd = new FormData();
     Array.from(files).forEach(file => fd.append('files', file));
     fd.append('scale', scale);
+    if (teacherId) fd.append('teacherId', teacherId);
     const res = await fetch(`${API}/api/batch/sessions`, { method: 'POST', body: fd });
     if (!res.ok) throw new Error('Не удалось создать пакетную сессию');
     return res.json();
@@ -67,10 +74,19 @@ const api = {
   register: (payload) => jsonPost('/api/auth/register', payload),
   verifySms: (payload) => jsonPost('/api/auth/verify-sms', payload),
   login: (payload) => jsonPost('/api/auth/login', payload),
+  completeOnboarding: (payload) => jsonPost('/api/auth/onboarding-complete', payload),
   requestReset: (payload) => jsonPost('/api/auth/request-reset', payload),
   verifyReset: (payload) => jsonPost('/api/auth/verify-reset', payload),
   completeReset: (payload) => jsonPost('/api/auth/complete-reset', payload),
   updateTeacher: (payload) => jsonPut('/api/teacher/profile', payload),
+  searchTeachers: (query = '') => fetch(`${API}/api/teachers/search?q=${encodeURIComponent(query)}`).then(async r => {
+    const data = await r.json().catch(() => ([]));
+    if (!r.ok) throw new Error('Не удалось загрузить список преподавателей');
+    return data;
+  }),
+  createTeacherInvite: (payload) => jsonPost('/api/teacher-invites', payload),
+  claimTeacherInvite: (payload) => jsonPost('/api/teacher-invites/claim', payload),
+  updateTeacherInvite: (id, payload) => jsonPut(`/api/teacher-invites/${id}`, payload),
 };
 
 
@@ -124,8 +140,66 @@ function clearSession() { localStorage.removeItem('proveriai_session'); }
 const cx = (...items) => items.filter(Boolean).join(' ');
 const pillClass = {
   'Активно': 'pill info', 'Черновик': 'pill warn', 'Завершено': 'pill success',
-  'Проверена': 'pill success', 'Ожидает подтверждения': 'pill info', 'На пересмотре': 'pill warn'
+  'Проверено': 'pill success', 'Ожидает подтверждения': 'pill info',
+  pending: 'pill info', accepted: 'pill success', declined: 'pill warn'
 };
+const SUBJECT_OPTIONS = ['Математика', 'Физика', 'Химия'];
+const WORK_STATUS_LABELS = {};
+const onboardingVariants = {
+  student: [
+    { title: 'Заполнить профиль', text: 'Добавьте телефон и контакт родителя, если он нужен для отчетов.', path: '/student/profile', cta: 'Открыть профиль' },
+    { title: 'Найти преподавателя', text: 'Откройте раздел «Репетиторы» и отправьте запрос нужному преподавателю.', path: '/student/tutors', cta: 'Перейти к репетиторам' },
+    { title: 'Открыть первое задание', text: 'Как только преподаватель опубликует задание, оно появится в вашем списке.', path: '/student/assignments', cta: 'Открыть задания' },
+  ],
+  teacher: [
+    { title: 'Заполнить профиль', text: 'Укажите контакты и предметы, с которыми вы работаете.', path: '/teacher/settings', cta: 'Открыть настройки' },
+    { title: 'Пригласить ученика', text: 'Создайте ученика вручную или отправьте ссылку-приглашение.', path: '/teacher/students', cta: 'Открыть учеников' },
+    { title: 'Создать группу или пропустить', text: 'Можно собрать мини-группу сразу или сделать это позже.', path: '/teacher/groups', cta: 'Открыть группы' },
+    { title: 'Выдать первое задание', text: 'После публикации оно сразу появится в аккаунтах нужных учеников.', path: '/teacher/assignments', cta: 'Открыть задания' },
+  ],
+};
+
+function displayWorkStatus(status) {
+  return WORK_STATUS_LABELS[status] || status;
+}
+
+function getTeacherProfile(db, session) {
+  if (!session?.userId) return null;
+  return (db.teachers || []).find(item => item.id === session.userId) || null;
+}
+
+function getCurrentStudent(db, session) {
+  if (!session?.userId) return null;
+  return db.students.find(item => item.id === session.userId) || null;
+}
+
+function studentTeacherIds(student = {}) {
+  return [...new Set((Array.isArray(student.teacherIds) ? student.teacherIds : [student.teacherId]).filter(Boolean))];
+}
+
+function studentHasTeacher(student = {}, teacherId) {
+  return studentTeacherIds(student).includes(teacherId);
+}
+
+function teacherOwnedStudents(db, teacherId) {
+  return db.students.filter(item => item.active && studentHasTeacher(item, teacherId));
+}
+
+function teacherOwnedGroups(db, teacherId) {
+  return db.groups.filter(item => item.active && item.teacherId === teacherId);
+}
+
+function teacherOwnedAssignments(db, teacherId) {
+  return db.assignments.filter(item => item.teacherId === teacherId);
+}
+
+function teacherOwnedWorks(db, teacherId) {
+  return db.works.filter(item => item.teacherId === teacherId);
+}
+
+function teacherInvitesFor(db, teacherId, status = 'pending') {
+  return (db.teacherInvites || []).filter(item => item.teacherId === teacherId && (!status || item.status === status));
+}
 
 
 export default function App() {
@@ -134,10 +208,16 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
 
-  const reload = async () => {
+  const updateSession = (next) => {
+    if (next) setSession(next);
+    else clearSession();
+    setSessionState(next);
+  };
+
+  const reload = async (scopeSession = session) => {
     setLoading(true);
     try {
-      const payload = await api.bootstrap();
+      const payload = await api.bootstrap(scopeSession);
       setDb(payload);
     } catch {
       setToast({ type: 'error', text: 'Не удалось загрузить данные backend.' });
@@ -146,39 +226,47 @@ export default function App() {
     }
   };
 
-  useEffect(() => { reload(); }, []);
+  useEffect(() => { reload(session); }, [session?.role, session?.userId]);
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 2500);
     return () => clearTimeout(t);
   }, [toast]);
 
-  const setServerSession = (next) => { setSession(next); setSessionState(next); };
-  const logout = () => { clearSession(); setSessionState(null); };
+  const setServerSession = (next) => updateSession(next);
+  const logout = () => updateSession(null);
 
-  if (loading) return <div className="screen center">Загрузка проекта…</div>;
+  if (loading || !db) return <div className="screen center">Загрузка проекта…</div>;
 
   return (
     <>
       <Routes>
         <Route path="/" element={<Landing />} />
-        <Route path="/login" element={session ? <Navigate to={session.role === 'teacher' ? (session.accessMode === 'limited' ? '/teacher/grading?tab=batch' : '/teacher') : '/student'} replace /> : <LoginPage onAuth={setServerSession} notify={setToast} reload={reload} />} />
-        <Route path="/*" element={session ? <Shell session={session} db={db} reload={reload} logout={logout} notify={setToast} /> : <Navigate to="/login" replace />} />
+        <Route path="/login" element={session ? <Navigate to={session.role === 'teacher' ? (session.accessMode === 'limited' ? '/teacher/grading?tab=batch' : '/teacher') : '/student'} replace /> : <LoginPage onAuth={setServerSession} notify={setToast} />} />
+        <Route path="/*" element={session ? <Shell session={session} db={db} reload={reload} logout={logout} notify={setToast} updateSession={updateSession} /> : <Navigate to="/login" replace />} />
       </Routes>
       {toast && <Toast {...toast} />}
     </>
   );
 }
 
-function Shell({ session, db, reload, logout, notify }) {
+function Shell({ session, db, reload, logout, notify, updateSession }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [teaser, setTeaser] = useState(null);
+  const [onboardingStep, setOnboardingStep] = useState(0);
+  const [savingOnboarding, setSavingOnboarding] = useState(false);
   const isTeacherLimited = session.role === 'teacher' && session.accessMode === 'limited';
+  const teacherPendingInvites = session.role === 'teacher'
+    ? (db.teacherInvites || []).filter(item => item.direction === 'student_to_teacher' && item.status === 'pending').length
+    : 0;
+  const studentPendingInvites = session.role === 'student'
+    ? (db.teacherInvites || []).filter(item => item.status === 'pending').length
+    : 0;
 
   const teacherItems = [
     { path: '/teacher', label: 'Дашборд', icon: LayoutDashboard },
-    { path: '/teacher/students', label: 'Ученики', icon: Users },
+    { path: '/teacher/students', label: 'Ученики', icon: Users, badge: teacherPendingInvites || null },
     { path: '/teacher/groups', label: 'Группы', icon: FolderOpen },
     { path: '/teacher/assignments', label: 'Задания', icon: BookOpen },
     { path: '/teacher/grading', label: 'Проверка', icon: CheckSquare },
@@ -190,9 +278,11 @@ function Shell({ session, db, reload, logout, notify }) {
   const studentItems = [
     { path: '/student', label: 'Главная', icon: LayoutDashboard },
     { path: '/student/assignments', label: 'Мои задания', icon: BookOpen },
+    { path: '/student/tutors', label: 'Репетиторы', icon: Search, badge: studentPendingInvites || null },
     { path: '/student/profile', label: 'Профиль', icon: Users },
   ];
   const navItems = session.role === 'teacher' ? teacherItems : studentItems;
+  const onboardingItems = onboardingVariants[session.role] || [];
 
   const onNav = (item) => {
     if (isTeacherLimited && !['/teacher/grading', '/teacher/pricing'].includes(item.path)) {
@@ -203,12 +293,22 @@ function Shell({ session, db, reload, logout, notify }) {
     else navigate(item.path);
   };
 
+  const finishOnboarding = async () => {
+    setSavingOnboarding(true);
+    try {
+      const payload = await api.completeOnboarding({ role: session.role, userId: session.userId });
+      updateSession(payload.session);
+    } finally {
+      setSavingOnboarding(false);
+    }
+  };
+
   return (
     <div className="shell fixedSidebarShell">
       <aside className="sidebar alwaysOpen">
         <div className="brand">
           <div className="logo"><Sparkles size={18} /></div>
-          <div><div className="brandTitle">ПроверьAI</div><div className="brandSub">clean teacher workflow</div></div>
+          <div><div className="brandTitle">ПроверьAI</div></div>
         </div>
         <nav className="navList">
           {navItems.map(item => {
@@ -217,7 +317,7 @@ function Shell({ session, db, reload, logout, notify }) {
             const Icon = item.icon;
             return (
               <button key={item.path} className={cx('navItem', active && 'active', blocked && 'blocked')} onClick={() => onNav(item)}>
-                <Icon size={18} /><span>{item.label}</span>{blocked && <Lock size={13} />}
+                <Icon size={18} /><span>{item.label}</span>{item.badge ? <span className="navBadge">{item.badge}</span> : null}{blocked && <Lock size={13} />}
               </button>
             );
           })}
@@ -235,27 +335,48 @@ function Shell({ session, db, reload, logout, notify }) {
       </aside>
       <div className="main">
         <header className="topbar noCollapseTopbar">
-          {isTeacherLimited ? <div className="banner"><Sparkles size={14} /> Пробный период завершен. Доступна только Пакетная проверка и Тарифы</div> : <div className="banner subtle">Учебный workflow без перегруза</div>}
+          {isTeacherLimited ? <div className="banner"><Sparkles size={14} /> Пробный период завершен. Доступна только Пакетная проверка и Тарифы</div> : null}
         </header>
         <main className="content">
           <Routes>
             <Route path="/teacher" element={<TeacherDashboard db={db} session={session} navigate={navigate} />} />
-            <Route path="/teacher/students" element={<TeacherStudentsPage db={db} reload={reload} navigate={navigate} notify={notify} />} />
-            <Route path="/teacher/groups" element={<TeacherGroupsPage db={db} reload={reload} navigate={navigate} notify={notify} />} />
-            <Route path="/teacher/assignments" element={<TeacherAssignmentsPage db={db} reload={reload} notify={notify} />} />
+            <Route path="/teacher/students" element={<TeacherStudentsPage db={db} reload={reload} navigate={navigate} notify={notify} session={session} />} />
+            <Route path="/teacher/groups" element={<TeacherGroupsPage db={db} reload={reload} navigate={navigate} notify={notify} session={session} />} />
+            <Route path="/teacher/assignments" element={<TeacherAssignmentsPage db={db} reload={reload} notify={notify} session={session} />} />
             <Route path="/teacher/grading" element={<TeacherGradingPage db={db} reload={reload} session={session} notify={notify} />} />
-            <Route path="/teacher/analytics" element={<TeacherAnalyticsPage db={db} />} />
-            <Route path="/teacher/reports" element={<TeacherReportsPage db={db} reload={reload} notify={notify} />} />
+            <Route path="/teacher/analytics" element={<TeacherAnalyticsPage db={db} session={session} />} />
+            <Route path="/teacher/reports" element={<TeacherReportsPage db={db} reload={reload} notify={notify} session={session} />} />
             <Route path="/teacher/pricing" element={<TeacherPricingPage db={db} session={session} />} />
-            <Route path="/teacher/settings" element={<TeacherSettingsPage db={db} reload={reload} notify={notify} />} />
-            <Route path="/student" element={<StudentDashboardPage db={db} />} />
-            <Route path="/student/assignments" element={<StudentAssignmentsPage db={db} reload={reload} notify={notify} />} />
-            <Route path="/student/profile" element={<StudentProfilePage db={db} />} />
+            <Route path="/teacher/settings" element={<TeacherSettingsPage db={db} reload={reload} notify={notify} session={session} />} />
+            <Route path="/student" element={<StudentDashboardPage db={db} session={session} navigate={navigate} />} />
+            <Route path="/student/assignments" element={<StudentAssignmentsPage db={db} reload={reload} notify={notify} session={session} />} />
+            <Route path="/student/tutors" element={<StudentTutorsPage db={db} reload={reload} notify={notify} session={session} />} />
+            <Route path="/student/profile" element={<StudentProfilePage db={db} session={session} reload={reload} notify={notify} />} />
             <Route path="*" element={<Navigate to={session.role === 'teacher' ? (isTeacherLimited ? '/teacher/grading?tab=batch' : '/teacher') : '/student'} replace />} />
           </Routes>
         </main>
       </div>
       {teaser && <Modal title={teaser.title} onClose={() => setTeaser(null)}><p>{teaser.text}</p><div className="modalActions"><button className="secondaryBtn" onClick={() => setTeaser(null)}>Понятно</button><button className="primaryBtn" onClick={() => { setTeaser(null); navigate('/teacher/pricing'); }}>Перейти к тарифам</button></div></Modal>}
+      {!session.onboardingCompleted && !!onboardingItems.length && <Modal title="Первые шаги" onClose={() => {}}>
+        <div className="stack gap16">
+          <div className="chipWrap">
+            {onboardingItems.map((item, index) => <span key={item.title} className={cx('chip', index === onboardingStep && 'chipInherited')}>{index + 1}. {item.title}</span>)}
+          </div>
+          <div className="cardInner">
+            <div className="cardTitle">{onboardingItems[onboardingStep]?.title}</div>
+            <div className="muted mt8">{onboardingItems[onboardingStep]?.text}</div>
+          </div>
+          <div className="modalActions">
+            <button className="secondaryBtn" onClick={() => setOnboardingStep(step => Math.max(0, step - 1))} disabled={onboardingStep === 0}>Назад</button>
+            <button className="ghostBtn" onClick={() => navigate(onboardingItems[onboardingStep]?.path)}>{onboardingItems[onboardingStep]?.cta}</button>
+            {onboardingStep < onboardingItems.length - 1 ? (
+              <button className="primaryBtn" onClick={() => setOnboardingStep(step => Math.min(onboardingItems.length - 1, step + 1))}>Далее</button>
+            ) : (
+              <button className="primaryBtn" onClick={finishOnboarding} disabled={savingOnboarding}>Завершить</button>
+            )}
+          </div>
+        </div>
+      </Modal>}
     </div>
   );
 }
@@ -267,15 +388,13 @@ function LoginPage({ onAuth, notify }) {
   const [searchParams] = useSearchParams();
   const initialModeParam = searchParams.get('mode');
   const [mode, setMode] = useState(() => initialModeParam === 'register' ? 'register' : 'login');
-  const [email, setEmail] = useState(role === 'teacher' ? 'teacher@demo.ru' : 'student@demo.ru');
-  const [password, setPassword] = useState('demo12345');
-  const [reg, setReg] = useState({ name: '', email: '', password: '', phone: '' });
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [reg, setReg] = useState({ firstName: '', lastName: '', email: '', password: '', phone: '', parentName: '', parentContact: '' });
   const [pendingSms, setPendingSms] = useState(null);
   const [smsCode, setSmsCode] = useState('');
   const [working, setWorking] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
-
-  useEffect(() => { setEmail(role === 'teacher' ? 'teacher@demo.ru' : 'student@demo.ru'); }, [role]);
 
   const doLogin = async () => {
     setWorking(true);
@@ -290,7 +409,16 @@ function LoginPage({ onAuth, notify }) {
   const doRegister = async () => {
     setWorking(true);
     try {
-      const result = await api.register({ role, name: reg.name, email: reg.email, password: reg.password, phone: reg.phone });
+      const result = await api.register({
+        role,
+        firstName: reg.firstName,
+        lastName: reg.lastName,
+        email: reg.email,
+        password: reg.password,
+        phone: reg.phone,
+        parentName: role === 'student' ? reg.parentName : '',
+        parentContact: role === 'student' ? reg.parentContact : '',
+      });
       if (result.requiresSms) {
         setPendingSms({ email: result.email, role: result.role, debugCode: result.debugCode, password: reg.password });
         notify({ type: 'success', text: `SMS-код сгенерирован. Для локального запуска используй код ${result.debugCode}` });
@@ -316,7 +444,7 @@ function LoginPage({ onAuth, notify }) {
       <section className="hero authShowcase">
         <div className="heroBadge"><Sparkles size={15} /> ПроверьAI</div>
         <h1>Проверка письменных работ без хаоса, лишней рутины и перегруженных интерфейсов.</h1>
-        <p>Один аккуратный workflow для репетиторов, мини-групп и пакетной проверки. AI берет на себя первичную обработку, а преподаватель сохраняет контроль над результатом.</p>
+        <p>Один аккуратный кабинет для репетиторов, мини-групп и пакетной проверки. AI берет на себя первичную обработку, а преподаватель сохраняет контроль над результатом.</p>
         <div className="authFeatureList">
           <div className="authFeature">Проверка по одному и пакетно</div>
           <div className="authFeature">Рукописные и печатные работы</div>
@@ -350,10 +478,13 @@ function LoginPage({ onAuth, notify }) {
         ) : (
           <div className="stack gap16 mt20">
             <div className="grid twoCol compactAuthGrid">
-              <label className="field"><span>Имя и фамилия</span><input className="input" value={reg.name} onChange={e=>setReg(v=>({...v,name:e.target.value}))} placeholder="Имя и фамилия" /></label>
+              <label className="field"><span>Имя</span><input className="input" value={reg.firstName} onChange={e=>setReg(v=>({...v,firstName:e.target.value}))} placeholder="Имя" /></label>
+              <label className="field"><span>Фамилия</span><input className="input" value={reg.lastName} onChange={e=>setReg(v=>({...v,lastName:e.target.value}))} placeholder="Фамилия" /></label>
               <label className="field"><span>Email</span><input className="input" value={reg.email} onChange={e=>setReg(v=>({...v,email:e.target.value}))} placeholder="Email" /></label>
               <label className="field"><span>Телефон</span><input className="input" value={reg.phone} onChange={e=>setReg(v=>({...v,phone:e.target.value}))} placeholder="Телефон" /></label>
               <label className="field"><span>Пароль</span><input className="input" type="password" value={reg.password} onChange={e=>setReg(v=>({...v,password:e.target.value}))} placeholder="Пароль" /></label>
+              {role === 'student' && <label className="field"><span>Имя родителя</span><input className="input" value={reg.parentName} onChange={e=>setReg(v=>({...v,parentName:e.target.value}))} placeholder="Опционально" /></label>}
+              {role === 'student' && <label className="field"><span>Контакт родителя</span><input className="input" value={reg.parentContact} onChange={e=>setReg(v=>({...v,parentContact:e.target.value}))} placeholder="Телефон или email" /></label>}
             </div>
             <button className="primaryBtn wide" onClick={doRegister} disabled={working}>Создать аккаунт</button>
           </div>
@@ -416,27 +547,46 @@ function ForgotPasswordModal({ role, onClose, notify, setEmail, setPassword, set
   </Modal>;
 }
 
+function EmptyOnboarding({ role, title, text, actions = [] }) {
+  return (
+    <Card title={title} subtitle={text}>
+      <div className="stack gap12">
+        <div className="grid threeCol onboardingGrid">
+          {onboardingVariants[role].map(item => (
+            <div key={item.title} className="infoBox onboardingItem">
+              <div className="infoLabel">{item.title}</div>
+              <div className="muted small mt8">{item.text}</div>
+            </div>
+          ))}
+        </div>
+        {!!actions.length && <div className="row wrap gap10">{actions}</div>}
+      </div>
+    </Card>
+  );
+}
+
 function TeacherDashboard({ db, session, navigate }) {
   const [widgets, setWidgets] = useState({ totalStudents: true, topErrors: true, errorTypes: true });
   const [showSettings, setShowSettings] = useState(false);
   const [topFilters, setTopFilters] = useState({ subject: 'all', period: 'all', studentId: 'all', groupId: 'all' });
   const [typeFilters, setTypeFilters] = useState({ subject: 'all', period: 'all', studentId: 'all', groupId: 'all' });
+  const teacherId = session.userId;
 
-  const activeStudents = db.students.filter(s => s.active);
-  const activeGroups = db.groups.filter(g => g.active);
-  const pendingWorks = db.works.filter(w => w.status === 'Ожидает подтверждения' || w.status === 'На пересмотре');
-
-  const events = buildErrorEvents(db);
+  const activeStudents = teacherOwnedStudents(db, teacherId);
+  const activeGroups = teacherOwnedGroups(db, teacherId);
+  const pendingWorks = teacherOwnedWorks(db, teacherId).filter(item => item.status === 'Ожидает подтверждения');
+  const events = buildErrorEvents(db, teacherId);
   const topErrors = aggregateErrors(events, topFilters, false);
   const topTypes = aggregateErrors(events, typeFilters, true);
-  const riskStudents = activeStudents.map(s => ({ id: s.id, name: s.name, score: db.computed.studentScores[s.id] || 0 })).sort((a,b)=>a.score-b.score).slice(0,5);
+  const riskStudents = teacherRiskStudents(db, teacherId).slice(0, 5);
+  const isNewTeacher = !activeStudents.length && !activeGroups.length && !pendingWorks.length;
 
   return (
     <div className="stack gap24">
       <div className="row between wrap gap16">
         <div>
           <h2 className="pageTitle">Добро пожаловать, {session.userName}</h2>
-          <p className="muted maxw">Дашборд показывает только те сигналы, которые нужны для ежедневной работы: поток проверки, риск по ученикам и типовые ошибки.</p>
+          <p className="muted maxw">Дашборд показывает только ваших учеников, группы, очередь проверки и сигналы по ошибкам.</p>
         </div>
         <button className="secondaryBtn" onClick={() => setShowSettings(true)}><Settings size={16} /> Настроить дашборд</button>
       </div>
@@ -445,26 +595,40 @@ function TeacherDashboard({ db, session, navigate }) {
         <KPI title="Активные ученики" value={activeStudents.length} onClick={() => navigate('/teacher/students')} />
         <KPI title="Группы" value={activeGroups.length} onClick={() => navigate('/teacher/groups')} />
         <KPI title="Ждут проверки" value={pendingWorks.length} onClick={() => navigate('/teacher/grading')} />
-        {widgets.totalStudents && <KPI title="Всего учеников" value={db.students.length} />}
+        {widgets.totalStudents && <KPI title="Всего учеников" value={activeStudents.length} />}
       </div>
+
+      {isNewTeacher && (
+        <EmptyOnboarding
+          role="teacher"
+          title="Новый аккаунт готов к настройке"
+          text="Пока здесь нет учеников, групп и работ. Начните с первых шагов, чтобы заполнить кабинет реальными данными."
+          actions={[
+            <button key="profile" className="secondaryBtn" onClick={() => navigate('/teacher/settings')}>Открыть настройки</button>,
+            <button key="students" className="primaryBtn" onClick={() => navigate('/teacher/students')}>Добавить ученика</button>,
+          ]}
+        />
+      )}
 
       <div className="grid twoCol">
         {widgets.topErrors && (
-          <Card title="Топ-5 самых распространенных ошибок" subtitle="Фильтры независимы от соседней диаграммы.">
-            <FilterRow filters={topFilters} setFilters={setTopFilters} db={db} includeAllTime />
-            <ChartBar data={topErrors.map(x => ({ name: x.name, value: x.value }))} />
+          <Card title="Топ-5 самых распространенных ошибок" subtitle="Данные появятся после первых проверенных работ.">
+            <FilterRow filters={topFilters} setFilters={setTopFilters} db={db} includeAllTime teacherId={teacherId} />
+            <ChartBar data={topErrors.map(item => ({ name: item.name, value: item.value }))} />
           </Card>
         )}
         {widgets.errorTypes && (
-          <Card title="Самые частые типы ошибок">
-            <FilterRow filters={typeFilters} setFilters={setTypeFilters} db={db} includeAllTime />
-            <ChartBar data={topTypes.map(x => ({ name: x.name, value: x.value }))} horizontal />
+          <Card title="Самые частые типы ошибок" subtitle="Статистика строится только по работам ваших учеников.">
+            <FilterRow filters={typeFilters} setFilters={setTypeFilters} db={db} includeAllTime teacherId={teacherId} />
+            <ChartBar data={topTypes.map(item => ({ name: item.name, value: item.value }))} horizontal />
           </Card>
         )}
       </div>
 
-      <Card title="Ученики из зоны риска" subtitle="Score = доля сданных работ × средний нормализованный процент.">
-        <div className="stack gap12">{riskStudents.map(s => <div key={s.id} className="riskRow"><span>{s.name}</span><span className={cx('pill', s.score < 50 ? 'danger' : 'warn')}>Score {s.score}</span></div>)}</div>
+      <Card title="Ученики из зоны риска" subtitle="Список формируется автоматически, когда по ученикам появляются первые работы.">
+        <div className="stack gap12">
+          {riskStudents.length ? riskStudents.map(item => <div key={item.id} className="riskRow"><div><div>{item.name}</div><div className="muted small">{item.factors.join(' · ')}</div></div><span className={cx('pill', item.riskScore >= 3 ? 'danger' : 'warn')}>Риск {item.riskScore}</span></div>) : <div className="empty">Недостаточно данных.</div>}
+        </div>
       </Card>
 
       {showSettings && <Modal title="Настройка дашборда" onClose={() => setShowSettings(false)}>
@@ -476,22 +640,26 @@ function TeacherDashboard({ db, session, navigate }) {
   );
 }
 
-function TeacherStudentsPage({ db, reload, navigate, notify }) {
+function TeacherStudentsPage({ db, reload, navigate, notify, session }) {
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
+  const [inviteLink, setInviteLink] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
+  const teacherId = session.userId;
 
   useEffect(() => {
     const sid = searchParams.get('student');
     if (sid) setSelectedId(sid);
   }, [searchParams]);
 
-  const activeStudents = db.students.filter(s => s.active && (`${s.name} ${s.email}`.toLowerCase().includes(search.toLowerCase())));
-  const selected = db.students.find(s => s.id === selectedId) || activeStudents[0] || null;
+  const ownedStudents = teacherOwnedStudents(db, teacherId);
+  const filteredOwnedStudents = ownedStudents.filter(item => (`${item.name} ${item.email}`.toLowerCase().includes(search.toLowerCase())));
+  const invites = teacherInvitesFor(db, teacherId).filter(invite => invite.direction === 'student_to_teacher').map(invite => ({ ...invite, student: db.students.find(item => item.id === invite.studentId) })).filter(item => item.student && item.status === 'pending');
+  const selected = ownedStudents.find(item => item.id === selectedId) || filteredOwnedStudents[0] || null;
   const selectedWorks = selected ? db.works.filter(w => w.studentId === selected.id) : [];
-  const pendingWorks = selected ? selectedWorks.filter(w => w.status !== 'Проверена') : [];
+  const pendingWorks = selected ? selectedWorks.filter(w => w.status !== 'Проверено') : [];
   const displaySlots = selected ? effectiveStudentSlots(db, selected) : [];
 
   return (
@@ -499,16 +667,72 @@ function TeacherStudentsPage({ db, reload, navigate, notify }) {
       <div className="row between wrap gap16">
         <div>
           <h2 className="pageTitle">Ученики</h2>
-          <p className="muted">Аккуратные карточки, быстрый доступ к работам ученика и управлению расписанием без перегруженного CRM-подхода.</p>
+          <p className="muted">В этом разделе показаны только ваши ученики и входящие запросы на подключение.</p>
         </div>
-        <button className="primaryBtn" onClick={() => setShowAdd(true)}><Plus size={16} /> Добавить ученика</button>
+        <div className="row gap8 wrap">
+          <button className="secondaryBtn" onClick={async () => {
+            try {
+              const invite = await api.createTeacherInvite({ teacherId, direction: 'teacher_to_student' });
+              setInviteLink(`${window.location.origin}/student/tutors?invite=${invite.token}`);
+              notify({ type: 'success', text: 'Ссылка-приглашение создана.' });
+            } catch (e) {
+              notify({ type: 'error', text: e.message });
+            }
+          }}>Ссылка-приглашение</button>
+          <button className="primaryBtn" onClick={() => setShowAdd(true)}><Plus size={16} /> Добавить ученика</button>
+        </div>
       </div>
+
+      {inviteLink && (
+        <Card title="Одноразовая ссылка-приглашение" subtitle="Ее можно отправить ученику. После принятия связь появится только в вашем контуре данных.">
+          <div className="row gap8 wrap">
+            <input className="input grow" value={inviteLink} readOnly />
+            <button className="secondaryBtn" onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(inviteLink);
+                notify({ type: 'success', text: 'Ссылка скопирована.' });
+              } catch {
+                notify({ type: 'error', text: 'Не удалось скопировать ссылку.' });
+              }
+            }}>Скопировать</button>
+          </div>
+        </Card>
+      )}
 
       <div className="toolbar"><Search size={16} /><input className="toolbarInput" value={search} onChange={e => setSearch(e.target.value)} placeholder="Поиск по ученику" /></div>
 
+      {!!invites.length && (
+        <Card title="Приглашенные" subtitle="Ученики, которые отправили вам запрос на подключение.">
+          <div className="stack gap12">
+            {invites.map(item => (
+              <div key={item.id} className="listCard polished">
+                <div className="row between wrap gap16">
+                  <div>
+                    <div className="cardTitle">{item.student.name}</div>
+                    <div className="muted small mt6">{item.student.email || 'Почта не указана'}</div>
+                  </div>
+                  <div className="row wrap gap8">
+                    <button className="secondaryBtn" onClick={async () => {
+                      await api.updateTeacherInvite(item.id, { status: 'declined' });
+                      await reload();
+                      notify({ type: 'success', text: 'Запрос отклонен.' });
+                    }}>Отклонить</button>
+                    <button className="primaryBtn" onClick={async () => {
+                      await api.updateTeacherInvite(item.id, { status: 'accepted' });
+                      await reload();
+                      notify({ type: 'success', text: 'Ученик добавлен в ваш список.' });
+                    }}>Принять</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       <div className="grid onePlusSide alignedTop">
         <div className="stack gap14">
-          {activeStudents.map(student => (
+          {filteredOwnedStudents.map(student => (
             <button key={student.id} className={cx('studentCard polished elegantStudentCard', selected?.id === student.id && 'active')} onClick={() => { setSelectedId(student.id); setSearchParams({ student: student.id }); }}>
               <div className="row between gap12 wrap alignStart">
                 <div className="stack gap6">
@@ -520,6 +744,7 @@ function TeacherStudentsPage({ db, reload, navigate, notify }) {
               </div>
             </button>
           ))}
+          {!filteredOwnedStudents.length && <div className="empty">У вас пока нет учеников. Добавьте первого вручную или примите входящий запрос.</div>}
         </div>
 
         <div>
@@ -537,12 +762,12 @@ function TeacherStudentsPage({ db, reload, navigate, notify }) {
               <div className="sectionLabel mt20">Занятия</div>
               <div className="chipWrap mt8">{displaySlots.length ? displaySlots.map(slot => <span key={slot.id + (slot.sourceGroupId || '')} className={cx('chip', slot.inherited && 'chipInherited')}>{slot.day} {slot.time} · {slot.durationHours || 0} ч {slot.durationMinutes || 0} мин{slot.inherited ? ` · из группы ${slot.sourceGroupName}` : ''}</span>) : <span className="muted small">Слоты еще не заданы.</span>}</div>
             </Card>
-          ) : <div className="empty">Нет активных учеников.</div>}
+          ) : <EmptyOnboarding role="teacher" title="Список учеников пока пуст" text="Когда вы добавите ученика или примете приглашение, здесь появится карточка с профилем, работами и слотами." />}
         </div>
       </div>
 
-      {showAdd && <StudentModal mode="create" db={db} notify={notify} onClose={() => setShowAdd(false)} onSave={async(payload) => { try { await api.createStudent(payload); await reload(); setShowAdd(false); notify({ type: 'success', text: 'Ученик добавлен.' }); } catch (e) { notify({ type: 'error', text: e.message }); } }} />}
-      {editing && <StudentModal mode="edit" db={db} student={editing} notify={notify} onClose={() => setEditing(null)} onSave={async(payload) => { try { await api.updateStudent(editing.id, payload); await reload(); setEditing(null); notify({ type: 'success', text: 'Изменения ученика сохранены.' }); } catch (e) { notify({ type: 'error', text: e.message }); } }} />}
+      {showAdd && <StudentModal mode="create" db={db} notify={notify} onClose={() => setShowAdd(false)} onSave={async(payload) => { try { await api.createStudent({ ...payload, teacherId }); await reload(); setShowAdd(false); notify({ type: 'success', text: 'Ученик добавлен.' }); } catch (e) { notify({ type: 'error', text: e.message }); } }} />}
+      {editing && <StudentModal mode="edit" db={db} student={editing} notify={notify} onClose={() => setEditing(null)} onSave={async(payload) => { try { await api.updateStudent(editing.id, { ...payload, teacherId }); await reload(); setEditing(null); notify({ type: 'success', text: 'Изменения ученика сохранены.' }); } catch (e) { notify({ type: 'error', text: e.message }); } }} />}
     </div>
   );
 }
@@ -551,8 +776,9 @@ function StudentModal({ mode, db, student, onClose, onSave, notify }) {
   const [form, setForm] = useState(() => ({
     name: student?.name || '',
     email: student?.email || '',
+    phone: student?.phone || '',
     parentName: student?.parentName || '',
-    parentEmail: student?.parentEmail || '',
+    parentContact: student?.parentContact || student?.parentEmail || '',
     level: student?.level || '',
     subjects: student?.subjects || ['Математика'],
     newGroupName: '',
@@ -611,8 +837,9 @@ function StudentModal({ mode, db, student, onClose, onSave, notify }) {
     <div className="grid twoCol">
       <label className="field"><span>Имя</span><input className="input" value={form.name} onChange={e=>setForm(v=>({...v,name:e.target.value}))} /></label>
       <label className="field"><span>Email ученика</span><input className="input" value={form.email} onChange={e=>setForm(v=>({...v,email:e.target.value}))} /></label>
+      <label className="field"><span>Телефон ученика</span><input className="input" value={form.phone} onChange={e=>setForm(v=>({...v,phone:e.target.value}))} /></label>
       <label className="field"><span>Имя родителя</span><input className="input" value={form.parentName} onChange={e=>setForm(v=>({...v,parentName:e.target.value}))} /></label>
-      <label className="field"><span>Почта родителя</span><input className="input" value={form.parentEmail} onChange={e=>setForm(v=>({...v,parentEmail:e.target.value}))} /></label>
+      <label className="field"><span>Контакт родителя</span><input className="input" value={form.parentContact} onChange={e=>setForm(v=>({...v,parentContact:e.target.value}))} placeholder="Телефон или email" /></label>
       <label className="field"><span>Уровень</span><input className="input" value={form.level} onChange={e=>setForm(v=>({...v,level:e.target.value}))} /></label>
       {mode === 'create' && <label className="field"><span>Новая группа (опционально)</span><input className="input" value={form.newGroupName} onChange={e=>setForm(v=>({...v,newGroupName:e.target.value}))} /></label>}
     </div>
@@ -637,10 +864,11 @@ function StudentModal({ mode, db, student, onClose, onSave, notify }) {
 }
 
 
-function TeacherGroupsPage({ db, reload, navigate, notify }) {
+function TeacherGroupsPage({ db, reload, navigate, notify, session }) {
   const [editing, setEditing] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
-  const activeGroups = db.groups.filter(group => group.active);
+  const teacherId = session.userId;
+  const activeGroups = teacherOwnedGroups(db, teacherId);
 
   return <div className="stack gap24">
     <div className="row between wrap gap16"><div><h2 className="pageTitle">Группы</h2><p className="muted">Карточки групп собраны аккуратно: состав, темы риска, слоты и быстрые действия без визуального шума.</p></div><button className="primaryBtn" onClick={()=>setShowCreate(true)}><Plus size={16}/> Добавить группу</button></div>
@@ -657,9 +885,11 @@ function TeacherGroupsPage({ db, reload, navigate, notify }) {
         </Card>
       ))}
     </div>
+    {!activeGroups.length && <EmptyOnboarding role="teacher" title="Группы пока не созданы" text="Создайте мини-группу, когда у вас появятся первые ученики с общим предметом и расписанием." />}
     {showCreate && (
       <GroupModal
         db={db}
+        teacherId={teacherId}
         onClose={()=>setShowCreate(false)}
         onSave={async(payload)=>{
           try {
@@ -677,6 +907,7 @@ function TeacherGroupsPage({ db, reload, navigate, notify }) {
       <GroupModal
         group={editing}
         db={db}
+        teacherId={teacherId}
         onClose={()=>setEditing(null)}
         onSave={async(payload)=>{
           try {
@@ -694,7 +925,8 @@ function TeacherGroupsPage({ db, reload, navigate, notify }) {
 }
 
 
-function GroupModal({ group, db, onClose, onSave }) {
+function GroupModal({ group, db, onClose, onSave, teacherId }) {
+  const availableStudents = teacherOwnedStudents(db, teacherId);
   const [form, setForm] = useState({ name: group?.name || '', subject: group?.subject || 'Математика', riskTopics: (group?.riskTopics || []).join(', '), studentIds: group?.studentIds || [], lessonSlots: group?.lessonSlots || [] });
   const [slotDraft, setSlotDraft] = useState({ day: 'ПН', time: '10:00', durationHours: 1, durationMinutes: 0 });
   const [slotError, setSlotError] = useState('');
@@ -732,7 +964,7 @@ function GroupModal({ group, db, onClose, onSave }) {
       <label className="field full"><span>Темы риска (через запятую)</span><input className="input" value={form.riskTopics} onChange={e=>setForm(v=>({...v,riskTopics:e.target.value}))} /></label>
     </div>
     <div className="sectionLabel mt20">Ученики группы</div>
-    <div className="checkboxGrid mt12">{db.students.filter(s=>s.active).map(student => <label key={student.id} className="checkRow"><input type="checkbox" checked={form.studentIds.includes(student.id)} onChange={e=>setForm(v=>({...v,studentIds:e.target.checked?[...v.studentIds, student.id]:v.studentIds.filter(id=>id!==student.id)}))} /><span>{student.name}</span></label>)}</div>
+    <div className="checkboxGrid mt12">{availableStudents.length ? availableStudents.map(student => <label key={student.id} className="checkRow"><input type="checkbox" checked={form.studentIds.includes(student.id)} onChange={e=>setForm(v=>({...v,studentIds:e.target.checked?[...v.studentIds, student.id]:v.studentIds.filter(id=>id!==student.id)}))} /><span>{student.name}</span></label>) : <div className="empty">Сначала добавьте учеников в свой список.</div>}</div>
     <div className="sectionLabel mt20">Слоты группы (необязательно)</div>
     {!showSlotEditor && <button className="secondaryBtn mt12" onClick={()=>setShowSlotEditor(true)}><Plus size={16} /> Добавить слот</button>}
     {showSlotEditor && <div className="slotHintCard mt12">
@@ -745,64 +977,81 @@ function GroupModal({ group, db, onClose, onSave }) {
     </div>}
     {slotError && <div className="pill danger mt12">{slotError}</div>}
     {!!form.lessonSlots?.length && <div className="stack gap8 mt16">{form.lessonSlots.map(slot => <div key={slot.id} className={cx('listRow', (hasLocalDuplicate(slot, slot.id) || hasExternalConflict(slot)) && 'conflictRow')}><span>{slot.day} {slot.time} · {slot.durationHours || 0} ч {slot.durationMinutes || 0} мин</span><button className="iconGhost" onClick={()=>setForm(v=>({...v, lessonSlots:v.lessonSlots.filter(s=>s.id!==slot.id)}))}><Trash2 size={14}/></button></div>)}</div>}
-    <div className="modalActions"><button className="secondaryBtn" onClick={onClose}>Отмена</button><button className="primaryBtn" onClick={()=>onSave({ name: form.name, subject: form.subject, studentIds: [...new Set(form.studentIds)], lessonSlots: form.lessonSlots || [], riskTopics: form.riskTopics.split(',').map(v=>v.trim()).filter(Boolean) })}>Сохранить</button></div>
+    <div className="modalActions"><button className="secondaryBtn" onClick={onClose}>Отмена</button><button className="primaryBtn" onClick={()=>onSave({ name: form.name, subject: form.subject, studentIds: [...new Set(form.studentIds)], lessonSlots: form.lessonSlots || [], riskTopics: form.riskTopics.split(',').map(v=>v.trim()).filter(Boolean), teacherId })}>Сохранить</button></div>
   </Modal>;
 }
 
 
-function TeacherAssignmentsPage({ db, reload, notify }) {
+function TeacherAssignmentsPage({ db, reload, notify, session }) {
   const [search, setSearch] = useState('');
   const [subject, setSubject] = useState('all');
   const [status, setStatus] = useState('all');
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState(null);
+  const teacherId = session.userId;
 
-  const filtered = db.assignments.filter(a => (subject === 'all' || a.subject === subject) && (status === 'all' || a.status === status) && a.title.toLowerCase().includes(search.toLowerCase()));
+  const filtered = teacherOwnedAssignments(db, teacherId).filter(a => (subject === 'all' || a.subject === subject) && (status === 'all' || a.status === status) && a.title.toLowerCase().includes(search.toLowerCase()));
 
   return <div className="stack gap24">
     <div className="row between wrap gap16"><div><h2 className="pageTitle">Задания</h2><p className="muted">Карточка задания открывает полноценное редактирование. Для вложений поддерживаются одновременно фото и файлы, в том числе множественные.</p></div><button className="primaryBtn" onClick={()=>setShowCreate(true)}><Plus size={16}/> Создать задание</button></div>
-    <div className="toolbar"><Search size={16} /><input className="toolbarInput" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Поиск по заданию" /></div>
-    <div className="row gap8 wrap">{['all','Математика','Физика','Химия'].map(s => <FilterChip key={s} active={subject===s} onClick={()=>setSubject(s)}>{s==='all'?'Все предметы':s}</FilterChip>)}{['all','Активно','Завершено','Черновик'].map(s => <FilterChip key={s} active={status===s} onClick={()=>setStatus(s)}>{s==='all'?'Все статусы':s}</FilterChip>)}</div>
-    <div className="stack gap12">{filtered.map(item => { const recipient = item.recipientId ? (item.recipientType === 'student' ? db.students.find(s=>s.id===item.recipientId)?.name : db.groups.find(g=>g.id===item.recipientId)?.name) : 'Не выбран'; return <button key={item.id} className="assignmentCard polished" onClick={()=>setEditing(item)}><div className="row between wrap gap16"><div><div className="cardTitle">{item.title}</div><div className="muted small mt6">{item.subject} · Получатель: {recipient}</div><div className="muted small mt6">{item.description}</div></div><div className="stack gap8 rightAlign"><span className={pillClass[item.status]}>{item.status}</span>{item.deadline && <span className="muted small">{item.deadline}</span>}</div></div></button>; })}</div>
-    {showCreate && <AssignmentModal mode="create" db={db} notify={notify} onClose={()=>setShowCreate(false)} onSave={async(payload, draftAction)=>{ try { if (draftAction === 'create') await api.createAssignment(payload); else await api.createAssignment(payload); await reload(); setShowCreate(false); notify({type:'success',text: payload.status === 'Черновик' ? 'Черновик сохранен.' : 'Задание создано.'}); } catch (e) { notify({type:'error',text:e.message}); } }} />}
-    {editing && <AssignmentModal mode="edit" db={db} assignment={editing} notify={notify} onClose={()=>setEditing(null)} onSave={async(payload, draftAction)=>{ try { if (draftAction === 'publish') { await api.publishDraft(editing.id, payload); notify({type:'success',text:'Черновик активирован как новое задание.'}); } else if (draftAction === 'delete') { await api.deleteAssignment(editing.id); notify({type:'success',text:'Черновик удален.'}); } else { await api.updateAssignment(editing.id, payload); notify({type:'success',text:'Карточка задания сохранена.'}); } await reload(); setEditing(null); } catch (e) { notify({type:'error',text:e.message}); } }} />}
+    <div className="row gap12 wrap alignCenter">
+      <div className="toolbar grow"><Search size={16} /><input className="toolbarInput" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Поиск по названию задания" /></div>
+      <label className="field compactField"><span>Предмет</span><select className="input selectSmall" value={subject} onChange={e=>setSubject(e.target.value)}><option value="all">Все предметы</option>{SUBJECT_OPTIONS.map(item => <option key={item} value={item}>{item}</option>)}</select></label>
+      <label className="field compactField"><span>Статус</span><select className="input selectSmall" value={status} onChange={e=>setStatus(e.target.value)}><option value="all">Все статусы</option>{['Активно','Завершено','Черновик'].map(item => <option key={item} value={item}>{item}</option>)}</select></label>
+    </div>
+    <div className="stack gap12">{filtered.map(item => { const recipient = recipientLabel(db, item); return <button key={item.id} className="assignmentCard polished" onClick={()=>setEditing(item)}><div className="row between wrap gap16"><div><div className="cardTitle">{item.title}</div><div className="muted small mt6">{item.subject} · Получатель: {recipient}</div><div className="muted small mt6">{item.description}</div></div><div className="stack gap8 rightAlign"><span className={pillClass[item.status]}>{item.status}</span>{item.deadline && <span className="muted small">{item.deadline}</span>}</div></div></button>; })}</div>
+    {!filtered.length && <div className="empty">Пока нет заданий. Создайте первое задание для ученика или группы.</div>}
+    {showCreate && <AssignmentModal mode="create" db={db} notify={notify} teacherId={teacherId} onClose={()=>setShowCreate(false)} onSave={async(payload, draftAction)=>{ try { await api.createAssignment(payload); await reload(); setShowCreate(false); notify({type:'success',text: draftAction === 'publish' ? 'Задание опубликовано.' : 'Черновик сохранен.'}); } catch (e) { notify({type:'error',text:e.message}); } }} />}
+    {editing && <AssignmentModal mode="edit" db={db} assignment={editing} notify={notify} teacherId={teacherId} onClose={()=>setEditing(null)} onSave={async(payload, draftAction)=>{ try { if (draftAction === 'publish') { await api.publishDraft(editing.id, payload); notify({type:'success',text:'Черновик опубликован.'}); } else if (draftAction === 'delete') { await api.deleteAssignment(editing.id); notify({type:'success',text:'Черновик удален.'}); } else { await api.updateAssignment(editing.id, payload); notify({type:'success',text:'Карточка задания сохранена.'}); } await reload(); setEditing(null); } catch (e) { notify({type:'error',text:e.message}); } }} />}
   </div>;
 }
 
-function AssignmentModal({ mode, db, assignment, onClose, onSave, notify }) {
+function AssignmentModal({ mode, db, assignment, onClose, onSave, notify, teacherId }) {
+  const availableStudents = teacherOwnedStudents(db, teacherId);
+  const availableGroups = teacherOwnedGroups(db, teacherId);
   const [form, setForm] = useState(() => ({
     title: assignment?.title || '',
     subject: assignment?.subject || 'Математика',
     description: assignment?.description || '',
     recipientType: assignment?.recipientType || 'student',
-    recipientId: assignment?.recipientId || null,
+    recipientId: assignment?.recipientId || availableStudents[0]?.id || availableGroups[0]?.id || null,
+    recipientIds: assignment?.recipientIds || [],
     deadline: assignment?.deadline || '',
     maxScore: assignment?.maxScore || 100,
     status: assignment?.status || 'Черновик',
     attachments: assignment?.attachments || [],
   }));
-  const [recipientQuery, setRecipientQuery] = useState(recipientLabel(db, form));
-  const [showSuggestions, setShowSuggestions] = useState(false);
-
-  const recipients = [
-    ...db.students.filter(s=>s.active).map(s=>({ id:s.id, name:s.name, type:'student' })),
-    ...db.groups.filter(g=>g.active).map(g=>({ id:g.id, name:g.name, type:'group' }))
-  ].filter(item => item.name.toLowerCase().includes(recipientQuery.toLowerCase()));
 
   const uploadMore = async(files) => {
     const uploaded = await api.upload(files);
     setForm(v=>({...v, attachments:[...(v.attachments||[]), ...uploaded.files]}));
   };
 
-  const publishDraft = () => onSave({ ...form, status:'Активно' }, 'publish');
-  const saveCard = () => onSave(form, 'save');
+  const buildPayload = (nextStatus) => ({
+    ...form,
+    teacherId,
+    status: nextStatus,
+    recipientId: form.recipientType === 'students' ? null : form.recipientId,
+    recipientIds: form.recipientType === 'students' ? [...new Set(form.recipientIds)] : [],
+  });
+  const publishDraft = () => onSave(buildPayload('Активно'), 'publish');
+  const saveCard = () => onSave(buildPayload(form.status === 'Черновик' ? 'Черновик' : form.status), 'save');
 
   return <Modal title={mode === 'create' ? 'Создать задание' : form.status === 'Черновик' ? 'Редактировать черновик' : 'Редактировать задание'} onClose={onClose} wide>
     <div className="grid twoCol">
       <label className="field"><span>Название</span><input className="input" value={form.title} onChange={e=>setForm(v=>({...v,title:e.target.value}))} /></label>
       <label className="field"><span>Предмет</span><select className="input" value={form.subject} onChange={e=>setForm(v=>({...v,subject:e.target.value}))}>{['Математика','Физика','Химия'].map(s=><option key={s}>{s}</option>)}</select></label>
       <label className="field full"><span>Описание</span><textarea className="input textarea" value={form.description} onChange={e=>setForm(v=>({...v,description:e.target.value}))} /></label>
-      <label className="field"><span>Получатель</span><div className="stack gap8"><input className="input" value={recipientQuery} onFocus={()=>setShowSuggestions(true)} onChange={e=>{setRecipientQuery(e.target.value); setShowSuggestions(true);}} placeholder="Начни печатать имя ученика или группы" />{showSuggestions && <div className="suggestions">{recipients.map(rec => <button key={rec.type+rec.id} className="suggestion" onClick={()=>{setForm(v=>({...v,recipientType:rec.type, recipientId:rec.id})); setRecipientQuery(rec.name); setShowSuggestions(false);}}><span>{rec.name}</span><span className="muted small">{rec.type==='student'?'Ученик':'Группа'}</span></button>)}</div>}</div></label>
+      <label className="field"><span>Получатель</span><div className="stack gap10">
+        <div className="segmented mini">
+          <button className={cx(form.recipientType === 'student' && 'active')} onClick={() => setForm(v => ({ ...v, recipientType: 'student', recipientId: availableStudents[0]?.id || null }))}>Один ученик</button>
+          <button className={cx(form.recipientType === 'students' && 'active')} onClick={() => setForm(v => ({ ...v, recipientType: 'students', recipientIds: v.recipientIds.length ? v.recipientIds : availableStudents.slice(0, 1).map(item => item.id), recipientId: null }))}>Несколько учеников</button>
+          <button className={cx(form.recipientType === 'group' && 'active')} onClick={() => setForm(v => ({ ...v, recipientType: 'group', recipientId: availableGroups[0]?.id || null, recipientIds: [] }))}>Группа</button>
+        </div>
+        {form.recipientType === 'student' && <select className="input" value={form.recipientId || ''} onChange={e => setForm(v => ({ ...v, recipientId: e.target.value }))}>{availableStudents.map(student => <option key={student.id} value={student.id}>{student.name}</option>)}</select>}
+        {form.recipientType === 'students' && <div className="checkboxGrid">{availableStudents.length ? availableStudents.map(student => <label key={student.id} className="checkRow"><input type="checkbox" checked={form.recipientIds.includes(student.id)} onChange={e => setForm(v => ({ ...v, recipientIds: e.target.checked ? [...v.recipientIds, student.id] : v.recipientIds.filter(id => id !== student.id) }))} /><span>{student.name}</span></label>) : <div className="empty">Сначала добавьте учеников.</div>}</div>}
+        {form.recipientType === 'group' && <select className="input" value={form.recipientId || ''} onChange={e => setForm(v => ({ ...v, recipientId: e.target.value }))}>{availableGroups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}</select>}
+      </div></label>
       <label className="field"><span>Дедлайн</span><input className="input" type="datetime-local" value={form.deadline} onChange={e=>setForm(v=>({...v,deadline:e.target.value}))} /></label>
       <label className="field"><span>Максимальный балл</span><input className="input" type="number" value={form.maxScore} onChange={e=>setForm(v=>({...v,maxScore:Number(e.target.value)}))} /></label>
     </div>
@@ -810,9 +1059,9 @@ function AssignmentModal({ mode, db, assignment, onClose, onSave, notify }) {
     <label className="uploadZone small"><input type="file" multiple onChange={async e=>{const files=Array.from(e.target.files||[]); if(files.length) await uploadMore(files); e.target.value='';}} /><UploadCloud size={20} /> Добавить несколько фото и/или файлов</label>
     {!!form.attachments?.length && <div className="gallery mt16">{form.attachments.map(att => att.kind==='photo' ? <img key={att.id} src={normalizeUrl(att.url)} alt={att.name} className="galleryImg" /> : <a key={att.id} href={normalizeUrl(att.url)} target="_blank" rel="noreferrer" className="fileTile">{att.name}</a>)}</div>}
     <div className="modalActions">
-      <button className="secondaryBtn" onClick={saveCard}>{form.status === 'Черновик' ? 'Сохранить черновик' : 'Сохранить изменения'}</button>
+      <button className="secondaryBtn" onClick={saveCard}>{mode === 'create' || form.status === 'Черновик' ? 'Сохранить черновик' : 'Сохранить изменения'}</button>
       {form.status === 'Черновик' && <button className="ghostBtn" onClick={()=>onSave({}, 'delete')}><Trash2 size={16}/> Удалить черновик</button>}
-      {form.status === 'Черновик' && <button className="primaryBtn" onClick={publishDraft}>Активировать черновик</button>}
+      {(mode === 'create' || form.status === 'Черновик') && <button className="primaryBtn" onClick={publishDraft}>Опубликовать</button>}
     </div>
   </Modal>;
 }
@@ -823,7 +1072,7 @@ function TeacherGradingPage({ db, reload, session, notify }) {
   const studentFilter = searchParams.get('student') || 'all';
   const isLimited = session.role === 'teacher' && session.accessMode === 'limited';
   const tab = isLimited ? 'batch' : (searchParams.get('tab') || 'queue');
-  const pendingWorks = db.works.filter(w => w.status !== 'Проверена' && (studentFilter === 'all' || w.studentId === studentFilter));
+  const pendingWorks = teacherOwnedWorks(db, session.userId).filter(w => w.status !== 'Проверено' && (studentFilter === 'all' || w.studentId === studentFilter));
   const [selected, setSelected] = useState(null);
 
   if (selected) {
@@ -851,23 +1100,24 @@ function QueueReview({ db, reload, notify, pendingWorks, selectedStudentId }) {
     return <div className="stack gap24"><button className="secondaryBtn fit" onClick={()=>setSelected(null)}>← Назад к очереди</button><div className="grid reviewGrid"><Card title="Распознанный текст"><pre className="typedText">{selected.ocrText}</pre></Card><Card title="Исходные файлы">{selected.files?.length ? <div className="gallery">{selected.files.map(file => file.kind==='photo' ? <img key={file.id} src={normalizeUrl(file.url)} alt={file.name} className="galleryImg" /> : <a key={file.id} href={normalizeUrl(file.url)} target="_blank" rel="noreferrer" className="fileTile">{file.name}</a>)}</div> : <div className="empty">Нет приложенных файлов.</div>}</Card><Card title="AI-анализ и подтверждение"><div className="stack gap12">{(selected.aiErrors || []).map((err, idx) => <div key={idx} className="errorCard"><div className="row gap8 wrap">{(err.types||[]).map(type => <span key={type} className="pill warn">{type}</span>)}</div><div className="cardTitle mt8">{err.label}</div><div className="muted small mt6">{err.description}</div></div>)}<label className="field"><span>Итоговый балл</span><input className="input" type="number" value={finalScore} onChange={e=>setFinalScore(Number(e.target.value))} /></label><label className="field"><span>Комментарий для ученика</span><textarea className="input textarea" value={aiComment} onChange={e=>setAiComment(e.target.value)} /></label><button className="primaryBtn" onClick={async()=>{await api.confirmWork(selected.id,{ finalScore, aiComment }); await reload(); setSelected(null); notify({type:'success',text:'Изменения сохранены и результат отправлен ученику.'});}}>Подтвердить</button></div></Card></div></div>;
   }
 
-  return <div className="stack gap12">{selectedStudentId !== 'all' && <div className="banner subtle">Очередь отфильтрована по выбранному ученику</div>}{pendingWorks.length ? pendingWorks.map(work => { const student = db.students.find(s=>s.id===work.studentId); const assignment = db.assignments.find(a=>a.id===work.assignmentId); return <button key={work.id} className="listCard polished" onClick={()=>setSelected(work)}><div className="row between wrap gap16"><div><div className="cardTitle">{student?.name}</div><div className="muted small mt6">{assignment?.title} · {assignment?.subject}</div></div><div className="row gap8"><span className={pillClass[work.status]}>{work.status}</span></div></div></button>; }) : <div className="empty">Нет работ для проверки.</div>}</div>;
+  return <div className="stack gap12">{selectedStudentId !== 'all' && <div className="banner subtle">Очередь отфильтрована по выбранному ученику</div>}{pendingWorks.length ? pendingWorks.map(work => { const student = db.students.find(s=>s.id===work.studentId); const assignment = db.assignments.find(a=>a.id===work.assignmentId); return <button key={work.id} className="listCard polished" onClick={()=>setSelected(work)}><div className="row between wrap gap16"><div><div className="cardTitle">{student?.name}</div><div className="muted small mt6">{assignment?.title} · {assignment?.subject}</div></div><div className="row gap8"><span className={pillClass[work.status]}>{displayWorkStatus(work.status)}</span></div></div></button>; }) : <div className="empty">Нет работ для проверки.</div>}</div>;
 }
 
 function BatchReview({ db, reload, session, notify }) {
   const isLimited = session.role === 'teacher' && session.accessMode === 'limited';
   const [scale, setScale] = useState('100');
   const [files, setFiles] = useState([]);
-  const [sessionId, setSessionId] = useState(db.batchSessions?.[0]?.id || null);
+  const teacherSessions = (db.batchSessions || []).filter(item => item.teacherId === session.userId);
+  const [sessionId, setSessionId] = useState(teacherSessions?.[0]?.id || null);
   const [loading, setLoading] = useState(false);
   const [selectedResult, setSelectedResult] = useState(null);
-  const current = db.batchSessions.find(s => s.id === sessionId) || null;
+  const current = teacherSessions.find(s => s.id === sessionId) || null;
 
   const startBatchReview = async () => {
     if (!files.length) return notify({ type:'error', text:'Добавь файлы перед началом пакетной проверки.' });
     setLoading(true);
     try {
-      const created = await api.createBatchSession(files, scale);
+      const created = await api.createBatchSession(files, scale, session.userId);
       setSessionId(created.id);
       await api.analyzeBatch(created.id);
       await reload();
@@ -875,7 +1125,7 @@ function BatchReview({ db, reload, session, notify }) {
       notify({ type:'success', text:'AI-анализ завершен.' });
     } finally { setLoading(false); }
   };
-  const activeSession = db.batchSessions.find(s => s.id === sessionId) || current;
+  const activeSession = teacherSessions.find(s => s.id === sessionId) || current;
 
   return <div className="stack gap24">
     <div className="row between wrap gap16"><div><h2 className="pageTitle">Пакетная проверка</h2><p className="muted">Множественные фото и файлы, явный запуск анализа и компактная таблица результатов.</p></div><div className="row gap8"><select className="input selectSmall" value={scale} onChange={e=>setScale(e.target.value)}><option value="5">5-балльная</option><option value="10">10-балльная</option><option value="100">100-балльная</option></select>{isLimited && <span className="pill info">Текущий тариф: Free</span>}</div></div>
@@ -908,73 +1158,92 @@ function BatchResultModal({ result, onClose, onSave }) {
   </Modal>;
 }
 
-function TeacherAnalyticsPage({ db }) {
+function TeacherAnalyticsPage({ db, session }) {
   const [drawerMetric, setDrawerMetric] = useState(null);
   const [filters, setFilters] = useState({ subject:'all', period:'all', studentId:'all', groupId:'all' });
   const [compareFilters, setCompareFilters] = useState({ subject:'all', period:'all', studentId:'all', groupId:'all' });
-  const events = buildErrorEvents(db);
+  const teacherId = session.userId;
+  const analyticsReady = hasTeacherAnalyticsData(db, teacherId);
+  const events = buildErrorEvents(db, teacherId);
+  const compareStudents = studentsByFilter(db, compareFilters, teacherId);
+  const compareGroup = compareFilters.groupId === 'all' ? null : teacherOwnedGroups(db, teacherId).find(item => item.id === compareFilters.groupId);
+  const compareGroupStudents = compareGroup ? compareGroup.studentIds.map(id => db.students.find(student => student.id === id && student.active)).filter(Boolean) : teacherOwnedStudents(db, teacherId);
+  const riskStudents = teacherRiskStudents(db, teacherId);
   const metrics = [
-    { key:'flowScore', label:'Score по потоку', value: avg(Object.values(db.computed.studentScores || {})), extractor:(db)=>studentsByFilter(db, filters).map(s=>({ name:s.name, value: db.computed.studentScores[s.id] || 0 })) },
-    { key:'inTime', label:'Сдано в срок', value: `${submissionRate(db, filters)}%`, extractor:(db)=>studentsByFilter(db, filters).map(s=>({ name:s.name, value: timelySubmissionForStudent(db,s.id) })) },
-    { key:'errors', label:'Ошибок на работу', value: round(avg(Object.values(buildErrorEventsFiltered(db, filters).reduce((acc,e)=>{acc[e.workId]=(acc[e.workId]||0)+1; return acc;}, {}))),1), extractor:(db)=>errorCountPerStudent(db, filters) },
-    { key:'ai', label:'Правки после AI', value: '18%', extractor:(db)=>studentsByFilter(db, filters).map(s=>({ name:s.name, value: 18 })) },
+    { key:'flowScore', label:'Score по потоку', value: analyticsReady ? avg(studentsByFilter(db, filters, teacherId).map(s => db.computed.studentScores[s.id] || 0)) : 'Недостаточно данных', extractor:(db)=>studentsByFilter(db, filters, teacherId).map(s=>({ name:s.name, value: db.computed.studentScores[s.id] || 0 })) },
+    { key:'inTime', label:'Сдано в срок', value: analyticsReady ? `${submissionRate(db, filters, teacherId)}%` : 'Недостаточно данных', extractor:(db)=>studentsByFilter(db, filters, teacherId).map(s=>({ name:s.name, value: timelySubmissionForStudent(db,s.id) })) },
+    { key:'errors', label:'Ошибок на работу', value: analyticsReady ? round(avg(Object.values(buildErrorEventsFiltered(db, filters, teacherId).reduce((acc,e)=>{acc[e.workId]=(acc[e.workId]||0)+1; return acc;}, {}))),1) : 'Недостаточно данных', extractor:(db)=>errorCountPerStudent(db, filters, teacherId) },
+    { key:'risk', label:'Ученики из зоны риска', value: analyticsReady ? riskStudents.length : 'Недостаточно данных', extractor:()=>riskStudents.map(item => ({ name: item.name, value: item.riskScore })) },
   ];
   const compareModeData = [
-    { metric:'Score', student:61, group:54 },
-    { metric:'Сдано в срок', student:88, group:76 },
-    { metric:'Ошибок на работу', student:1.8, group:2.4 },
-    { metric:'Правки после AI', student:17, group:18 },
+    { metric:'Score', student: avg(compareStudents.map(item => db.computed.studentScores[item.id] || 0)), group: avg(compareGroupStudents.map(item => db.computed.studentScores[item.id] || 0)) },
+    { metric:'Сдано в срок', student: avg(compareStudents.map(item => timelySubmissionForStudent(db, item.id))), group: avg(compareGroupStudents.map(item => timelySubmissionForStudent(db, item.id))) },
+    { metric:'Ошибок на работу', student: round(avg(errorCountPerStudent(db, compareFilters, teacherId).map(item => item.value)), 1), group: round(avg(compareGroupStudents.map(item => errorCountPerStudent(db, { ...compareFilters, studentId: item.id }, teacherId).reduce((sum, row) => sum + row.value, 0))), 1) },
+    { metric:'Правки после AI', student: 0, group: 0 },
   ];
   const topErrors = aggregateErrors(events, filters, false);
   return <div className="stack gap24">
     <div><h2 className="pageTitle">Аналитика</h2><p className="muted">KPI открываются в отдельной диаграмме c фильтрами по ученику, группе, времени и предмету.</p></div>
-    <div className="grid fourCol">{metrics.map(metric => <button key={metric.key} className="kpiCard clickable" onClick={()=>setDrawerMetric(metric)}><div className="kpiTitle">{metric.label}</div><div className="kpiValue">{metric.value}</div></button>)}</div>
+    <div className="grid fourCol">{metrics.map(metric => <button key={metric.key} className={cx('kpiCard', analyticsReady && 'clickable')} onClick={()=>analyticsReady && setDrawerMetric(metric)}><div className="kpiTitle">{metric.label}</div><div className="kpiValue">{metric.value}</div></button>)}</div>
     <div className="grid twoCol">
       <Card title="Ученик против группы">
-        <FilterRow filters={compareFilters} setFilters={setCompareFilters} db={db} includeAllTime />
-        <ResponsiveContainer width="100%" height={280}><BarChart data={compareModeData} layout="vertical" margin={{ left: 12, right: 12 }}><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" /><YAxis type="category" dataKey="metric" width={120} /><Tooltip /><Bar dataKey="student" fill="#2563eb" radius={[0,8,8,0]} /><Bar dataKey="group" fill="#94a3b8" radius={[0,8,8,0]} /></BarChart></ResponsiveContainer>
+        {analyticsReady ? <><FilterRow filters={compareFilters} setFilters={setCompareFilters} db={db} includeAllTime teacherId={teacherId} />
+        <ResponsiveContainer width="100%" height={280}><BarChart data={compareModeData} layout="vertical" margin={{ left: 12, right: 12 }}><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" /><YAxis type="category" dataKey="metric" width={120} /><Tooltip /><Bar dataKey="student" fill="#2563eb" radius={[0,8,8,0]} /><Bar dataKey="group" fill="#94a3b8" radius={[0,8,8,0]} /></BarChart></ResponsiveContainer></> : <div className="empty">Недостаточно данных</div>}
       </Card>
       <Card title="Топ ошибок по заданию">
-        <FilterRow filters={filters} setFilters={setFilters} db={db} includeAllTime />
-        <ChartBar data={topErrors.map(x=>({name:x.name,value:x.value}))} />
+        {analyticsReady ? <><FilterRow filters={filters} setFilters={setFilters} db={db} includeAllTime teacherId={teacherId} />
+        <ChartBar data={topErrors.map(x=>({name:x.name,value:x.value}))} /></> : <div className="empty">Недостаточно данных</div>}
       </Card>
     </div>
+    <Card title="Ученики из зоны риска" subtitle="Риск учитывает оценки, пропуски и просроченные задания в рамках вашего контура преподавателя.">
+      <div className="stack gap12">
+        {riskStudents.length ? riskStudents.map(item => <div key={item.id} className="riskRow"><div><div>{item.name}</div><div className="muted small">{item.factors.join(' · ')}</div></div><span className={cx('pill', item.riskScore >= 3 ? 'danger' : 'warn')}>Риск {item.riskScore}</span></div>) : <div className="empty">Недостаточно данных</div>}
+      </div>
+    </Card>
     {drawerMetric && <Drawer title={drawerMetric.label} onClose={()=>setDrawerMetric(null)}>
-      <FilterRow filters={filters} setFilters={setFilters} db={db} includeAllTime />
+      <FilterRow filters={filters} setFilters={setFilters} db={db} includeAllTime teacherId={teacherId} />
       <ChartBar data={drawerMetric.extractor(db)} horizontal />
     </Drawer>}
   </div>;
 }
 
 
-function TeacherReportsPage({ db, reload, notify }) {
+function TeacherReportsPage({ db, reload, notify, session }) {
+  const teacherId = session.userId;
+  const teacherStudents = teacherOwnedStudents(db, teacherId);
+  const teacherGroups = teacherOwnedGroups(db, teacherId);
   const [targetType, setTargetType] = useState('student');
-  const [targetId, setTargetId] = useState(db.students[0]?.id || '');
+  const [targetId, setTargetId] = useState(teacherStudents[0]?.id || '');
   const [frequency, setFrequency] = useState('Самостоятельно');
   const [period, setPeriod] = useState('7');
   const [saved, setSaved] = useState(false);
-  const previewRecipients = targetType === 'student' ? [db.students.find(s=>s.id===targetId)].filter(Boolean).map(s=>`${s.parentName} <${s.parentEmail}>`) : (db.groups.find(g=>g.id===targetId)?.studentIds || []).map(id => db.students.find(s=>s.id===id)).filter(Boolean).filter(s => s.parentEmail).map(s => `${s.parentName} <${s.parentEmail}>`);
+  const eligibleStudents = targetType === 'student'
+    ? [teacherStudents.find(s=>s.id===targetId)].filter(Boolean).filter(s => s.parentName && (s.parentContact || s.parentEmail))
+    : (teacherGroups.find(g=>g.id===targetId)?.studentIds || []).map(id => teacherStudents.find(s=>s.id===id)).filter(Boolean).filter(s => s.parentName && (s.parentContact || s.parentEmail));
+  const previewRecipients = eligibleStudents.map(s=>`${s.parentName} <${s.parentContact || s.parentEmail}>`);
+  const sendingDisabled = !targetId || !previewRecipients.length;
 
   return <div className="stack gap24">
     <div><h2 className="pageTitle">Отчеты</h2><p className="muted">Настройки можно сохранить для weekly/monthly режима, а ручную отправку запускать из превью письма.</p></div>
     <div className="grid twoCol">
       <Card title="Настройки отправки">
-        <label className="field"><span>Объект</span><div className="segmented mini"><button className={cx(targetType==='student'&&'active')} onClick={()=>{setTargetType('student'); setTargetId(db.students[0]?.id||'');}}>Ученик</button><button className={cx(targetType==='group'&&'active')} onClick={()=>{setTargetType('group'); setTargetId(db.groups[0]?.id||'');}}>Группа</button></div></label>
-        <label className="field mt16"><span>Кому</span><select className="input" value={targetId} onChange={e=>setTargetId(e.target.value)}>{targetType==='student' ? db.students.filter(s=>s.active).map(s=><option key={s.id} value={s.id}>{s.name}</option>) : db.groups.filter(g=>g.active).map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></label>
+        <label className="field"><span>Объект</span><div className="segmented mini"><button className={cx(targetType==='student'&&'active')} onClick={()=>{setTargetType('student'); setTargetId(teacherStudents[0]?.id||'');}}>Ученик</button><button className={cx(targetType==='group'&&'active')} onClick={()=>{setTargetType('group'); setTargetId(teacherGroups[0]?.id||'');}}>Группа</button></div></label>
+        <label className="field mt16"><span>Кому</span><select className="input" value={targetId} onChange={e=>setTargetId(e.target.value)}>{targetType==='student' ? teacherStudents.map(s=><option key={s.id} value={s.id}>{s.name}</option>) : teacherGroups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></label>
         <label className="field mt16"><span>Режим отправки</span><select className="input" value={frequency} onChange={e=>setFrequency(e.target.value)}><option>Самостоятельно</option><option>Еженедельно</option><option>Ежемесячно</option></select></label>
         <label className="field mt16"><span>Период</span><select className="input" value={period} onChange={e=>setPeriod(e.target.value)}><option value="7">7 дней</option><option value="30">30 дней</option></select></label>
-        <button className="primaryBtn mt20" onClick={async()=>{await api.saveReportConfig({ targetType, targetId, frequency, period }); setSaved(true); await reload(); notify({type:'success',text:'Настройки отчетов сохранены.'});}}>Сохранить</button>
+        {sendingDisabled && <div className="pill warn mt16">{targetType === 'student' ? 'Отправка недоступна, пока у выбранного ученика не заполнены имя и контакт родителя.' : 'В выбранной группе пока нет учеников с заполненными родительскими контактами.'}</div>}
+        <button className="primaryBtn mt20" disabled={sendingDisabled} onClick={async()=>{await api.saveReportConfig({ targetType, targetId, frequency, period, teacherId }); setSaved(true); await reload(); notify({type:'success',text:'Настройки отчетов сохранены.'});}}>Сохранить</button>
       </Card>
       <Card title="Превью email">
         <div className="previewMail">
           <div className="mailTitle">Тема: Отчет по {targetType === 'student' ? 'ученику' : 'группе'} · {new Date().toLocaleDateString('ru-RU')}</div>
-          <div className="mailRecipients">Получатели: {previewRecipients.length ? previewRecipients.join('; ') : 'Нет родительских email'}</div>
-          <ul className="mailList"><li>Имя</li><li>Типы ошибок</li><li>Описание ошибок</li><li>Итоговый балл</li><li>Дата</li></ul>
+          <div className="mailRecipients">Получатели: {previewRecipients.length ? previewRecipients.join('; ') : 'Нет родительских контактов'}</div>
+          <ul className="mailList"><li>Имя ученика</li><li>Частые типы ошибок</li><li>Частота посещаемости</li><li>Гистограмма оценок</li></ul>
         </div>
-        <button className="primaryBtn mt20" onClick={async()=>{await api.sendReport({ targetType, targetId, period }); await reload(); notify({type:'success',text:'Отчет отправлен по логике backend.'});}}>Отправить отчет</button>
+        <button className="primaryBtn mt20" disabled={sendingDisabled} onClick={async()=>{await api.sendReport({ targetType, targetId, period, teacherId }); await reload(); notify({type:'success',text:'Отчет отправлен по логике backend.'});}}>Отправить отчет</button>
       </Card>
     </div>
-    <Card title="Журнал отправок"><div className="stack gap10">{(db.reportLogs || []).length ? db.reportLogs.slice(0,8).map(log => <div key={log.id} className="listRow"><div><div>{log.targetLabel}</div><div className="muted small">{new Date(log.createdAt).toLocaleString('ru-RU')} · {log.mode}</div></div><div className="muted small">{log.recipients.length} получателей</div></div>) : <div className="empty">Отправок пока не было.</div>}</div></Card>
+    <Card title="Журнал отправок"><div className="stack gap10">{(db.reportLogs || []).filter(log => log.teacherId === teacherId).length ? (db.reportLogs || []).filter(log => log.teacherId === teacherId).slice(0,8).map(log => <div key={log.id} className="listRow"><div><div>{log.targetLabel}</div><div className="muted small">{new Date(log.createdAt).toLocaleString('ru-RU')} · {log.mode}</div></div><div className="muted small">{log.recipients.length} получателей</div></div>) : <div className="empty">Отправок пока не было.</div>}</div></Card>
   </div>;
 }
 
@@ -983,25 +1252,33 @@ function TeacherPricingPage({ db, session }) {
   const current = session.role === 'teacher' && session.accessMode === 'limited' ? 'Free' : 'Pro Trial';
   const plans = [
     { name:'Free', price:'0 ₽', features:['Только пакетная проверка','CSV/PDF экспорт','Без очереди ручной проверки'] },
-    { name:'Pro Trial', price:'Первые 30 дней бесплатно', features:['Полный teacher workflow','Ученики, группы, задания, аналитика','Настройки и отчеты'] },
-    { name:'Pro', price:'1 490 ₽/мес', features:['Без лимита учеников','Полный teacher workflow','Пакетная проверка и отчеты'] }
+    { name:'Pro Trial', price:'Первые 30 дней бесплатно', features:['Полный набор кабинета преподавателя','Ученики, группы, задания, аналитика','Настройки и отчеты'] },
+    { name:'Pro', price:'1 490 ₽/мес', features:['Без лимита учеников','Полный набор кабинета преподавателя','Пакетная проверка и отчеты'] }
   ];
   return <div className="stack gap24"><div><h2 className="pageTitle">Тарифы</h2><p className="muted">После 30 дней trial преподаватель автоматически переходит в Free-режим с доступом только к пакетной проверке.</p></div><div className="grid threeCol">{plans.map(plan => <Card key={plan.name} title={plan.name} actions={current===plan.name && <span className="pill info">Текущий тариф</span>}><div className="price">{plan.price}</div><ul className="featureList">{plan.features.map(f=><li key={f}>{f}</li>)}</ul></Card>)}</div></div>;
 }
 
-function TeacherSettingsPage({ db, reload, notify }) {
+function TeacherSettingsPage({ db, reload, notify, session }) {
+  const teacher = getTeacherProfile(db, session);
   const [tab, setTab] = useState('profile');
-  const [profile, setProfile] = useState({ name: db.teacher?.name || '', email: db.teacher?.email || '', phone: db.teacher?.phone || '', avatarUrl: db.teacher?.avatarUrl || '' });
-  const [subjectsState, setSubjectsState] = useState(db.teacher?.subjects || []);
-  const [notifications, setNotifications] = useState(db.teacher?.notifications || {});
-  const [reportPreferences, setReportPreferences] = useState(db.teacher?.reportPreferences || {});
+  const [profile, setProfile] = useState({ name: teacher?.name || '', email: teacher?.email || '', phone: teacher?.phone || '', avatarUrl: teacher?.avatarUrl || '' });
+  const [subjectsState, setSubjectsState] = useState(teacher?.subjects || []);
+  const [notifications, setNotifications] = useState(teacher?.notifications || {});
+  const [reportPreferences, setReportPreferences] = useState(teacher?.reportPreferences || {});
+
+  useEffect(() => {
+    setProfile({ name: teacher?.name || '', email: teacher?.email || '', phone: teacher?.phone || '', avatarUrl: teacher?.avatarUrl || '' });
+    setSubjectsState(teacher?.subjects || []);
+    setNotifications(teacher?.notifications || {});
+    setReportPreferences(teacher?.reportPreferences || {});
+  }, [teacher?.id, teacher?.name, teacher?.email, teacher?.phone, teacher?.avatarUrl]);
 
   const uploadAvatar = async(files) => {
     const uploaded = await api.upload(files);
     if (uploaded.files?.[0]) setProfile(v=>({...v, avatarUrl: uploaded.files[0].url }));
   };
   const saveAll = async (payload) => {
-    await api.updateTeacher(payload);
+    await api.updateTeacher({ userId: session.userId, ...payload });
     await reload();
     notify({ type: 'success', text: 'Настройки сохранены.' });
   };
@@ -1016,29 +1293,55 @@ function TeacherSettingsPage({ db, reload, notify }) {
 }
 
 
-function StudentDashboardPage({ db }) {
-  const student = db.students.find(s=>s.active) || db.students[0];
+function StudentDashboardPage({ db, session, navigate }) {
+  const student = getCurrentStudent(db, session);
+  const [search, setSearch] = useState('');
+  const [showUndone, setShowUndone] = useState(false);
+  const [detail, setDetail] = useState(null);
+
+  if (!student) return <div className="empty">Не удалось загрузить профиль ученика.</div>;
+
   const assignments = assignmentsForStudent(db, student.id);
   const works = db.works.filter(w => w.studentId === student.id);
   const undone = assignments.filter(a => !works.some(w => w.assignmentId === a.id));
-  const [showUndone, setShowUndone] = useState(false);
-  const [detail, setDetail] = useState(null);
+  const reviewedWorks = works.filter(item => item.status === 'Проверено');
+  const recommendations = reviewedWorks.flatMap(work => (work.aiErrors || []).map(item => item.description).filter(Boolean)).slice(0, 3);
+  const searchResults = search.trim()
+    ? [
+        ...assignments.filter(item => `${item.title} ${item.subject}`.toLowerCase().includes(search.toLowerCase())).map(item => ({ type: 'assignment', id: item.id, title: item.title, meta: item.subject })),
+        ...reviewedWorks.filter(item => `${db.assignments.find(entry => entry.id === item.assignmentId)?.title || ''} ${item.aiComment || ''}`.toLowerCase().includes(search.toLowerCase())).map(item => ({ type: 'result', id: item.id, title: db.assignments.find(entry => entry.id === item.assignmentId)?.title || 'Проверенная работа', meta: `Баллы: ${item.finalScore ?? 0}` })),
+      ]
+    : [];
+
   return <div className="stack gap24">
-    <div><h2 className="pageTitle">Главная</h2><p className="muted">Главный акцент — задания, которые еще не сделаны, и рекомендации.</p></div>
+    <div className="row between wrap gap16">
+      <div>
+        <h2 className="pageTitle">Главная</h2>
+        <p className="muted">Все, что важно ученику: активные задания, результаты проверок и рекомендации после них.</p>
+      </div>
+      <div className="toolbar compactToolbar"><Search size={16} /><input className="toolbarInput" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Поиск по заданиям и результатам" /></div>
+    </div>
     <div className="grid twoCol"><button className="kpiCard clickable" onClick={()=>setShowUndone(true)}><div className="kpiTitle">Задания, которые не сделаны</div><div className="kpiValue">{undone.length}</div></button><KPI title="Score" value={db.computed.studentScores[student.id] || 0} /></div>
-    <div className="grid twoCol"><Card title="Последние результаты"><div className="stack gap10">{works.filter(w=>w.status==='Проверена').slice(0,4).map(w => { const a = db.assignments.find(x=>x.id===w.assignmentId); return <div key={w.id} className="listRow"><div>{a?.title}</div><div>{w.finalScore}</div></div>; })}</div></Card><Card title="Рекомендации"><div className="stack gap8"><div className="cardInner">Повторить цепное правило и проверять коэффициенты в финальном ответе.</div><div className="cardInner">Следить за единицами измерения и записью условия в физике.</div></div></Card></div>
-    {showUndone && <Modal title="Задания, которые не сделаны" onClose={()=>setShowUndone(false)}><div className="stack gap12">{undone.map(a => <button key={a.id} className="assignmentCard polished" onClick={()=>setDetail(a)}><div className="row between wrap gap12"><div><div className="cardTitle">{a.title}</div><div className="muted small">{a.subject}</div></div><DeadlineBadge assignment={a} hasWork={false} /></div></button>)}</div></Modal>}
+    {!studentTeacherIds(student).length && <EmptyOnboarding role="student" title="Новый аккаунт ученика" text="Сейчас кабинет пустой, потому что вы еще не подключили преподавателя и не получили первое задание." actions={[<button key="tutors" className="primaryBtn" onClick={()=>navigate('/student/tutors')}>Открыть репетиторов</button>]} />}
+    {search.trim() && <Card title="Результаты поиска"><div className="stack gap10">{searchResults.length ? searchResults.map(item => <div key={`${item.type}-${item.id}`} className="listRow"><div>{item.title}</div><div className="muted small">{item.meta}</div></div>) : <div className="empty">Ничего не найдено.</div>}</div></Card>}
+    <div className="grid twoCol">
+      <Card title="Последние результаты"><div className="stack gap10">{reviewedWorks.length ? reviewedWorks.slice(0,4).map(w => { const a = db.assignments.find(x=>x.id===w.assignmentId); return <div key={w.id} className="listRow"><div>{a?.title}</div><div>{w.finalScore}</div></div>; }) : <div className="empty">Пока нет проверенных работ.</div>}</div></Card>
+      <Card title="Рекомендации"><div className="stack gap8">{recommendations.length ? recommendations.map((item, index) => <div key={`${item}-${index}`} className="cardInner">{item}</div>) : <div className="empty">Рекомендации появятся после первых проверенных работ.</div>}</div></Card>
+    </div>
+    {showUndone && <Modal title="Задания, которые не сделаны" onClose={()=>setShowUndone(false)}><div className="stack gap12">{undone.length ? undone.map(a => <button key={a.id} className="assignmentCard polished" onClick={()=>setDetail(a)}><div className="row between wrap gap12"><div><div className="cardTitle">{a.title}</div><div className="muted small">{a.subject}</div></div><DeadlineBadge assignment={a} hasWork={false} /></div></button>) : <div className="empty">Новых заданий пока нет.</div>}</div></Modal>}
     {detail && <StudentAssignmentDetail assignment={detail} work={works.find(w=>w.assignmentId===detail.id)} onClose={()=>setDetail(null)} onUpload={async()=>{}} readonly />}
   </div>;
 }
 
 
-function StudentAssignmentsPage({ db, reload, notify }) {
-  const student = db.students.find(s => s.active) || db.students[0];
-  const assignments = assignmentsForStudent(db, student.id);
-  const works = db.works.filter(w => w.studentId === student.id);
+function StudentAssignmentsPage({ db, reload, notify, session }) {
+  const student = getCurrentStudent(db, session);
   const [subject, setSubject] = useState('Все');
   const [detail, setDetail] = useState(null);
+  if (!student) return <div className="empty">Не удалось загрузить задания ученика.</div>;
+  const assignments = assignmentsForStudent(db, student.id);
+  const works = db.works.filter(w => w.studentId === student.id);
+  const subjectOptions = ['Все', ...new Set(assignments.map(item => item.subject).filter(Boolean))];
   const filtered = assignments.filter(a => subject === 'Все' || a.subject === subject);
 
   const uploadWork = async (assignment, files) => {
@@ -1048,16 +1351,16 @@ function StudentAssignmentsPage({ db, reload, notify }) {
       await api.updateWork(existing.id, { files: [...(existing.files || []), ...uploaded.files] });
       notify({ type:'success', text:'Файлы добавлены к существующей работе.' });
     } else {
-      await api.createWork({ assignmentId: assignment.id, studentId: student.id, files: uploaded.files, ocrText: 'Распознанный текст будет добавлен после обработки.', aiComment: 'AI-анализ будет добавлен после обработки.', aiErrors: [], suggestedScore: 0, finalScore: null, status: 'Ожидает подтверждения' });
+      await api.createWork({ assignmentId: assignment.id, studentId: student.id, teacherId: assignment.teacherId || studentTeacherIds(student)[0] || null, files: uploaded.files, ocrText: 'Распознанный текст будет добавлен после обработки.', aiComment: 'AI-анализ будет добавлен после обработки.', aiErrors: [], suggestedScore: 0, finalScore: null, status: 'Ожидает подтверждения' });
       notify({ type:'success', text:'Решение загружено.' });
     }
     await reload();
   };
 
   return <div className="stack gap24">
-    <div><h2 className="pageTitle">Мои задания</h2><p className="muted">Фильтр только по предметам ученика. К каждому заданию можно добавлять несколько фото и файлов даже после дедлайна.</p></div>
-    <div className="row wrap gap8">{['Все', ...student.subjects].map(s => <FilterChip key={s} active={subject===s} onClick={()=>setSubject(s)}>{s}</FilterChip>)}</div>
-    <div className="stack gap12">{filtered.map(a => { const work = works.find(w => w.assignmentId === a.id); return <button key={a.id} className="assignmentCard polished" onClick={()=>setDetail(a)}><div className="row between wrap gap12"><div><div className="cardTitle">{a.title}</div><div className="muted small">{a.subject}</div></div><div className="row gap8">{!work && <DeadlineBadge assignment={a} hasWork={false} />}{work && <span className={pillClass[work.status]}>{work.status}</span>}</div></div></button>; })}</div>
+    <div><h2 className="pageTitle">Мои задания</h2><p className="muted">Здесь собраны только ваши задания. Можно быстро открыть карточку и добавить решение.</p></div>
+    <div className="row gap12 wrap alignCenter"><span className="sectionLabel">Предмет</span><select className="input selectSmall" value={subject} onChange={e=>setSubject(e.target.value)}>{subjectOptions.map(item => <option key={item} value={item}>{item}</option>)}</select></div>
+    <div className="stack gap12">{filtered.length ? filtered.map(a => { const work = works.find(w => w.assignmentId === a.id); return <button key={a.id} className="assignmentCard polished" onClick={()=>setDetail(a)}><div className="row between wrap gap12"><div><div className="cardTitle">{a.title}</div><div className="muted small">{a.subject}</div></div><div className="row gap8">{!work && <DeadlineBadge assignment={a} hasWork={false} />}{work && <span className={pillClass[work.status]}>{displayWorkStatus(work.status)}</span>}</div></div></button>; }) : <div className="empty">У вас пока нет заданий.</div>}</div>
     {detail && <StudentAssignmentDetail assignment={detail} work={works.find(w=>w.assignmentId===detail.id)} onClose={()=>setDetail(null)} onUpload={async(files)=>{await uploadWork(detail, files); setDetail(null);}} />}
   </div>;
 }
@@ -1075,10 +1378,171 @@ function StudentAssignmentDetail({ assignment, work, onClose, onUpload, readonly
   </Modal>;
 }
 
-function StudentProfilePage({ db }) {
-  const student = db.students.find(s=>s.active) || db.students[0];
+function StudentTutorsPage({ db, reload, notify, session }) {
+  const student = getCurrentStudent(db, session);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [search, setSearch] = useState('');
+  const [directory, setDirectory] = useState([]);
+  const inviteToken = searchParams.get('invite');
+  const invites = (db.teacherInvites || []).filter(item => item.studentId === student?.id);
+  const connectedTeachers = (db.teachers || []).filter(item => studentHasTeacher(student, item.id));
+  const incomingInvites = invites.filter(item => item.direction === 'teacher_to_student');
+  const outgoingInvites = invites.filter(item => item.direction === 'student_to_teacher');
+
+  useEffect(() => {
+    let active = true;
+    api.searchTeachers(search).then(result => {
+      if (active) setDirectory(result);
+    }).catch(error => {
+      if (active) notify({ type: 'error', text: error.message });
+    });
+    return () => {
+      active = false;
+    };
+  }, [search, notify]);
+
+  useEffect(() => {
+    if (!inviteToken || !student?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await api.claimTeacherInvite({ token: inviteToken, studentId: student.id });
+        if (cancelled) return;
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete('invite');
+        setSearchParams(nextParams);
+        await reload();
+        notify({ type: 'success', text: 'Приглашение преподавателя найдено. Теперь его можно принять в списке ниже.' });
+      } catch (e) {
+        if (cancelled) return;
+        notify({ type: 'error', text: e.message });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [inviteToken, student?.id, searchParams, setSearchParams, reload, notify]);
+
+  const inviteStatusFor = (teacherId) => {
+    if (studentHasTeacher(student, teacherId)) return 'accepted';
+    return invites.find(item => item.teacherId === teacherId)?.status || null;
+  };
+
+  if (!student) return <div className="empty">Не удалось загрузить список преподавателей.</div>;
+
+  return <div className="stack gap24">
+    <div><h2 className="pageTitle">Репетиторы</h2><p className="muted">Здесь собраны ваши преподаватели, входящие приглашения и поиск нового преподавателя.</p></div>
+    <Card title="Подключенные преподаватели">
+      <div className="grid twoCol">
+        {connectedTeachers.length ? connectedTeachers.map(teacher => (
+          <Card key={`connected-${teacher.id}`} title={teacher.name} subtitle={teacher.email || 'Почта не указана'} actions={<span className="pill success">Подключен</span>}>
+            <div className="chipWrap">{(teacher.subjects || []).map(subject => <span key={`${teacher.id}-${subject}`} className="chip">{subject}</span>)}</div>
+          </Card>
+        )) : <div className="empty">Пока нет подключенных преподавателей.</div>}
+      </div>
+    </Card>
+
+    <Card title="Входящие приглашения">
+      <div className="stack gap12">
+        {incomingInvites.length ? incomingInvites.map(invite => {
+          const teacher = (db.teachers || []).find(item => item.id === invite.teacherId);
+          return (
+            <div key={invite.id} className="listCard polished">
+              <div className="row between wrap gap16">
+                <div>
+                  <div className="cardTitle">{teacher?.name || 'Преподаватель'}</div>
+                  <div className="muted small mt6">{teacher?.email || 'Почта не указана'}</div>
+                </div>
+                <div className="row gap8 wrap">
+                  {invite.status === 'pending' ? (
+                    <>
+                      <button className="secondaryBtn" onClick={async () => {
+                        await api.updateTeacherInvite(invite.id, { status: 'declined' });
+                        await reload();
+                        notify({ type: 'success', text: 'Приглашение отклонено.' });
+                      }}>Отклонить</button>
+                      <button className="primaryBtn" onClick={async () => {
+                        await api.updateTeacherInvite(invite.id, { status: 'accepted' });
+                        await reload();
+                        notify({ type: 'success', text: 'Преподаватель подключен.' });
+                      }}>Принять</button>
+                    </>
+                  ) : <span className={pillClass[invite.status]}>{invite.status === 'accepted' ? 'Принято' : 'Отклонено'}</span>}
+                </div>
+              </div>
+            </div>
+          );
+        }) : <div className="empty">Новых приглашений пока нет.</div>}
+      </div>
+    </Card>
+
+    <Card title="Исходящие запросы">
+      <div className="stack gap12">
+        {outgoingInvites.length ? outgoingInvites.map(invite => {
+          const teacher = (db.teachers || []).find(item => item.id === invite.teacherId);
+          return <div key={invite.id} className="listRow"><div><div>{teacher?.name || 'Преподаватель'}</div><div className="muted small">{teacher?.email || 'Почта не указана'}</div></div><span className={pillClass[invite.status]}>{invite.status === 'pending' ? 'В ожидании' : invite.status === 'accepted' ? 'Принято' : 'Отклонено'}</span></div>;
+        }) : <div className="empty">Вы еще не отправляли запросы преподавателям.</div>}
+      </div>
+    </Card>
+
+    <div className="toolbar"><Search size={16} /><input className="toolbarInput" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Поиск по имени или почте" /></div>
+    <div className="grid twoCol">
+      {directory.length ? directory.map(teacher => {
+        const status = inviteStatusFor(teacher.id);
+        const initials = teacher.name.split(' ').map(item => item[0]).join('').slice(0, 2).toUpperCase();
+        return (
+          <Card key={teacher.id} title={teacher.name} subtitle={teacher.email || 'Почта не указана'} actions={status === 'accepted' ? <span className="pill success">Подключен</span> : status === 'pending' ? <span className="pill info">Запрос отправлен</span> : null}>
+            <div className="row gap16 alignStart">
+              <div className="avatar tutorAvatar">{teacher.avatarUrl ? <img src={normalizeUrl(teacher.avatarUrl)} alt={teacher.name} className="avatarCoverImage" /> : initials}</div>
+              <div className="stack gap10 grow">
+                <div className="chipWrap">{(teacher.subjects || []).map(subject => <span key={`${teacher.id}-${subject}`} className="chip">{subject}</span>)}</div>
+                <div className="muted small">Поиск работает по имени, фамилии и email из базы приложения.</div>
+                <div className="row wrap gap8">
+                  {status === 'accepted' ? <button className="secondaryBtn" disabled>Уже подключен</button> : status === 'pending' ? <button className="secondaryBtn" disabled>Запрос в ожидании</button> : <button className="primaryBtn" onClick={async () => {
+                    try {
+                      await api.createTeacherInvite({ teacherId: teacher.id, studentId: student.id });
+                      await reload();
+                      notify({ type: 'success', text: 'Запрос преподавателю отправлен.' });
+                    } catch (e) {
+                      notify({ type: 'error', text: e.message });
+                    }
+                  }}>Отправить запрос</button>}
+                </div>
+              </div>
+            </div>
+          </Card>
+        );
+      }) : <div className="empty">Преподаватели по вашему запросу не найдены.</div>}
+    </div>
+  </div>;
+}
+
+function StudentProfilePage({ db, session, reload, notify }) {
+  const student = getCurrentStudent(db, session);
+  const [form, setForm] = useState({ email: '', phone: '', parentName: '', parentContact: '' });
+
+  useEffect(() => {
+    if (!student) return;
+    setForm({ email: student.email || '', phone: student.phone || '', parentName: student.parentName || '', parentContact: student.parentContact || student.parentEmail || '' });
+  }, [student?.id, student?.email, student?.phone, student?.parentName, student?.parentContact, student?.parentEmail]);
+
+  if (!student) return <div className="empty">Не удалось загрузить профиль ученика.</div>;
+
   const score = db.computed.studentScores[student.id] || 0;
-  return <div className="stack gap24"><div><h2 className="pageTitle">Профиль</h2></div><div className="grid twoCol refinedStudentProfileGrid"><Card title="Основная информация"><div className="studentProfilePanel"><div className="studentProfileName">{student.name}</div><div className="studentProfileMeta">{student.level}</div><div className="stack gap12 mt16"><InfoBox label="Email" value={student.email} /><InfoBox label="Телефон" value={student.phone || '—'} /><InfoBox label="Родитель" value={student.parentName || '—'} secondary={student.parentEmail || '—'} /></div></div></Card><Card title="Учебный статус"><div className="studentProfilePanel"><div className="scoreHero">{score}</div><div className="studentProfileMeta">Текущий score</div><div className="chipWrap mt16">{student.subjects.map(subject => <span key={subject} className="chip">{subject}</span>)}</div>{effectiveStudentSlots(db, student).length ? <div className="chipWrap mt16">{effectiveStudentSlots(db, student).map(slot => <span key={slot.id + (slot.sourceGroupId || '')} className={cx('chip', slot.inherited && 'chipInherited')}>{slot.day} {slot.time} · {slot.durationHours || 0} ч {slot.durationMinutes || 0} мин</span>)}</div> : <div className="muted small mt16">Слоты занятий не заданы.</div>}</div></Card></div></div>;
+  const teachers = (db.teachers || []).filter(item => studentHasTeacher(student, item.id));
+  const slots = effectiveStudentSlots(db, student);
+  const assignments = assignmentsForStudent(db, student.id);
+  const saveProfile = async () => {
+    try {
+      await api.updateStudent(student.id, { email: form.email, phone: form.phone, parentName: form.parentName, parentContact: form.parentContact });
+      await reload();
+      notify({ type: 'success', text: 'Профиль обновлен.' });
+    } catch (e) {
+      notify({ type: 'error', text: e.message });
+    }
+  };
+
+  return <div className="stack gap24"><div><h2 className="pageTitle">Профиль</h2></div><div className="grid twoCol refinedStudentProfileGrid"><Card title="Основная информация"><div className="studentProfilePanel"><div className="studentProfileName">{student.name}</div><div className="studentProfileMeta">{student.level || 'Статус пока не заполнен'}</div><div className="stack gap12 mt16"><label className="field"><span>Email</span><input className="input" value={form.email} onChange={e=>setForm(v=>({...v, email: e.target.value}))} /></label><label className="field"><span>Телефон</span><input className="input" value={form.phone} onChange={e=>setForm(v=>({...v, phone: e.target.value}))} /></label><label className="field"><span>Имя родителя</span><input className="input" value={form.parentName} onChange={e=>setForm(v=>({...v, parentName: e.target.value}))} placeholder="Опционально" /></label><label className="field"><span>Контакт родителя</span><input className="input" value={form.parentContact} onChange={e=>setForm(v=>({...v, parentContact: e.target.value}))} placeholder="Телефон или email" /></label><div className="modalActions"><button className="primaryBtn" onClick={async()=>{try { await saveProfile(); } catch (e) { notify({ type: 'error', text: e.message }); }}}>Сохранить изменения</button></div></div></div></Card><Card title="Учебный статус"><div className="studentProfilePanel"><div className="scoreHero">{score}</div><div className="studentProfileMeta">Текущий score</div><div className="stack gap12 mt16"><InfoBox label="Преподаватели" value={teachers.length ? teachers.map(item => item.name).join(', ') : 'Еще не выбраны'} /><InfoBox label="Активные задания" value={String(assignments.length)} /><InfoBox label="Слоты занятий" value={slots.length ? `${slots.length}` : 'Не заданы'} secondary={slots.length ? slots.map(slot => `${slot.day} ${slot.time}`).join(' · ') : 'Добавятся после подключения преподавателя'} /></div>{student.subjects.length ? <div className="chipWrap mt16">{student.subjects.map(subject => <span key={subject} className="chip">{subject}</span>)}</div> : <div className="muted small mt16">Предметы пока не назначены.</div>}</div></Card></div></div>;
 }
 
 
@@ -1092,9 +1556,11 @@ function Drawer({ title, children, onClose }) { return <div className="overlay" 
 function Toast({ type, text }) { return <div className={cx('toast', type)}>{text}</div>; }
 function CheckSetting({ label, checked, onChange }) { return <label className="checkRow"><input type="checkbox" checked={checked} onChange={onChange} /><span>{label}</span></label>; }
 function FilterChip({ active, onClick, children }) { return <button className={cx('chipBtn', active && 'active')} onClick={onClick}>{children}</button>; }
-function FilterRow({ filters, setFilters, db, includeAllTime=false }) {
+function FilterRow({ filters, setFilters, db, includeAllTime=false, teacherId=null }) {
   const periods = includeAllTime ? PERIODS : PERIODS.filter(p => p.value !== 'all');
-  return <div className="filterRow"><select className="input selectSmall" value={filters.subject} onChange={e=>setFilters(v=>({...v,subject:e.target.value}))}><option value="all">Все предметы</option>{['Математика','Физика','Химия'].map(s=><option key={s}>{s}</option>)}</select><select className="input selectSmall" value={filters.studentId} onChange={e=>setFilters(v=>({...v,studentId:e.target.value}))}><option value="all">Все ученики</option>{db.students.filter(s=>s.active).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select><select className="input selectSmall" value={filters.groupId} onChange={e=>setFilters(v=>({...v,groupId:e.target.value}))}><option value="all">Все группы</option>{db.groups.filter(g=>g.active).map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select><select className="input selectSmall" value={filters.period} onChange={e=>setFilters(v=>({...v,period:e.target.value}))}>{periods.map(p=><option key={p.value} value={p.value}>{p.label}</option>)}</select></div>;
+  const students = teacherId ? teacherOwnedStudents(db, teacherId) : db.students.filter(s => s.active);
+  const groups = teacherId ? teacherOwnedGroups(db, teacherId) : db.groups.filter(g => g.active);
+  return <div className="filterRow"><select className="input selectSmall" value={filters.subject} onChange={e=>setFilters(v=>({...v,subject:e.target.value}))}><option value="all">Все предметы</option>{SUBJECT_OPTIONS.map(s=><option key={s}>{s}</option>)}</select><select className="input selectSmall" value={filters.studentId} onChange={e=>setFilters(v=>({...v,studentId:e.target.value}))}><option value="all">Все ученики</option>{students.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select><select className="input selectSmall" value={filters.groupId} onChange={e=>setFilters(v=>({...v,groupId:e.target.value}))}><option value="all">Все группы</option>{groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select><select className="input selectSmall" value={filters.period} onChange={e=>setFilters(v=>({...v,period:e.target.value}))}>{periods.map(p=><option key={p.value} value={p.value}>{p.label}</option>)}</select></div>;
 }
 function InfoBox({ label, value, secondary }) { const textValue = String(value ?? ''); const compact = textValue.length > 16 || /[A-Za-zА-Яа-я]/.test(textValue); return <div className="infoBox refinedInfoBox"><div className="infoLabel">{label}</div><div className={cx('infoValue', compact && 'infoValueCompact')}>{value}</div>{secondary && <div className="muted small">{secondary}</div>}</div>; }
 function ChartBar({ data, horizontal=false }) {
@@ -1112,21 +1578,31 @@ function DeadlineBadge({ assignment, hasWork }) {
 function effectiveStudentSlots(db, student) {
   const own = (student.lessonSlots || []).map(slot => ({ ...slot, inherited: false }));
   const inherited = db.groups
-    .filter(group => group.active && group.studentIds.includes(student.id))
+    .filter(group => group.active && group.studentIds.includes(student.id) && (!studentTeacherIds(student).length || studentTeacherIds(student).includes(group.teacherId)))
     .flatMap(group => (group.lessonSlots || []).map(slot => ({ ...slot, inherited: true, sourceGroupId: group.id, sourceGroupName: group.name })));
   return [...own, ...inherited];
 }
 
 function assignmentsForStudent(db, studentId) {
-  const groupIds = db.groups.filter(g => g.active && g.studentIds.includes(studentId)).map(g => g.id);
-  return db.assignments.filter(a => a.recipientType === 'student' ? a.recipientId === studentId : groupIds.includes(a.recipientId));
+  const student = db.students.find(item => item.id === studentId);
+  const allowedTeacherIds = studentTeacherIds(student);
+  const visible = (db.assignments || []).filter(assignment => {
+    if (assignment.status === 'Черновик') return false;
+    if (allowedTeacherIds.length && assignment.teacherId && !allowedTeacherIds.includes(assignment.teacherId)) return false;
+    if (assignment.recipientType === 'student') return assignment.recipientId === studentId;
+    if (assignment.recipientType === 'students') return (assignment.recipientIds || []).includes(studentId);
+    if (assignment.recipientType === 'group') return db.groups.some(group => group.id === assignment.recipientId && group.active && group.studentIds.includes(studentId) && (!allowedTeacherIds.length || allowedTeacherIds.includes(group.teacherId)));
+    return false;
+  });
+  return [...new Map(visible.map(item => [item.id, item])).values()];
 }
-function buildErrorEvents(db) { return buildErrorEventsFiltered(db, { subject:'all', period:'all', studentId:'all', groupId:'all' }); }
-function buildErrorEventsFiltered(db, filters) {
-  return db.works.flatMap(work => {
+function buildErrorEvents(db, teacherId=null) { return buildErrorEventsFiltered(db, { subject:'all', period:'all', studentId:'all', groupId:'all' }, teacherId); }
+function buildErrorEventsFiltered(db, filters, teacherId=null) {
+  const works = teacherId ? teacherOwnedWorks(db, teacherId) : db.works;
+  return works.flatMap(work => {
     const assignment = db.assignments.find(a => a.id === work.assignmentId);
     const student = db.students.find(s => s.id === work.studentId);
-    const group = db.groups.find(g => g.studentIds.includes(work.studentId));
+    const group = db.groups.find(g => g.studentIds.includes(work.studentId) && (!teacherId || g.teacherId === teacherId));
     return (work.aiErrors || []).flatMap(err => (err.types || []).map(type => ({
       workId: work.id,
       name: err.label,
@@ -1153,8 +1629,9 @@ function aggregateErrors(events, filters, byType) {
   }, {});
   return Object.entries(counts).map(([name, value]) => ({ name, value })).sort((a,b)=>b.value-a.value).slice(0,5);
 }
-function studentsByFilter(db, filters) {
-  return db.students.filter(s => s.active && (filters.studentId === 'all' || s.id === filters.studentId) && (filters.groupId === 'all' || db.groups.find(g => g.id === filters.groupId)?.studentIds.includes(s.id)));
+function studentsByFilter(db, filters, teacherId=null) {
+  const source = teacherId ? teacherOwnedStudents(db, teacherId) : db.students.filter(s => s.active);
+  return source.filter(s => (filters.studentId === 'all' || s.id === filters.studentId) && (filters.groupId === 'all' || db.groups.find(g => g.id === filters.groupId)?.studentIds.includes(s.id)));
 }
 function timelySubmissionForStudent(db, studentId) {
   const assignments = assignmentsForStudent(db, studentId);
@@ -1162,22 +1639,72 @@ function timelySubmissionForStudent(db, studentId) {
   const submittedInTime = assignments.filter(a => db.works.some(w => w.studentId === studentId && w.assignmentId === a.id && (!a.deadline || new Date(w.submittedAt) <= new Date(a.deadline)))).length;
   return Math.round((submittedInTime / assignments.length) * 100);
 }
-function submissionRate(db, filters) {
-  const students = studentsByFilter(db, filters);
+function submissionRate(db, filters, teacherId=null) {
+  const students = studentsByFilter(db, filters, teacherId);
   if (!students.length) return 0;
   return round(avg(students.map(student => timelySubmissionForStudent(db, student.id))));
 }
-function errorCountPerStudent(db, filters) {
-  const ev = buildErrorEventsFiltered(db, filters);
+function errorCountPerStudent(db, filters, teacherId=null) {
+  const ev = buildErrorEventsFiltered(db, filters, teacherId);
   const map = {};
   ev.forEach(e => { map[e.studentId] = (map[e.studentId] || 0) + 1; });
   return Object.entries(map).map(([id, value]) => ({ name: db.students.find(s=>s.id===id)?.name || id, value })).sort((a,b)=>b.value-a.value);
 }
+function reviewedAverageForTeacher(db, teacherId, studentId) {
+  const works = teacherOwnedWorks(db, teacherId).filter(item => item.studentId === studentId && item.status === 'Проверено');
+  if (!works.length) return null;
+  return round(avg(works.map(work => {
+    const assignment = db.assignments.find(item => item.id === work.assignmentId);
+    const maxScore = assignment?.maxScore || 100;
+    return Math.round(((work.finalScore ?? work.suggestedScore ?? 0) / maxScore) * 100);
+  })));
+}
+function absenceRateForTeacher(db, teacherId, studentId) {
+  const records = (db.attendanceRecords || []).filter(item => item.teacherId === teacherId && item.studentId === studentId);
+  if (!records.length) return null;
+  const absent = records.filter(item => item.status === 'absent').length;
+  return Math.round((absent / records.length) * 100);
+}
+function overdueCountForTeacher(db, teacherId, studentId) {
+  return assignmentsForStudent(db, studentId).filter(assignment => assignment.teacherId === teacherId && assignment.deadline && new Date(assignment.deadline) < new Date() && !db.works.some(work => work.studentId === studentId && work.assignmentId === assignment.id && work.teacherId === teacherId)).length;
+}
+function teacherRiskStudents(db, teacherId) {
+  return teacherOwnedStudents(db, teacherId).map(student => {
+    const gradePercent = reviewedAverageForTeacher(db, teacherId, student.id);
+    const absenceRate = absenceRateForTeacher(db, teacherId, student.id);
+    const overdueCount = overdueCountForTeacher(db, teacherId, student.id);
+    const factors = [];
+    let riskScore = 0;
+
+    if (gradePercent !== null && gradePercent < 60) {
+      riskScore += 2;
+      factors.push(`низкие оценки: ${gradePercent}%`);
+    }
+    if (absenceRate !== null && absenceRate >= 25) {
+      riskScore += 1;
+      factors.push(`пропуски: ${absenceRate}%`);
+    }
+    if (overdueCount > 0) {
+      riskScore += Math.min(2, overdueCount);
+      factors.push(`просрочено: ${overdueCount}`);
+    }
+
+    return { id: student.id, name: student.name, riskScore, factors };
+  }).filter(item => item.riskScore > 0).sort((a, b) => b.riskScore - a.riskScore || a.name.localeCompare(b.name, 'ru'));
+}
+function hasTeacherAnalyticsData(db, teacherId) {
+  return teacherOwnedStudents(db, teacherId).length > 0 && (
+    teacherOwnedAssignments(db, teacherId).length > 0
+    || teacherOwnedWorks(db, teacherId).length > 0
+    || (db.attendanceRecords || []).some(item => item.teacherId === teacherId)
+  );
+}
 function avg(values) { const arr = Array.isArray(values) ? values : Object.values(values || {}); return arr.length ? Math.round(arr.reduce((a,b)=>a+Number(b||0),0)/arr.length) : 0; }
 function round(v, p=0) { const m=10**p; return Math.round((Number(v)||0)*m)/m; }
 function recipientLabel(db, assignment) {
-  if (!assignment.recipientId) return 'Не указан';
   if (assignment.recipientType === 'student') return db.students.find(s=>s.id===assignment.recipientId)?.name || 'Неизвестный ученик';
+  if (assignment.recipientType === 'students') return (assignment.recipientIds || []).map(id => db.students.find(s => s.id === id)?.name).filter(Boolean).join(', ') || 'Не выбраны ученики';
+  if (!assignment.recipientId) return 'Не указан';
   return db.groups.find(g=>g.id===assignment.recipientId)?.name || 'Неизвестная группа';
 }
 function normalizeUrl(url) { return url?.startsWith('http') ? url : `${API}${url}`; }

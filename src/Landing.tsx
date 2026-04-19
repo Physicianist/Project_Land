@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, ChevronDown, Menu, X } from 'lucide-react';
 import workPhoto from '../image.png';
 import workCrop from '../Crop.jpg';
+import TailwindPricingSection from './components/TailwindPricingSection';
 
 const navItems = [
   { id: 'demo', label: 'Пример' },
@@ -132,69 +133,6 @@ const trustPolicies = [
   'Публично описать правила хранения и удаления файлов.',
   'Отдельно зафиксировать, кто имеет доступ к работам и отчётам.',
   'Для школ и команд показать условия подключения и роли доступа до старта.',
-];
-
-const pricingPlans = [
-  {
-    title: 'Бесплатный тест',
-    price: '30 дней бесплатно',
-    label: 'Старт без риска',
-    note: 'Чтобы проверить сервис на реальных работах до оплаты.',
-    features: [
-      'Все ключевые сценарии на пробный период',
-      'Без привязки карты',
-      'Проверка первой работы в реальном интерфейсе',
-    ],
-    track: [28, 54, 76],
-    cta: 'Проверить первую работу бесплатно',
-    href: '/login?mode=register',
-    featured: false,
-  },
-  {
-    title: 'Lite',
-    price: 'Для старта',
-    label: 'Режим знакомства',
-    note: 'Для частных преподавателей с умеренным потоком работ.',
-    features: [
-      'Ограниченный объём проверок',
-      'Подходит для 1:1 и первых мини-групп',
-      'Понятный вход без перегрузки лишними функциями',
-    ],
-    track: [36, 58, 72],
-    cta: 'Запустить пробный месяц',
-    href: '/login?mode=register',
-    featured: false,
-  },
-  {
-    title: 'Pro',
-    price: 'Для потока',
-    label: 'Для активных преподавателей',
-    note: 'Основной тариф для регулярной проверки, групп и аналитики.',
-    features: [
-      'Больше проверок и сценарии для мини-групп',
-      'Аналитика по темам и типовым ошибкам',
-      'Подходит, когда проверка стала регулярной частью недели',
-    ],
-    track: [48, 72, 92],
-    cta: 'Запустить пробный месяц',
-    href: '/login?mode=register',
-    featured: true,
-  },
-  {
-    title: 'Team / School',
-    price: 'По запросу',
-    label: 'Для школы и команды',
-    note: 'Когда нужен общий контур работы, правила доступа и внедрение в поток.',
-    features: [
-      'Командный сценарий и сопровождение внедрения',
-      'Настройка под процесс школы или курса',
-      'Условия и состав решения обсуждаются отдельно',
-    ],
-    track: [40, 64, 88],
-    cta: 'Обсудить подключение',
-    href: '/login?mode=register',
-    featured: false,
-  },
 ];
 
 const faqs = [
@@ -1050,86 +988,7 @@ function OutcomeSection() {
 }
 
 function PricingSection() {
-  const [showContacts, setShowContacts] = useState(false);
-
-  return (
-    <section id="pricing" className="plSection plSectionTint">
-      <div className="plContainer">
-        <div className="plSectionHead" data-reveal style={getRevealStyle(0)}>
-          <div className="plEyebrow">Тарифы</div>
-          <h2>Выберите формат подключения под свой поток проверок</h2>
-        </div>
-
-        <div className="plPricingGrid">
-          {pricingPlans.map(({ title, price, label, note, features, cta, href, featured, track }, index) => (
-            <article
-              key={title}
-              className={`plCard plPriceCard ${featured ? 'is-featured' : ''}`}
-              data-reveal
-              style={getRevealStyle(index)}
-            >
-              <div className="plPriceTop">
-                <div>
-                  <span className="plMiniTitle">{label}</span>
-                  <h3>{title}</h3>
-                </div>
-                {featured && <span className="plFeaturedBadge">Основной тариф</span>}
-              </div>
-
-              <div className="plPlanTrack" aria-hidden="true">
-                {track.map((value, trackIndex) => (
-                  <span
-                    key={`${title}-track-${trackIndex}`}
-                    className="plPlanTrackBar"
-                    style={{ '--track-size': `${10 + value * 0.22}px`, '--track-delay': `${trackIndex * 120}ms` }}
-                  />
-                ))}
-              </div>
-
-              <div className="plPriceValue">{price}</div>
-              <p className="plPriceNote">{note}</p>
-
-              <ul className="plList">
-                {features.map(feature => (
-                  <li key={feature}>{feature}</li>
-                ))}
-              </ul>
-
-              {title === 'Team / School' ? (
-                <button
-                  type="button"
-                  className="plSecondaryBtn plPrimaryBtnWide"
-                  onClick={() => setShowContacts(current => !current)}
-                  aria-expanded={showContacts}
-                  aria-controls="pricing-contacts"
-                >
-                  {cta}
-                </button>
-              ) : (
-                <Link to={href} className={featured ? 'plPrimaryBtn plPrimaryBtnWide' : 'plSecondaryBtn plPrimaryBtnWide'}>
-                  {cta}
-                </Link>
-              )}
-
-              {title === 'Team / School' && showContacts && (
-                <div id="pricing-contacts" className="plContactCardInline">
-                  <span className="plMiniTitle">Контакты для подключения</span>
-                  <div className="plContactList">
-                    <a href="mailto:shepelin2005@bk.ru">shepelin2005@bk.ru</a>
-                    <a href="tel:89827054732">8 982 705-47-32</a>
-                  </div>
-                </div>
-              )}
-            </article>
-          ))}
-        </div>
-
-        <p className="plPricingFootnote" data-reveal style={getRevealStyle(5)}>
-          Тариф окупается, если экономит хотя бы 25 минут в неделю.
-        </p>
-      </div>
-    </section>
-  );
+  return <TailwindPricingSection />;
 }
 
 function FAQSection() {
