@@ -5,6 +5,7 @@ import cron from 'node-cron';
 import PDFDocument from 'pdfkit';
 import path from 'path';
 import crypto from 'crypto';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { readDb, writeDb, nextId, publicFileUrl } from './db.js';
 
@@ -13,20 +14,27 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 4000;
 const TRIAL_DAYS = 30;
+const uploadsDir = path.join(__dirname, 'uploads');
+const pdfFontPath = ['/Library/Fonts/Arial Unicode.ttf', '/System/Library/Fonts/Supplemental/Arial Unicode.ttf']
+  .find(candidate => fs.existsSync(candidate));
+
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(uploadsDir));
 
 const storage = multer.diskStorage({
-  destination: (_, __, cb) => cb(null, path.join(__dirname, 'uploads')),
+  destination: (_, __, cb) => cb(null, uploadsDir),
   filename: (_, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`),
 });
 const upload = multer({ storage });
 
 const subjects = ['Математика', 'Физика', 'Химия'];
 const notificationKeys = ['Новая работа загружена', 'Запрос на пересмотр', 'Дедлайн приближается', 'Еженедельная сводка'];
-const reportFieldKeys = ['Имя ученика', 'Частые типы ошибок', 'Частота посещаемости', 'Гистограмма оценок'];
+const reportFieldKeys = ['Имя ученика', 'Частые типы ошибок', 'Гистограмма оценок'];
 const defaultTeacherProfile = (overrides = {}) => ({
   id: overrides.id || '',
   name: overrides.name || 'Преподаватель',
@@ -40,6 +48,7 @@ const defaultTeacherProfile = (overrides = {}) => ({
     ...Object.fromEntries(reportFieldKeys.map(key => [key, true])),
     ...(overrides.reportPreferences || {}),
   },
+  historicalStudentIds: unique(overrides.historicalStudentIds || []),
 });
 
 const minutesFromTime = (time = '00:00') => {
@@ -62,6 +71,9 @@ const numericId = (value = '') => {
   return match ? Number(match[1]) : 0;
 };
 
+const normalizeEmail = (value = '') => String(value || '').trim().toLowerCase();
+const normalizePhone = (value = '') => String(value || '').replace(/\D/g, '');
+const isEmailLike = (value = '') => /.+@.+\..+/.test(String(value || '').trim());
 const normalizePersonName = (...parts) => parts.map(part => String(part || '').trim()).filter(Boolean).join(' ');
 const unique = (items = []) => [...new Set(items.filter(Boolean))];
 const studentTeacherIds = (student = {}) => unique(Array.isArray(student.teacherIds) ? student.teacherIds : [student.teacherId]);
@@ -71,7 +83,20 @@ const syncPrimaryTeacher = (student) => {
   student.teacherId = student.teacherIds[0] || null;
   return student;
 };
-const canSendToParent = (student = {}) => Boolean(String(student.parentName || '').trim() && String(student.parentContact || student.parentEmail || '').trim());
+const getStudentParentEmail = (student = {}) => {
+  const explicitEmail = normalizeEmail(student.parentEmail || '');
+  if (isEmailLike(explicitEmail)) return explicitEmail;
+  const legacyContact = normalizeEmail(student.parentContact || '');
+  return isEmailLike(legacyContact) ? legacyContact : '';
+};
+const normalizeStudentParentFields = (student = {}) => {
+  student.parentName = String(student.parentName || '').trim();
+  student.parentEmail = getStudentParentEmail(student);
+  student.parentContact = student.parentContact ?? student.parentEmail;
+  return student;
+};
+const canSendToParent = (student = {}) => Boolean(getStudentParentEmail(student));
+const isVirtualStudent = (db, student = {}) => !db.accounts.some(account => account.role === 'student' && account.userId === student.id);
 const normalizeInviteStatus = (status = '') => (status === 'rejected' ? 'declined' : (status || 'pending'));
 const normalizeWorkStatus = (status = '') => {
   if (status === 'На пересмотре') return 'Ожидает подтверждения';
@@ -155,13 +180,143 @@ function assignTeacherToStudent(student, teacherId) {
   student.teacherId = student.teacherIds[0] || null;
 }
 
-function detachTeacherFromStudent(db, teacherId, studentId) {
+function rememberHistoricalStudent(db, teacherId, studentId) {
+  const teacher = (db.teachers || []).find(item => item.id === teacherId);
+  if (!teacher || !studentId) return;
+  teacher.historicalStudentIds = unique([...(teacher.historicalStudentIds || []), studentId]);
+}
+
+function replaceHistoricalStudentId(db, fromStudentId, toStudentId) {
+  db.teachers.forEach(teacher => {
+    if (!(teacher.historicalStudentIds || []).includes(fromStudentId)) return;
+    teacher.historicalStudentIds = unique(
+      (teacher.historicalStudentIds || []).map(id => (id === fromStudentId ? toStudentId : id)),
+    );
+  });
+}
+
+function findStudentContactConflict(db, { email = '', phone = '', parentEmail = '' } = {}, ignoreStudentId = null) {
+  const normalizedEmail = normalizeEmail(email);
+  const normalizedPhone = normalizePhone(phone);
+  const normalizedParentEmail = normalizeEmail(parentEmail);
+  return db.students.find(student => {
+    if (student.id === ignoreStudentId) return false;
+    if (normalizedEmail && normalizeEmail(student.email || '') === normalizedEmail) return true;
+    if (normalizedPhone && normalizePhone(student.phone || '') === normalizedPhone) return true;
+    if (normalizedParentEmail && getStudentParentEmail(student) === normalizedParentEmail) return true;
+    return false;
+  }) || null;
+}
+
+function findMergeCandidateForRegisteredStudent(db, { email = '', phone = '', parentEmail = '' } = {}) {
+  const normalizedEmail = normalizeEmail(email);
+  const normalizedPhone = normalizePhone(phone);
+  const normalizedParentEmail = normalizeEmail(parentEmail);
+  return db.students.find(student => {
+    if (!isVirtualStudent(db, student)) return false;
+    if (normalizedEmail && normalizeEmail(student.email || '') === normalizedEmail) return true;
+    if (normalizedPhone && normalizePhone(student.phone || '') === normalizedPhone) return true;
+    if (!normalizedParentEmail) return false;
+    if (normalizeEmail(student.email || '') || normalizePhone(student.phone || '')) return false;
+    return getStudentParentEmail(student) === normalizedParentEmail;
+  }) || null;
+}
+
+function mergeVirtualStudentIntoRealStudent(db, virtualStudent, realStudent) {
+  if (!virtualStudent || !realStudent || virtualStudent.id === realStudent.id) return realStudent;
+
+  const teacherIds = unique([...studentTeacherIds(realStudent), ...studentTeacherIds(virtualStudent)]);
+  const merged = syncPrimaryTeacher({
+    ...realStudent,
+    ...virtualStudent,
+    id: realStudent.id,
+    email: virtualStudent.email || realStudent.email || '',
+    phone: virtualStudent.phone || realStudent.phone || '',
+    parentName: virtualStudent.parentName || realStudent.parentName || '',
+    parentEmail: virtualStudent.parentEmail || realStudent.parentEmail || '',
+    parentContact: virtualStudent.parentContact || realStudent.parentContact || '',
+    active: realStudent.active !== false && virtualStudent.active !== false,
+    virtual: false,
+    teacherIds,
+  });
+
+  normalizeStudentParentFields(merged);
+
+  const realIndex = db.students.findIndex(student => student.id === realStudent.id);
+  if (realIndex !== -1) {
+    db.students[realIndex] = merged;
+  }
+
+  db.groups.forEach(group => {
+    if (!(group.studentIds || []).includes(virtualStudent.id)) return;
+    group.studentIds = unique((group.studentIds || []).map(studentId => (
+      studentId === virtualStudent.id ? realStudent.id : studentId
+    )));
+  });
+
+  db.assignments.forEach(assignment => {
+    if (assignment.recipientType === 'student' && assignment.recipientId === virtualStudent.id) {
+      assignment.recipientId = realStudent.id;
+    }
+    if (assignment.recipientType === 'students') {
+      assignment.recipientIds = unique((assignment.recipientIds || []).map(studentId => (
+        studentId === virtualStudent.id ? realStudent.id : studentId
+      )));
+    }
+  });
+
+  db.works.forEach(work => {
+    if (work.studentId === virtualStudent.id) work.studentId = realStudent.id;
+  });
+
+  db.attendanceRecords.forEach(record => {
+    if (record.studentId === virtualStudent.id) record.studentId = realStudent.id;
+  });
+
+  db.teacherInvites.forEach(invite => {
+    if (invite.studentId === virtualStudent.id) invite.studentId = realStudent.id;
+  });
+
+  db.reportConfigs.forEach(config => {
+    if (config.targetType === 'student' && config.targetId === virtualStudent.id) {
+      config.targetId = realStudent.id;
+    }
+  });
+
+  db.reportLogs.forEach(log => {
+    log.recipients = (log.recipients || []).map(recipient => (
+      recipient.studentId === virtualStudent.id ? { ...recipient, studentId: realStudent.id } : recipient
+    ));
+    log.deliveries = (log.deliveries || []).map(delivery => (
+      delivery.studentId === virtualStudent.id ? { ...delivery, studentId: realStudent.id } : delivery
+    ));
+    if (Array.isArray(log.payload)) {
+      log.payload = log.payload.map(item => (
+        item.studentId === virtualStudent.id ? { ...item, studentId: realStudent.id } : item
+      ));
+    }
+  });
+
+  replaceHistoricalStudentId(db, virtualStudent.id, realStudent.id);
+  teacherIds.forEach(teacherId => rememberHistoricalStudent(db, teacherId, realStudent.id));
+
+  db.students = db.students.filter(student => student.id !== virtualStudent.id);
+  return merged;
+}
+
+function detachTeacherStudent(db, teacherId, studentId) {
   const student = db.students.find(item => item.id === studentId);
   if (!student) return null;
   student.teacherIds = studentTeacherIds(student).filter(id => id !== teacherId);
   student.teacherId = student.teacherIds[0] || null;
   db.groups.filter(group => group.teacherId === teacherId).forEach(group => {
     group.studentIds = (group.studentIds || []).filter(id => id !== studentId);
+  });
+  db.teacherInvites.forEach(invite => {
+    if (invite.teacherId === teacherId && invite.studentId === studentId && invite.status === 'pending') {
+      invite.status = 'declined';
+      invite.reviewedAt = new Date().toISOString();
+    }
   });
   return student;
 }
@@ -233,18 +388,26 @@ function ensureDbDefaults(db) {
 
   const primaryTeacherId = db.teachers[0]?.id || null;
   db.teacher = db.teachers.find(item => item.id === 't1') || db.teachers[0];
+  const studentAccountIds = new Set(db.accounts.filter(item => item.role === 'student').map(item => item.userId));
 
   db.students.forEach(student => {
     student.phone ||= '';
     student.parentName ||= '';
-    student.parentEmail ||= '';
-    student.parentContact ||= student.parentEmail || '';
+    normalizeStudentParentFields(student);
     student.level = student.level || '';
     student.subjects = Array.isArray(student.subjects) ? student.subjects : [];
     student.lessonSlots = normalizeSlots(student.lessonSlots || []);
     student.active = student.active !== false;
+    student.virtual = student.virtual ?? !studentAccountIds.has(student.id);
     if (!Array.isArray(student.teacherIds)) student.teacherIds = unique([student.teacherId].filter(Boolean));
     syncPrimaryTeacher(student);
+  });
+
+  db.teachers.forEach(teacher => {
+    teacher.historicalStudentIds = unique([
+      ...(teacher.historicalStudentIds || []),
+      ...db.students.filter(student => studentHasTeacher(student, teacher.id)).map(student => student.id),
+    ]);
   });
 
   db.groups.forEach(group => {
@@ -295,6 +458,7 @@ function ensureDbDefaults(db) {
     direction: invite.direction || 'student_to_teacher',
     token: invite.token || inviteToken(),
     createdAt: invite.createdAt || new Date().toISOString(),
+    studentNotificationDismissedAt: invite.studentNotificationDismissedAt || null,
     ...invite,
   }));
   db.accounts.filter(item => item.role === 'student').forEach(account => {
@@ -406,6 +570,32 @@ const getAttendanceFrequency = (db, teacherId, studentId) => {
   const attended = records.filter(item => item.status === 'present').length;
   return `${Math.round((attended / records.length) * 100)}%`;
 };
+const normalizePeriodBoundary = (value, endOfDay = false) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  if (endOfDay) date.setHours(23, 59, 59, 999);
+  else date.setHours(0, 0, 0, 0);
+  return date;
+};
+const resolveReportPeriod = ({ frequency = 'Самостоятельно', periodFrom, periodTo } = {}) => {
+  const now = new Date();
+  const end = normalizePeriodBoundary(periodTo, true) || now;
+  let start = normalizePeriodBoundary(periodFrom, false);
+  if (!start) {
+    start = new Date(end);
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - (frequency === 'Ежемесячно' ? 29 : 6));
+  }
+  const label = `${start.toLocaleDateString('ru-RU')} - ${end.toLocaleDateString('ru-RU')}`;
+  return { start, end, label };
+};
+const isDateWithinPeriod = (value, period) => {
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  return date >= period.start && date <= period.end;
+};
 const getGradesHistogram = (db, teacherId, studentId) => {
   const works = db.works.filter(work => work.teacherId === teacherId && work.studentId === studentId && work.status === 'Проверено');
   if (!works.length) return 'Недостаточно данных';
@@ -420,27 +610,78 @@ const getGradesHistogram = (db, teacherId, studentId) => {
   });
   return Object.entries(buckets).map(([label, value]) => `${label}: ${value}`).join(', ');
 };
-const buildParentReportFields = (db, teacherId, studentId) => {
+const buildGradesHistogramForPeriod = (db, teacherId, studentId, period) => {
+  const works = db.works.filter(work => work.teacherId === teacherId
+    && work.studentId === studentId
+    && work.status === 'Проверено'
+    && isDateWithinPeriod(work.submittedAt, period));
+  if (!works.length) return 'Недостаточно данных';
+  const buckets = { '0-49': 0, '50-69': 0, '70-84': 0, '85-100': 0 };
+  works.forEach(work => {
+    const assignment = db.assignments.find(item => item.id === work.assignmentId);
+    const percent = Math.round(((work.finalScore ?? work.suggestedScore ?? 0) / (assignment?.maxScore || 100)) * 100);
+    if (percent < 50) buckets['0-49'] += 1;
+    else if (percent < 70) buckets['50-69'] += 1;
+    else if (percent < 85) buckets['70-84'] += 1;
+    else buckets['85-100'] += 1;
+  });
+  return Object.entries(buckets).map(([label, value]) => `${label}: ${value}`).join(', ');
+};
+const buildParentReportFields = (db, teacherId, studentId, period) => {
   const student = db.students.find(item => item.id === studentId);
-  const works = db.works.filter(work => work.teacherId === teacherId && work.studentId === studentId && work.status === 'Проверено');
+  const works = db.works.filter(work => work.teacherId === teacherId
+    && work.studentId === studentId
+    && isDateWithinPeriod(work.submittedAt, period));
   const errorCounts = works.flatMap(work => work.aiErrors || []).flatMap(error => error.types || []).reduce((acc, type) => ({ ...acc, [type]: (acc[type] || 0) + 1 }), {});
   const topErrors = Object.entries(errorCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([type]) => type).join(', ') || 'Недостаточно данных';
   return {
     studentName: student?.name || 'Ученик',
     frequentErrors: topErrors,
-    attendanceFrequency: getAttendanceFrequency(db, teacherId, studentId),
-    gradesHistogram: getGradesHistogram(db, teacherId, studentId),
+    gradesHistogram: buildGradesHistogramForPeriod(db, teacherId, studentId, period),
+    parentEmail: getStudentParentEmail(student),
+    periodLabel: period.label,
   };
 };
 
-const buildParentReportPayload = (db, teacherId, targetType, targetId, recipients = []) => (
+const buildParentReportPayload = (db, teacherId, targetType, targetId, recipients = [], period) => (
   targetType === 'student'
-    ? buildParentReportFields(db, teacherId, targetId)
+    ? buildParentReportFields(db, teacherId, targetId, period)
     : recipients.map(recipient => ({
       studentId: recipient.studentId,
-      ...buildParentReportFields(db, teacherId, recipient.studentId),
+      ...buildParentReportFields(db, teacherId, recipient.studentId, period),
     }))
 );
+
+const backendBaseUrl = (req = null) => (req ? `${req.protocol}://${req.get('host')}` : `http://127.0.0.1:${PORT}`);
+
+function writeParentReportPdf({ student, payload, teacher, baseUrl }) {
+  return new Promise((resolve, reject) => {
+    const safeStudentId = student?.id || 'student';
+    const fileName = `parent-report-${safeStudentId}-${Date.now()}.pdf`;
+    const filePath = path.join(uploadsDir, fileName);
+    const doc = new PDFDocument({ margin: 40 });
+    const stream = fs.createWriteStream(filePath);
+    stream.on('finish', () => resolve({ fileName, url: `${baseUrl}/uploads/${fileName}` }));
+    stream.on('error', reject);
+    doc.pipe(stream);
+    if (pdfFontPath) doc.font(pdfFontPath);
+    doc.fontSize(18).text('Отчет для родителя');
+    doc.moveDown(0.6);
+    doc.fontSize(11).text(`Преподаватель: ${teacher?.name || 'Преподаватель'}`);
+    doc.text(`Ученик: ${payload.studentName}`);
+    doc.text(`Период: ${payload.periodLabel}`);
+    doc.text(`Email родителя: ${payload.parentEmail || 'Не указан'}`);
+    doc.moveDown();
+    doc.fontSize(13).text('Частые типы ошибок', { underline: true });
+    doc.moveDown(0.3);
+    doc.fontSize(11).text(payload.frequentErrors);
+    doc.moveDown();
+    doc.fontSize(13).text('Гистограмма оценок', { underline: true });
+    doc.moveDown(0.3);
+    doc.fontSize(11).text(payload.gradesHistogram);
+    doc.end();
+  });
+}
 
 const buildComputedForScope = (db, students = [], groups = [], teacherId = null) => ({
   studentScores: Object.fromEntries(students.map(student => [student.id, teacherId ? getStudentScoreForTeacher(db, teacherId, student.id) : getStudentScore(db, student.id)])),
@@ -494,7 +735,7 @@ const serializeBootstrap = ({ role = null, userId = null } = {}) => {
       students,
       groups,
       assignments: db.assignments.filter(item => teacherOwnsAssignment(item, userId)),
-      works: db.works.filter(item => teacherOwnsWork(item, userId)),
+      works: db.works.filter(item => teacherOwnsWork(item, userId) && relatedStudentIds.has(item.studentId)),
       teacherInvites: invites,
       reportConfigs: db.reportConfigs.filter(item => item.teacherId === userId),
       reportLogs: db.reportLogs.filter(item => item.teacherId === userId),
@@ -580,15 +821,39 @@ app.get('/api/teachers/search', (req, res) => {
   res.json(results);
 });
 
+app.get('/api/students/search', (req, res) => {
+  const db = readDb();
+  ensureDbDefaults(db);
+  const teacherId = String(req.query?.teacherId || '').trim();
+  if (!teacherId) return res.status(400).json({ error: 'Не указан преподаватель.' });
+  const query = String(req.query?.q || '').trim().toLowerCase();
+  const results = db.students
+    .filter(student => student.active && !isVirtualStudent(db, student))
+    .filter(student => {
+      if (!query) return true;
+      return `${student.name} ${student.email}`.toLowerCase().includes(query);
+    })
+    .map(student => ({
+      id: student.id,
+      name: student.name,
+      email: student.email || '',
+      phone: student.phone || '',
+      attachedToCurrentTeacher: studentHasTeacher(student, teacherId),
+    }));
+  res.json(results);
+});
+
 app.post('/api/auth/register', (req, res) => {
   const db = readDb();
   ensureDbDefaults(db);
-  const { role, name, firstName, lastName, email, phone, password, parentName, parentContact } = req.body;
+  const { role, name, firstName, lastName, email, phone, password, parentName, parentEmail, parentContact } = req.body;
   const normalizedName = normalizePersonName(name, firstName, lastName);
-  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const normalizedEmail = normalizeEmail(email);
+  const normalizedPhone = String(phone || '').trim();
+  const normalizedParentEmail = normalizeEmail(parentEmail || (isEmailLike(parentContact) ? parentContact : ''));
   const hasSplitName = String(firstName || '').trim() && String(lastName || '').trim();
   if (!role || !normalizedName || !normalizedEmail || !password || !hasSplitName) return res.status(400).json({ error: 'Заполните имя, фамилию, email, телефон и пароль.' });
-  if (!phone) return res.status(400).json({ error: 'Номер телефона обязателен.' });
+  if (!normalizedPhone) return res.status(400).json({ error: 'Номер телефона обязателен.' });
   const existing = db.accounts.find(acc => acc.role === role && acc.email === normalizedEmail);
   if (existing) return res.status(409).json({ error: 'Аккаунт с такой ролью и почтой уже существует.' });
 
@@ -599,39 +864,43 @@ app.post('/api/auth/register', (req, res) => {
       id: userId,
       name: normalizedName,
       email: normalizedEmail,
-      phone,
+      phone: normalizedPhone,
     }));
   } else {
-    let student = db.students.find(s => s.email.toLowerCase() === normalizedEmail);
-    if (!student) {
-      student = {
-        id: nextId(db, 'student', 's'),
-        name: normalizedName,
-        email: normalizedEmail,
-        phone,
-        parentName: String(parentName || '').trim(),
-        parentEmail: '',
-        parentContact: String(parentContact || '').trim(),
-        level: '',
-        subjects: [],
-        active: true,
-        lessonSlots: [],
-        teacherId: null,
-        teacherIds: [],
-      };
-      db.students.push(student);
+    const mergeCandidate = findMergeCandidateForRegisteredStudent(db, {
+      email: normalizedEmail,
+      phone: normalizedPhone,
+      parentEmail: normalizedParentEmail,
+    });
+    const contactConflict = findStudentContactConflict(
+      db,
+      { email: normalizedEmail, phone: normalizedPhone, parentEmail: normalizedParentEmail },
+      mergeCandidate?.id || null,
+    );
+    if (contactConflict && !isVirtualStudent(db, contactConflict)) {
+      return res.status(409).json({ error: 'Ученик с такими контактами уже зарегистрирован.' });
     }
-    student.name = normalizedName;
-    student.phone = phone;
-    student.parentName = String(parentName || '').trim();
-    student.parentContact = String(parentContact || student.parentContact || '').trim();
-    student.parentEmail = student.parentContact.includes('@') ? student.parentContact : (student.parentEmail || '');
-    student.level ||= '';
-    student.subjects = Array.isArray(student.subjects) ? student.subjects : [];
-    student.lessonSlots = normalizeSlots(student.lessonSlots || []);
-    student.teacherIds = Array.isArray(student.teacherIds) ? student.teacherIds : [];
-    syncPrimaryTeacher(student);
-    userId = student.id;
+
+    const student = normalizeStudentParentFields(syncPrimaryTeacher({
+      id: nextId(db, 'student', 's'),
+      name: normalizedName,
+      email: normalizedEmail,
+      phone: normalizedPhone,
+      parentName: String(parentName || '').trim(),
+      parentEmail: normalizedParentEmail,
+      parentContact: normalizedParentEmail,
+      level: '',
+      subjects: [],
+      active: true,
+      virtual: false,
+      lessonSlots: [],
+      teacherId: null,
+      teacherIds: [],
+    }));
+    db.students.push(student);
+    const mergedStudent = mergeCandidate ? mergeVirtualStudentIntoRealStudent(db, mergeCandidate, student) : student;
+    mergedStudent.virtual = false;
+    userId = mergedStudent.id;
   }
 
   const account = {
@@ -639,7 +908,7 @@ app.post('/api/auth/register', (req, res) => {
     role,
     name: normalizedName,
     email: normalizedEmail,
-    phone,
+    phone: normalizedPhone,
     password,
     verified: false,
     createdAt: new Date().toISOString(),
@@ -649,7 +918,7 @@ app.post('/api/auth/register', (req, res) => {
   db.accounts.push(account);
 
   const code = createSmsCode();
-  db.smsLogs.unshift({ id: `sms-${Date.now()}`, email: normalizedEmail, role, phone, code, createdAt: new Date().toISOString(), used: false });
+  db.smsLogs.unshift({ id: `sms-${Date.now()}`, email: normalizedEmail, role, phone: normalizedPhone, code, createdAt: new Date().toISOString(), used: false });
   writeDb(db);
   return res.json({ requiresSms: true, debugCode: code, email: normalizedEmail, role });
 });
@@ -804,7 +1073,10 @@ app.put('/api/teacher-invites/:id', (req, res) => {
   invite.reviewedAt = new Date().toISOString();
   if (nextStatus === 'accepted') {
     const student = db.students.find(item => item.id === invite.studentId);
-    if (student) assignTeacherToStudent(student, invite.teacherId);
+    if (student) {
+      assignTeacherToStudent(student, invite.teacherId);
+      rememberHistoricalStudent(db, invite.teacherId, student.id);
+    }
     db.teacherInvites.forEach(item => {
       if (item.id !== invite.id && item.studentId === invite.studentId && item.teacherId === invite.teacherId && item.status === 'pending') {
         item.status = 'declined';
@@ -814,6 +1086,16 @@ app.put('/api/teacher-invites/:id', (req, res) => {
   }
   writeDb(db);
   res.json(invite);
+});
+
+app.post('/api/teacher-invites/:id/dismiss-student-notification', (req, res) => {
+  const db = readDb();
+  ensureDbDefaults(db);
+  const invite = db.teacherInvites.find(item => item.id === req.params.id);
+  if (!invite) return res.status(404).json({ error: 'Уведомление не найдено.' });
+  invite.studentNotificationDismissedAt = new Date().toISOString();
+  writeDb(db);
+  res.json({ success: true });
 });
 
 app.post('/api/upload', upload.array('files', 20), (req, res) => {
@@ -831,12 +1113,34 @@ app.post('/api/students', (req, res) => {
   ensureDbDefaults(db);
   const { name, email, parentName, parentContact, parentEmail, level, subjects, lessonSlots, newGroupName, newGroupSubject, teacherId, phone } = req.body;
   if (!teacherId) return res.status(400).json({ error: 'Не указан преподаватель для нового ученика.' });
+  if (!String(name || '').trim()) return res.status(400).json({ error: 'Имя ученика обязательно.' });
   const normalizedSlots = normalizeSlots(lessonSlots || []);
   const conflict = slotConflict(db, normalizedSlots, null, null, teacherId || null);
   if (conflict.conflict) return res.status(409).json({ error: `Слот занят: ${conflict.studentName}, ${conflict.slot.day} ${conflict.slot.time}` });
+  const normalizedEmail = normalizeEmail(email);
+  const normalizedPhone = String(phone || '').trim();
+  const normalizedParentEmail = normalizeEmail(parentEmail || (isEmailLike(parentContact) ? parentContact : ''));
+  const duplicate = findStudentContactConflict(db, { email: normalizedEmail, phone: normalizedPhone, parentEmail: normalizedParentEmail });
+  if (duplicate) return res.status(409).json({ error: 'Ученик с такими контактами уже существует. Используйте поиск и приглашение.' });
   const studentId = nextId(db, 'student', 's');
-  const student = { id: studentId, name, email, phone: phone || '', parentName: parentName || '', parentContact: parentContact || parentEmail || '', parentEmail: parentEmail || '', level: level || '', subjects: Array.isArray(subjects) ? subjects : [], active: true, lessonSlots: normalizedSlots, teacherIds: teacherId ? [teacherId] : [], teacherId: teacherId || null };
+  const student = normalizeStudentParentFields(syncPrimaryTeacher({
+    id: studentId,
+    name: String(name || '').trim(),
+    email: normalizedEmail,
+    phone: normalizedPhone,
+    parentName: parentName || '',
+    parentContact: parentContact || normalizedParentEmail,
+    parentEmail: normalizedParentEmail,
+    level: level || '',
+    subjects: Array.isArray(subjects) ? subjects : [],
+    active: true,
+    virtual: true,
+    lessonSlots: normalizedSlots,
+    teacherIds: teacherId ? [teacherId] : [],
+    teacherId: teacherId || null,
+  }));
   db.students.push(student);
+  rememberHistoricalStudent(db, teacherId, studentId);
   if (newGroupName) {
     const groupId = nextId(db, 'group', 'g');
     db.groups.push({ id: groupId, name: newGroupName, subject: newGroupSubject || subjects?.[0] || 'Математика', active: true, studentIds: [studentId], riskTopics: [], teacherId: teacherId || null, lessonSlots: [] });
@@ -850,11 +1154,24 @@ app.put('/api/students/:id', (req, res) => {
   ensureDbDefaults(db);
   const index = db.students.findIndex(item => item.id === req.params.id);
   if (index === -1) return res.status(404).json({ error: 'Student not found' });
+  const current = db.students[index];
   const normalizedSlots = req.body.lessonSlots ? normalizeSlots(req.body.lessonSlots) : db.students[index].lessonSlots;
   const activeTeacherId = req.body.teacherId || studentTeacherIds(db.students[index])[0] || null;
   const conflict = slotConflict(db, normalizedSlots, req.params.id, null, activeTeacherId);
   if (conflict.conflict) return res.status(409).json({ error: `Слот занят: ${conflict.studentName}, ${conflict.slot.day} ${conflict.slot.time}` });
-  db.students[index] = syncPrimaryTeacher({ ...db.students[index], ...req.body, lessonSlots: normalizedSlots, parentContact: req.body.parentContact ?? db.students[index].parentContact });
+  const nextParentEmail = normalizeEmail(req.body.parentEmail || (isEmailLike(req.body.parentContact) ? req.body.parentContact : current.parentEmail));
+  const duplicate = findStudentContactConflict(db, {
+    email: normalizeEmail(req.body.email ?? current.email),
+    phone: req.body.phone ?? current.phone,
+    parentEmail: nextParentEmail,
+  }, req.params.id);
+  if (duplicate) return res.status(409).json({ error: 'Ученик с такими контактами уже существует.' });
+  db.students[index] = normalizeStudentParentFields(syncPrimaryTeacher({
+    ...db.students[index],
+    ...req.body,
+    parentEmail: nextParentEmail,
+    lessonSlots: normalizedSlots,
+  }));
   db.accounts.filter(acc => acc.role === 'student' && acc.userId === req.params.id).forEach(acc => {
     if (req.body.email) acc.email = req.body.email;
     if (req.body.phone !== undefined) acc.phone = req.body.phone;
@@ -882,13 +1199,7 @@ app.post('/api/teachers/:teacherId/students/:studentId/detach', (req, res) => {
   const student = db.students.find(item => item.id === req.params.studentId);
   if (!teacher || !student) return res.status(404).json({ error: 'Не удалось найти преподавателя или ученика.' });
   if (!studentHasTeacher(student, teacher.id)) return res.status(409).json({ error: 'Этот ученик не связан с преподавателем.' });
-  detachTeacherFromStudent(db, teacher.id, student.id);
-  db.teacherInvites.forEach(invite => {
-    if (invite.teacherId === teacher.id && invite.studentId === student.id && invite.status === 'pending') {
-      invite.status = 'declined';
-      invite.reviewedAt = new Date().toISOString();
-    }
-  });
+  detachTeacherStudent(db, teacher.id, student.id);
   writeDb(db);
   res.json({ success: true });
 });
@@ -1018,12 +1329,7 @@ app.post('/api/works', (req, res) => {
   }
   const existing = db.works.find(item => item.assignmentId === req.body.assignmentId && item.studentId === req.body.studentId && item.teacherId === (req.body.teacherId || assignment.teacherId));
   if (existing) {
-    existing.files = [...(existing.files || []), ...(req.body.files || [])];
-    existing.aiComment = req.body.aiComment || existing.aiComment;
-    existing.ocrText = req.body.ocrText || existing.ocrText;
-    existing.status = normalizeWorkStatus(existing.status);
-    writeDb(db);
-    return res.json(existing);
+    return res.status(409).json({ error: 'Работа по этому заданию уже отправлена. Дозагрузка файлов недоступна.' });
   }
   const work = {
     id: nextId(db, 'work', 'w'),
@@ -1075,12 +1381,20 @@ app.post('/api/reports/configs', (req, res) => {
   const db = readDb();
   ensureDbDefaults(db);
   const previewRecipients = recipientsForConfig(db, req.body, true);
-  if (!previewRecipients.length) return res.status(409).json({ error: 'Нельзя настроить отправку без заполненных контактов родителя.' });
+  if (!previewRecipients.length) return res.status(409).json({ error: 'Нельзя настроить отправку без заполненного Email родителя.' });
   const existing = db.reportConfigs.find(item => item.teacherId === req.body.teacherId && item.targetType === req.body.targetType && item.targetId === req.body.targetId);
   const nextRun = new Date();
   nextRun.setDate(nextRun.getDate() + (req.body.frequency === 'Еженедельно' ? 7 : 30));
-  if (existing) Object.assign(existing, req.body, { saved: true, nextRun: nextRun.toISOString() });
-  else db.reportConfigs.push({ id: nextId(db, 'report', 'rc'), ...req.body, teacherId: req.body.teacherId || null, saved: true, nextRun: nextRun.toISOString() });
+  const normalizedConfig = {
+    targetType: req.body.targetType,
+    targetId: req.body.targetId,
+    frequency: req.body.frequency,
+    teacherId: req.body.teacherId || null,
+    saved: true,
+    nextRun: nextRun.toISOString(),
+  };
+  if (existing) Object.assign(existing, normalizedConfig);
+  else db.reportConfigs.push({ id: nextId(db, 'report', 'rc'), ...normalizedConfig });
   writeDb(db);
   res.json({ success: true });
 });
@@ -1088,7 +1402,7 @@ app.post('/api/reports/configs', (req, res) => {
 const recipientsForConfig = (db, config, manual = false) => {
   if (config.targetType === 'student') {
     const student = db.students.find(item => item.id === config.targetId);
-    return canSendToParent(student) ? [{ contact: student.parentContact || student.parentEmail, name: student.parentName || student.name, studentId: student.id }] : [];
+    return canSendToParent(student) ? [{ contact: getStudentParentEmail(student), name: student.parentName || student.name, studentId: student.id }] : [];
   }
   const group = db.groups.find(item => item.id === config.targetId && (!config.teacherId || item.teacherId === config.teacherId));
   if (!group) return [];
@@ -1097,29 +1411,48 @@ const recipientsForConfig = (db, config, manual = false) => {
     .filter(Boolean)
     .filter(student => canSendToParent(student))
     .filter(student => manual || !db.reportConfigs.find(cfg => cfg.teacherId === config.teacherId && cfg.targetType === 'student' && cfg.targetId === student.id && cfg.frequency !== 'Самостоятельно'))
-    .map(student => ({ contact: student.parentContact || student.parentEmail, name: student.parentName || student.name, studentId: student.id }));
+    .map(student => ({ contact: getStudentParentEmail(student), name: student.parentName || student.name, studentId: student.id }));
 };
 
 app.post('/api/reports/send', (req, res) => {
   const db = readDb();
   ensureDbDefaults(db);
-  const { targetType, targetId, period, teacherId } = req.body;
-  const config = { targetType, targetId, frequency: 'Самостоятельно', period, teacherId };
+  const { targetType = 'student', targetId, teacherId, periodFrom, periodTo } = req.body;
+  const config = { targetType, targetId, frequency: 'Самостоятельно', teacherId, periodFrom, periodTo };
   const recipients = recipientsForConfig(db, config, true);
-  if (!recipients.length) return res.status(409).json({ error: 'Не заполнены данные родителя для выбранного ученика или группы.' });
-  const entry = {
-    id: `log-${Date.now()}`,
-    createdAt: new Date().toISOString(),
-    targetLabel: summarizeEntity(db, targetType, targetId),
-    recipients,
-    fields: [...reportFieldKeys],
-    payload: buildParentReportPayload(db, teacherId, targetType, targetId, recipients),
-    mode: 'manual',
-    teacherId: teacherId || null,
-  };
-  db.reportLogs.unshift(entry);
-  writeDb(db);
-  res.json(entry);
+  if (!recipients.length) return res.status(409).json({ error: 'У выбранного ученика не заполнен Email родителя.' });
+  const teacher = findTeacherById(db, teacherId);
+  const period = resolveReportPeriod({ frequency: 'Самостоятельно', periodFrom, periodTo });
+  Promise.all(recipients.map(async recipient => {
+    const payload = buildParentReportFields(db, teacherId, recipient.studentId, period);
+    const pdf = await writeParentReportPdf({
+      student: db.students.find(item => item.id === recipient.studentId),
+      payload,
+      teacher,
+      baseUrl: backendBaseUrl(req),
+    });
+    return { ...recipient, ...pdf, payload };
+  }))
+    .then((deliveries) => {
+      const entry = {
+        id: `log-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        targetLabel: summarizeEntity(db, targetType, targetId),
+        recipients,
+        deliveries,
+        fields: [...reportFieldKeys],
+        payload: buildParentReportPayload(db, teacherId, targetType, targetId, recipients, period),
+        periodLabel: period.label,
+        mode: 'manual',
+        teacherId: teacherId || null,
+      };
+      db.reportLogs.unshift(entry);
+      writeDb(db);
+      res.json(entry);
+    })
+    .catch((error) => {
+      res.status(500).json({ error: error.message || 'Не удалось сформировать PDF-отчет.' });
+    });
 });
 
 app.get('/api/reports/logs', (req, res) => {
@@ -1225,23 +1558,37 @@ app.get('/api/batch/sessions/:id/export.pdf', (req, res) => {
   doc.end();
 });
 
-cron.schedule('* * * * *', () => {
+cron.schedule('* * * * *', async () => {
   const db = readDb();
   ensureDbDefaults(db);
   let changed = false;
   const now = new Date();
-  db.reportConfigs.forEach(config => {
-    if (config.frequency === 'Самостоятельно' || !config.nextRun) return;
-    if (new Date(config.nextRun) > now) return;
+  for (const config of db.reportConfigs) {
+    if (config.frequency === 'Самостоятельно' || !config.nextRun) continue;
+    if (new Date(config.nextRun) > now) continue;
     const recipients = recipientsForConfig(db, config, false);
     if (recipients.length) {
+      const teacher = findTeacherById(db, config.teacherId);
+      const period = resolveReportPeriod({ frequency: config.frequency });
+      const deliveries = await Promise.all(recipients.map(async recipient => {
+        const payload = buildParentReportFields(db, config.teacherId, recipient.studentId, period);
+        const pdf = await writeParentReportPdf({
+          student: db.students.find(item => item.id === recipient.studentId),
+          payload,
+          teacher,
+          baseUrl: backendBaseUrl(),
+        });
+        return { ...recipient, ...pdf, payload };
+      }));
       db.reportLogs.unshift({
         id: `log-${Date.now()}-${config.id}`,
         createdAt: new Date().toISOString(),
         targetLabel: summarizeEntity(db, config.targetType, config.targetId),
         recipients,
+        deliveries,
         fields: [...reportFieldKeys],
-        payload: buildParentReportPayload(db, config.teacherId, config.targetType, config.targetId, recipients),
+        payload: buildParentReportPayload(db, config.teacherId, config.targetType, config.targetId, recipients, period),
+        periodLabel: period.label,
         mode: 'scheduled',
         teacherId: config.teacherId || null,
       });
@@ -1250,7 +1597,7 @@ cron.schedule('* * * * *', () => {
     nextRun.setDate(nextRun.getDate() + (config.frequency === 'Еженедельно' ? 7 : 30));
     config.nextRun = nextRun.toISOString();
     changed = true;
-  });
+  }
   if (changed) writeDb(db);
 });
 

@@ -116,6 +116,8 @@ img { max-width: 100%; display: block; }
 .primaryBtn, .primaryLinkBtn { background: linear-gradient(180deg, var(--primary) 0%, var(--primary-2) 100%); color: white; box-shadow: 0 10px 22px rgba(37,99,235,.18); }
 .secondaryBtn, .linkButton { background: white; color: var(--text); border: 1px solid var(--line); }
 .ghostBtn, .iconBtn, .iconGhost { background: rgba(255,255,255,.9); border: 1px solid var(--line); color: var(--text); }
+.accentPrimaryBtn { background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); box-shadow: 0 12px 24px rgba(124,58,237,.24); }
+.dangerOutline { border-color: rgba(220,38,38,.22); color: var(--danger); }
 .iconBtn, .iconGhost { padding: 10px; min-width: 40px; min-height: 40px; }
 .iconGhost.danger { color: var(--danger); }
 .wide { width: 100%; }
@@ -143,11 +145,18 @@ img { max-width: 100%; display: block; }
 .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
 .galleryImg { width: 100%; height: 180px; object-fit: cover; border-radius: 22px; border: 1px solid var(--line); background: #f8fafc; }
 .galleryImg.tall { height: 320px; }
+.attachmentGalleryCompact { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.pdfPreviewCard { min-height: 320px; border: 1px solid var(--line); border-radius: 22px; background: rgba(248,250,252,.95); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.pdfPreviewTitle { font-size: 13px; font-weight: 700; line-height: 1.4; word-break: break-word; }
+.pdfPreviewObject { width: 100%; min-height: 250px; border: 0; border-radius: 16px; background: white; }
 
 .filterRow { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 .suggestions { margin-top: 8px; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: white; box-shadow: 0 14px 30px rgba(15,23,42,.08); }
 .suggestion { width: 100%; border: 0; background: white; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; }
 .suggestion:hover { background: #f8fafc; }
+.searchDropdownHint { padding: 14px 16px; color: var(--muted); font-size: 13px; }
+.searchSuccess { display: inline-flex; align-items: center; gap: 8px; background: var(--success-bg); color: var(--success); border-radius: 999px; padding: 10px 14px; font-size: 13px; font-weight: 700; }
+.primaryInlineAction { color: var(--primary); font-weight: 700; }
 .checkboxGrid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
 .checkRow { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 18px; padding: 12px 14px; background: white; }
 .slotRow { display: grid; grid-template-columns: 1fr 1fr 1fr auto auto; gap: 10px; align-items: center; }

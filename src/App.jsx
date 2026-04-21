@@ -84,9 +84,16 @@ const api = {
     if (!r.ok) throw new Error('Не удалось загрузить список преподавателей');
     return data;
   }),
+  searchStudents: (teacherId, query = '') => fetch(`${API}/api/students/search?teacherId=${encodeURIComponent(teacherId)}&q=${encodeURIComponent(query)}`).then(async r => {
+    const data = await r.json().catch(() => ([]));
+    if (!r.ok) throw new Error(data.error || 'Не удалось загрузить список учеников');
+    return data;
+  }),
   createTeacherInvite: (payload) => jsonPost('/api/teacher-invites', payload),
   claimTeacherInvite: (payload) => jsonPost('/api/teacher-invites/claim', payload),
   updateTeacherInvite: (id, payload) => jsonPut(`/api/teacher-invites/${id}`, payload),
+  dismissTeacherInviteNotification: (id) => jsonPost(`/api/teacher-invites/${id}/dismiss-student-notification`, {}),
+  detachTeacherStudent: (teacherId, studentId) => jsonPost(`/api/teachers/${teacherId}/students/${studentId}/detach`, {}),
 };
 
 
@@ -140,14 +147,20 @@ function clearSession() { localStorage.removeItem('proveriai_session'); }
 const cx = (...items) => items.filter(Boolean).join(' ');
 const pillClass = {
   'Активно': 'pill info', 'Черновик': 'pill warn', 'Завершено': 'pill success',
-  'Проверено': 'pill success', 'Ожидает подтверждения': 'pill info',
+  'Проверено': 'pill success', 'Ожидает подтверждения': 'pill info', 'На проверке': 'pill info',
   pending: 'pill info', accepted: 'pill success', declined: 'pill warn'
 };
 const SUBJECT_OPTIONS = ['Математика', 'Физика', 'Химия'];
-const WORK_STATUS_LABELS = {};
+const PARENT_REPORT_FIELDS = ['Имя ученика', 'Частые типы ошибок', 'Гистограмма оценок'];
+const WORK_STATUS_LABELS = {
+  student: {
+    'Ожидает подтверждения': 'На проверке',
+  },
+  teacher: {},
+};
 const onboardingVariants = {
   student: [
-    { title: 'Заполнить профиль', text: 'Добавьте телефон и контакт родителя, если он нужен для отчетов.', path: '/student/profile', cta: 'Открыть профиль' },
+    { title: 'Заполнить профиль', text: 'Добавьте телефон и Email родителя, если он нужен для отчетов.', path: '/student/profile', cta: 'Открыть профиль' },
     { title: 'Найти преподавателя', text: 'Откройте раздел «Репетиторы» и отправьте запрос нужному преподавателю.', path: '/student/tutors', cta: 'Перейти к репетиторам' },
     { title: 'Открыть первое задание', text: 'Как только преподаватель опубликует задание, оно появится в вашем списке.', path: '/student/assignments', cta: 'Открыть задания' },
   ],
@@ -159,8 +172,8 @@ const onboardingVariants = {
   ],
 };
 
-function displayWorkStatus(status) {
-  return WORK_STATUS_LABELS[status] || status;
+function displayWorkStatus(status, role = 'teacher') {
+  return WORK_STATUS_LABELS[role]?.[status] || status;
 }
 
 function getTeacherProfile(db, session) {
@@ -199,6 +212,82 @@ function teacherOwnedWorks(db, teacherId) {
 
 function teacherInvitesFor(db, teacherId, status = 'pending') {
   return (db.teacherInvites || []).filter(item => item.teacherId === teacherId && (!status || item.status === status));
+}
+
+function teacherHistoricalStudentsCount(db, teacherId) {
+  const teacher = (db.teachers || []).find(item => item.id === teacherId);
+  return teacher?.historicalStudentIds?.length || 0;
+}
+
+function isPdfAttachment(file = {}) {
+  const source = `${file.name || ''} ${file.url || ''}`.toLowerCase();
+  return source.includes('.pdf');
+}
+
+function formatDeadline(deadline) {
+  if (!deadline) return 'Без дедлайна';
+  const date = new Date(deadline);
+  if (Number.isNaN(date.getTime())) return deadline;
+  return date.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatDateOnly(value) {
+  if (!value) return 'Не указан';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('ru-RU');
+}
+
+async function submitAssignmentWork({ assignment, student, works, files, reload, notify }) {
+  if (!files.length) return;
+  const existing = works.find(item => item.assignmentId === assignment.id);
+  if (existing) throw new Error('Работа по этому заданию уже отправлена. Дозагрузка недоступна.');
+  const uploaded = await api.upload(files);
+  await api.createWork({
+    assignmentId: assignment.id,
+    studentId: student.id,
+    teacherId: assignment.teacherId || studentTeacherIds(student)[0] || null,
+    files: uploaded.files,
+    ocrText: 'Распознанный текст будет добавлен после обработки.',
+    aiComment: 'AI-анализ будет добавлен после обработки.',
+    aiErrors: [],
+    suggestedScore: 0,
+    finalScore: null,
+    status: 'Ожидает подтверждения',
+  });
+  await reload();
+  notify({ type: 'success', text: 'Решение отправлено преподавателю.' });
+}
+
+function AttachmentGallery({ files = [], compact = false }) {
+  if (!files.length) return null;
+  return (
+    <div className={cx('gallery', compact && 'attachmentGalleryCompact')}>
+      {files.map(file => {
+        const href = normalizeUrl(file.url);
+        if (file.kind === 'photo') {
+          return <img key={file.id} src={href} alt={file.name} className="galleryImg" />;
+        }
+        if (isPdfAttachment(file)) {
+          return (
+            <div key={file.id} className="pdfPreviewCard">
+              <div className="pdfPreviewTitle">{file.name}</div>
+              <object data={href} type="application/pdf" className="pdfPreviewObject">
+                <a href={href} target="_blank" rel="noreferrer" className="fileTile">Открыть PDF</a>
+              </object>
+            </div>
+          );
+        }
+        return <a key={file.id} href={href} target="_blank" rel="noreferrer" className="fileTile">{file.name}</a>;
+      })}
+    </div>
+  );
 }
 
 
@@ -348,7 +437,7 @@ function Shell({ session, db, reload, logout, notify, updateSession }) {
             <Route path="/teacher/reports" element={<TeacherReportsPage db={db} reload={reload} notify={notify} session={session} />} />
             <Route path="/teacher/pricing" element={<TeacherPricingPage db={db} session={session} />} />
             <Route path="/teacher/settings" element={<TeacherSettingsPage db={db} reload={reload} notify={notify} session={session} />} />
-            <Route path="/student" element={<StudentDashboardPage db={db} session={session} navigate={navigate} />} />
+            <Route path="/student" element={<StudentDashboardPage db={db} session={session} navigate={navigate} reload={reload} notify={notify} />} />
             <Route path="/student/assignments" element={<StudentAssignmentsPage db={db} reload={reload} notify={notify} session={session} />} />
             <Route path="/student/tutors" element={<StudentTutorsPage db={db} reload={reload} notify={notify} session={session} />} />
             <Route path="/student/profile" element={<StudentProfilePage db={db} session={session} reload={reload} notify={notify} />} />
@@ -390,7 +479,7 @@ function LoginPage({ onAuth, notify }) {
   const [mode, setMode] = useState(() => initialModeParam === 'register' ? 'register' : 'login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [reg, setReg] = useState({ firstName: '', lastName: '', email: '', password: '', phone: '', parentName: '', parentContact: '' });
+  const [reg, setReg] = useState({ firstName: '', lastName: '', email: '', password: '', phone: '', parentName: '', parentEmail: '' });
   const [pendingSms, setPendingSms] = useState(null);
   const [smsCode, setSmsCode] = useState('');
   const [working, setWorking] = useState(false);
@@ -417,7 +506,7 @@ function LoginPage({ onAuth, notify }) {
         password: reg.password,
         phone: reg.phone,
         parentName: role === 'student' ? reg.parentName : '',
-        parentContact: role === 'student' ? reg.parentContact : '',
+        parentEmail: role === 'student' ? reg.parentEmail : '',
       });
       if (result.requiresSms) {
         setPendingSms({ email: result.email, role: result.role, debugCode: result.debugCode, password: reg.password });
@@ -484,7 +573,7 @@ function LoginPage({ onAuth, notify }) {
               <label className="field"><span>Телефон</span><input className="input" value={reg.phone} onChange={e=>setReg(v=>({...v,phone:e.target.value}))} placeholder="Телефон" /></label>
               <label className="field"><span>Пароль</span><input className="input" type="password" value={reg.password} onChange={e=>setReg(v=>({...v,password:e.target.value}))} placeholder="Пароль" /></label>
               {role === 'student' && <label className="field"><span>Имя родителя</span><input className="input" value={reg.parentName} onChange={e=>setReg(v=>({...v,parentName:e.target.value}))} placeholder="Опционально" /></label>}
-              {role === 'student' && <label className="field"><span>Контакт родителя</span><input className="input" value={reg.parentContact} onChange={e=>setReg(v=>({...v,parentContact:e.target.value}))} placeholder="Телефон или email" /></label>}
+              {role === 'student' && <label className="field"><span>Email родителя (необязательно)</span><input className="input" type="email" value={reg.parentEmail} onChange={e=>setReg(v=>({...v,parentEmail:e.target.value}))} placeholder="parent@example.com" /></label>}
             </div>
             <button className="primaryBtn wide" onClick={doRegister} disabled={working}>Создать аккаунт</button>
           </div>
@@ -595,7 +684,7 @@ function TeacherDashboard({ db, session, navigate }) {
         <KPI title="Активные ученики" value={activeStudents.length} onClick={() => navigate('/teacher/students')} />
         <KPI title="Группы" value={activeGroups.length} onClick={() => navigate('/teacher/groups')} />
         <KPI title="Ждут проверки" value={pendingWorks.length} onClick={() => navigate('/teacher/grading')} />
-        {widgets.totalStudents && <KPI title="Всего учеников" value={activeStudents.length} />}
+        {widgets.totalStudents && <KPI title="Всего учеников" value={teacherHistoricalStudentsCount(db, teacherId)} />}
       </div>
 
       {isNewTeacher && (
@@ -605,7 +694,7 @@ function TeacherDashboard({ db, session, navigate }) {
           text="Пока здесь нет учеников, групп и работ. Начните с первых шагов, чтобы заполнить кабинет реальными данными."
           actions={[
             <button key="profile" className="secondaryBtn" onClick={() => navigate('/teacher/settings')}>Открыть настройки</button>,
-            <button key="students" className="primaryBtn" onClick={() => navigate('/teacher/students')}>Добавить ученика</button>,
+            <button key="students" className="primaryBtn" onClick={() => navigate('/teacher/students')}>Открыть учеников</button>,
           ]}
         />
       )}
@@ -641,11 +730,13 @@ function TeacherDashboard({ db, session, navigate }) {
 }
 
 function TeacherStudentsPage({ db, reload, navigate, notify, session }) {
-  const [search, setSearch] = useState('');
+  const [directoryQuery, setDirectoryQuery] = useState('');
+  const [directoryResults, setDirectoryResults] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [inviteLink, setInviteLink] = useState('');
+  const [detachingStudent, setDetachingStudent] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const teacherId = session.userId;
 
@@ -654,23 +745,46 @@ function TeacherStudentsPage({ db, reload, navigate, notify, session }) {
     if (sid) setSelectedId(sid);
   }, [searchParams]);
 
+  useEffect(() => {
+    let active = true;
+    if (directoryQuery.trim().length < 2) {
+      setDirectoryResults([]);
+      return () => {
+        active = false;
+      };
+    }
+    api.searchStudents(teacherId, directoryQuery).then(result => {
+      if (active) setDirectoryResults(result);
+    }).catch(error => {
+      if (active) notify({ type: 'error', text: error.message });
+    });
+    return () => {
+      active = false;
+    };
+  }, [directoryQuery, teacherId, notify]);
+
   const ownedStudents = teacherOwnedStudents(db, teacherId);
-  const filteredOwnedStudents = ownedStudents.filter(item => (`${item.name} ${item.email}`.toLowerCase().includes(search.toLowerCase())));
   const invites = teacherInvitesFor(db, teacherId).filter(invite => invite.direction === 'student_to_teacher').map(invite => ({ ...invite, student: db.students.find(item => item.id === invite.studentId) })).filter(item => item.student && item.status === 'pending');
-  const selected = ownedStudents.find(item => item.id === selectedId) || filteredOwnedStudents[0] || null;
-  const selectedWorks = selected ? db.works.filter(w => w.studentId === selected.id) : [];
+  const outgoingInvites = (db.teacherInvites || []).filter(invite => invite.teacherId === teacherId && invite.direction === 'teacher_to_student' && invite.status === 'pending');
+  const selected = ownedStudents.find(item => item.id === selectedId) || ownedStudents[0] || null;
+  const selectedWorks = selected ? db.works.filter(w => w.studentId === selected.id && w.teacherId === teacherId) : [];
   const pendingWorks = selected ? selectedWorks.filter(w => w.status !== 'Проверено') : [];
   const displaySlots = selected ? effectiveStudentSlots(db, selected) : [];
+  const inviteStateForStudent = (studentId) => {
+    if (ownedStudents.some(student => student.id === studentId)) return 'attached';
+    if (outgoingInvites.some(invite => invite.studentId === studentId)) return 'pending';
+    return 'available';
+  };
 
   return (
     <div className="stack gap24">
       <div className="row between wrap gap16">
         <div>
           <h2 className="pageTitle">Ученики</h2>
-          <p className="muted">В этом разделе показаны только ваши ученики и входящие запросы на подключение.</p>
+          <p className="muted">Здесь остаются только ваши прикрепленные ученики, а поиск по базе работает отдельным сценарием и не заменяет основной список.</p>
         </div>
         <div className="row gap8 wrap">
-          <button className="secondaryBtn" onClick={async () => {
+          <button className="primaryBtn accentPrimaryBtn" onClick={async () => {
             try {
               const invite = await api.createTeacherInvite({ teacherId, direction: 'teacher_to_student' });
               setInviteLink(`${window.location.origin}/student/tutors?invite=${invite.token}`);
@@ -678,8 +792,8 @@ function TeacherStudentsPage({ db, reload, navigate, notify, session }) {
             } catch (e) {
               notify({ type: 'error', text: e.message });
             }
-          }}>Ссылка-приглашение</button>
-          <button className="primaryBtn" onClick={() => setShowAdd(true)}><Plus size={16} /> Добавить ученика</button>
+          }}><ArrowRight size={16} /> Ссылка приглашение</button>
+          <button className="ghostBtn" onClick={() => setShowAdd(true)}><Plus size={16} /> Добавить виртуального ученика</button>
         </div>
       </div>
 
@@ -699,7 +813,49 @@ function TeacherStudentsPage({ db, reload, navigate, notify, session }) {
         </Card>
       )}
 
-      <div className="toolbar"><Search size={16} /><input className="toolbarInput" value={search} onChange={e => setSearch(e.target.value)} placeholder="Поиск по ученику" /></div>
+      <Card title="Поиск по имени или email" subtitle="Ищет только зарегистрированных реальных учеников базы. Виртуальные ученики сюда не попадают.">
+        <div className="toolbar">
+          <Search size={16} />
+          <input className="toolbarInput" value={directoryQuery} onChange={e => setDirectoryQuery(e.target.value)} placeholder="Поиск по имени или email" />
+        </div>
+        {directoryQuery.trim().length < 2 ? (
+          <div className="muted small mt12">Введите минимум 2 символа, чтобы найти ученика и отправить стандартное приглашение.</div>
+        ) : (
+          <div className="stack gap12 mt16">
+            {directoryResults.length ? directoryResults.map(student => {
+              const inviteState = inviteStateForStudent(student.id);
+              return (
+                <div key={student.id} className="listCard polished">
+                  <div className="row between wrap gap16">
+                    <div className="stack gap6">
+                      <div className="cardTitle">{student.name}</div>
+                      <div className="muted small">{student.email || 'Email не указан'}</div>
+                      <div className="muted small">{student.phone || 'Телефон не указан'}</div>
+                    </div>
+                    <div className="row wrap gap8">
+                      {inviteState === 'attached' ? (
+                        <span className="searchSuccess"><CheckSquare size={16} /> Уже прикреплен</span>
+                      ) : inviteState === 'pending' ? (
+                        <span className="pill info">Приглашение отправлено</span>
+                      ) : (
+                        <button className="primaryBtn" onClick={async () => {
+                          try {
+                            await api.createTeacherInvite({ teacherId, studentId: student.id, direction: 'teacher_to_student' });
+                            await reload();
+                            notify({ type: 'success', text: 'Приглашение ученику отправлено.' });
+                          } catch (e) {
+                            notify({ type: 'error', text: e.message });
+                          }
+                        }}>Пригласить</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            }) : <div className="empty">По этому запросу зарегистрированные ученики не найдены.</div>}
+          </div>
+        )}
+      </Card>
 
       {!!invites.length && (
         <Card title="Приглашенные" subtitle="Ученики, которые отправили вам запрос на подключение.">
@@ -732,26 +888,26 @@ function TeacherStudentsPage({ db, reload, navigate, notify, session }) {
 
       <div className="grid onePlusSide alignedTop">
         <div className="stack gap14">
-          {filteredOwnedStudents.map(student => (
+          {ownedStudents.map(student => (
             <button key={student.id} className={cx('studentCard polished elegantStudentCard', selected?.id === student.id && 'active')} onClick={() => { setSelectedId(student.id); setSearchParams({ student: student.id }); }}>
               <div className="row between gap12 wrap alignStart">
                 <div className="stack gap6">
                   <div className="studentNameSerifless">{student.name}</div>
-                  <div className="studentMetaLine">{student.level} · {student.email}</div>
-                  <div className="chipWrap mt8">{student.subjects.map(subject => <span key={subject} className="chip">{subject}</span>)}</div>
+                  <div className="studentMetaLine">{student.email || 'Email не указан'}{student.phone ? ` · ${student.phone}` : ''}</div>
+                  {student.virtual && <span className="pill warn fit">Виртуальный ученик</span>}
                 </div>
                 <div className="scoreChip">Score {db.computed.studentScores[student.id] || 0}</div>
               </div>
             </button>
           ))}
-          {!filteredOwnedStudents.length && <div className="empty">У вас пока нет учеников. Добавьте первого вручную или примите входящий запрос.</div>}
+          {!ownedStudents.length && <div className="empty">У вас пока нет учеников. Добавьте виртуального ученика, отправьте ссылку-приглашение или примите входящий запрос.</div>}
         </div>
 
         <div>
           {selected ? (
-            <Card title={selected.name} subtitle={selected.email} actions={<div className="row gap8"><button className="iconGhost" onClick={() => setEditing(selected)}><Pencil size={16} /></button><button className="iconGhost danger" onClick={async () => { await api.archiveStudent(selected.id); await reload(); setSelectedId(null); notify({ type: 'success', text: 'Ученик переведен в неактивные.' }); }}><Archive size={16} /></button></div>}>
+            <Card title={selected.name} subtitle={selected.email || 'Email не указан'} actions={<div className="row gap8 wrap"><button className="iconGhost" onClick={() => setEditing(selected)}><Pencil size={16} /></button><button className="secondaryBtn dangerOutline" onClick={() => setDetachingStudent(selected)}>Удалить аккаунт</button></div>}>
               <div className="grid detailGrid betterDetails refinedInfoGrid">
-                <InfoBox label="Родитель" value={selected.parentName || '—'} secondary={selected.parentEmail || '—'} />
+                <InfoBox label="Email родителя" value={selected.parentEmail || '—'} secondary={selected.parentName || 'Имя родителя не указано'} />
                 <InfoBox label="Score" value={String(db.computed.studentScores[selected.id] || 0)} />
                 <button className="infoBox clickable accentBox" onClick={() => pendingWorks.length ? navigate(`/teacher/grading?tab=queue&student=${selected.id}`) : notify({ type: 'error', text: 'Нет работ для проверки.' })}>
                   <div className="infoLabel">Работы для проверки</div>
@@ -759,6 +915,7 @@ function TeacherStudentsPage({ db, reload, navigate, notify, session }) {
                   <div className="muted small">Открыть только работы этого ученика</div>
                 </button>
               </div>
+              {selected.virtual && <div className="cardInner mt16">При добавлении виртуального ученика вы получаете полный рабочий контур преподавателя, но решения он сам прикреплять не сможет, пока не появится реальный аккаунт.</div>}
               <div className="sectionLabel mt20">Занятия</div>
               <div className="chipWrap mt8">{displaySlots.length ? displaySlots.map(slot => <span key={slot.id + (slot.sourceGroupId || '')} className={cx('chip', slot.inherited && 'chipInherited')}>{slot.day} {slot.time} · {slot.durationHours || 0} ч {slot.durationMinutes || 0} мин{slot.inherited ? ` · из группы ${slot.sourceGroupName}` : ''}</span>) : <span className="muted small">Слоты еще не заданы.</span>}</div>
             </Card>
@@ -766,8 +923,28 @@ function TeacherStudentsPage({ db, reload, navigate, notify, session }) {
         </div>
       </div>
 
-      {showAdd && <StudentModal mode="create" db={db} notify={notify} onClose={() => setShowAdd(false)} onSave={async(payload) => { try { await api.createStudent({ ...payload, teacherId }); await reload(); setShowAdd(false); notify({ type: 'success', text: 'Ученик добавлен.' }); } catch (e) { notify({ type: 'error', text: e.message }); } }} />}
+      {showAdd && <StudentModal mode="create" db={db} notify={notify} onClose={() => setShowAdd(false)} onSave={async(payload) => { try { await api.createStudent({ ...payload, teacherId }); await reload(); setShowAdd(false); notify({ type: 'success', text: 'Виртуальный ученик добавлен.' }); } catch (e) { notify({ type: 'error', text: e.message }); } }} />}
       {editing && <StudentModal mode="edit" db={db} student={editing} notify={notify} onClose={() => setEditing(null)} onSave={async(payload) => { try { await api.updateStudent(editing.id, { ...payload, teacherId }); await reload(); setEditing(null); notify({ type: 'success', text: 'Изменения ученика сохранены.' }); } catch (e) { notify({ type: 'error', text: e.message }); } }} />}
+      {detachingStudent && <Modal title="Удалить аккаунт" onClose={() => setDetachingStudent(null)}>
+        <div className="stack gap16">
+          <p className="muted">Мы удалим только связь между вами и учеником. Аккаунт ученика останется в системе, а повторное подключение будет возможно позже.</p>
+          <div className="modalActions">
+            <button className="secondaryBtn" onClick={() => setDetachingStudent(null)}>Отмена</button>
+            <button className="primaryBtn" onClick={async () => {
+              try {
+                await api.detachTeacherStudent(teacherId, detachingStudent.id);
+                await reload();
+                setSelectedId(null);
+                setSearchParams({});
+                setDetachingStudent(null);
+                notify({ type: 'success', text: 'Связь с учеником удалена.' });
+              } catch (e) {
+                notify({ type: 'error', text: e.message });
+              }
+            }}>Подтвердить</button>
+          </div>
+        </div>
+      </Modal>}
     </div>
   );
 }
@@ -778,16 +955,14 @@ function StudentModal({ mode, db, student, onClose, onSave, notify }) {
     email: student?.email || '',
     phone: student?.phone || '',
     parentName: student?.parentName || '',
-    parentContact: student?.parentContact || student?.parentEmail || '',
+    parentEmail: student?.parentEmail || student?.parentContact || '',
     level: student?.level || '',
-    subjects: student?.subjects || ['Математика'],
-    newGroupName: '',
-    newGroupSubject: 'Математика',
   }));
   const [slotDraft, setSlotDraft] = useState({ day: 'ПН', time: '10:00', durationHours: 1, durationMinutes: 0 });
   const [slots, setSlots] = useState(student?.lessonSlots || []);
   const [slotError, setSlotError] = useState('');
   const [showSlotEditor, setShowSlotEditor] = useState(false);
+  const isCreate = mode === 'create';
 
   const hasExternalConflict = (candidate) => {
     const start = timeToMinutes(candidate.time);
@@ -826,40 +1001,55 @@ function StudentModal({ mode, db, student, onClose, onSave, notify }) {
   };
 
   const submit = () => {
+    if (!String(form.name || '').trim()) {
+      setSlotError('Имя обязательно для сохранения виртуального ученика.');
+      return;
+    }
     if (slots.some(slot => hasLocalDuplicate(slot, slot.id) || hasExternalConflict(slot))) {
       setSlotError('Есть конфликтующие или дублирующиеся слоты. Сохранение недоступно.');
       return;
     }
-    onSave({ ...form, lessonSlots: slots.map(slot => ({ ...slot, durationHours: Number(slot.durationHours || 0), durationMinutes: Number(slot.durationMinutes || 0) })) });
+    onSave({
+      name: form.name,
+      email: form.email,
+      phone: form.phone,
+      parentName: isCreate ? '' : form.parentName,
+      parentEmail: form.parentEmail,
+      level: isCreate ? '' : form.level,
+      lessonSlots: isCreate ? [] : slots.map(slot => ({ ...slot, durationHours: Number(slot.durationHours || 0), durationMinutes: Number(slot.durationMinutes || 0) })),
+    });
   };
 
-  return <Modal title={mode === 'create' ? 'Добавить ученика' : 'Редактировать ученика'} onClose={onClose} wide>
+  return <Modal title={isCreate ? 'Добавить виртуального ученика' : 'Редактировать ученика'} onClose={onClose} wide>
+    {isCreate && <div className="cardInner mb16">При добавлении виртуального ученика вы получите идентичный функционал (аналитика, авто-отчеты, проверка работ), но ученик не сможет самостоятельно прикреплять решение.</div>}
     <div className="grid twoCol">
-      <label className="field"><span>Имя</span><input className="input" value={form.name} onChange={e=>setForm(v=>({...v,name:e.target.value}))} /></label>
-      <label className="field"><span>Email ученика</span><input className="input" value={form.email} onChange={e=>setForm(v=>({...v,email:e.target.value}))} /></label>
-      <label className="field"><span>Телефон ученика</span><input className="input" value={form.phone} onChange={e=>setForm(v=>({...v,phone:e.target.value}))} /></label>
-      <label className="field"><span>Имя родителя</span><input className="input" value={form.parentName} onChange={e=>setForm(v=>({...v,parentName:e.target.value}))} /></label>
-      <label className="field"><span>Контакт родителя</span><input className="input" value={form.parentContact} onChange={e=>setForm(v=>({...v,parentContact:e.target.value}))} placeholder="Телефон или email" /></label>
-      <label className="field"><span>Уровень</span><input className="input" value={form.level} onChange={e=>setForm(v=>({...v,level:e.target.value}))} /></label>
-      {mode === 'create' && <label className="field"><span>Новая группа (опционально)</span><input className="input" value={form.newGroupName} onChange={e=>setForm(v=>({...v,newGroupName:e.target.value}))} /></label>}
+      <label className="field"><span>{isCreate ? 'Имя (обязательно)' : 'Имя'}</span><input className="input" value={form.name} onChange={e=>setForm(v=>({...v,name:e.target.value}))} /></label>
+      <label className="field"><span>{isCreate ? 'Email ученика (необязательно)' : 'Email ученика'}</span><input className="input" type="email" value={form.email} onChange={e=>setForm(v=>({...v,email:e.target.value}))} /></label>
+      <label className="field"><span>{isCreate ? 'Телефон ученика (необязательно)' : 'Телефон ученика'}</span><input className="input" value={form.phone} onChange={e=>setForm(v=>({...v,phone:e.target.value}))} /></label>
+      <label className="field"><span>{isCreate ? 'Email родителя (необязательно)' : 'Email родителя'}</span><input className="input" type="email" value={form.parentEmail} onChange={e=>setForm(v=>({...v,parentEmail:e.target.value}))} placeholder="parent@example.com" /></label>
+      {!isCreate && <label className="field"><span>Имя родителя</span><input className="input" value={form.parentName} onChange={e=>setForm(v=>({...v,parentName:e.target.value}))} placeholder="Опционально" /></label>}
+      {!isCreate && <label className="field"><span>Уровень</span><input className="input" value={form.level} onChange={e=>setForm(v=>({...v,level:e.target.value}))} /></label>}
     </div>
-    <div className="sectionLabel mt20">Слоты занятий (необязательно)</div>
-    {!showSlotEditor && <button className="secondaryBtn mt12" onClick={()=>setShowSlotEditor(true)}><Plus size={16} /> Добавить слот</button>}
-    {showSlotEditor && <div className="slotHintCard mt12">
-      <div className="slotHintLabel">День недели</div>
-      <div className="slotHintLabel">Время начала (HH:MM)</div>
-      <div className="slotHintLabel">Часы</div>
-      <div className="slotHintLabel">Минуты</div>
-      <div></div>
-      <select className="input selectSmall" value={slotDraft.day} onChange={e=>setSlotDraft(v=>({...v,day:e.target.value}))}>{['ПН','ВТ','СР','ЧТ','ПТ','СБ','ВС'].map(day=><option key={day}>{day}</option>)}</select>
-      <input className="input selectSmall" type="time" value={slotDraft.time} onChange={e=>setSlotDraft(v=>({...v,time:e.target.value}))} />
-      <input className="input selectSmall" type="number" min="0" value={slotDraft.durationHours} onChange={e=>setSlotDraft(v=>({...v,durationHours:e.target.value}))} placeholder="0" />
-      <input className="input selectSmall" type="number" min="0" max="59" value={slotDraft.durationMinutes} onChange={e=>setSlotDraft(v=>({...v,durationMinutes:e.target.value}))} placeholder="0" />
-      <div className="row gap8"><button className="secondaryBtn" onClick={addSlot}>Добавить слот</button><button className="ghostBtn" onClick={()=>{setShowSlotEditor(false); setSlotError('');}}>Скрыть</button></div>
-    </div>}
+    {!isCreate && <>
+      <div className="sectionLabel mt20">Слоты занятий (необязательно)</div>
+      {!showSlotEditor && <button className="secondaryBtn mt12" onClick={()=>setShowSlotEditor(true)}><Plus size={16} /> Добавить слот</button>}
+      {showSlotEditor && <div className="slotHintCard mt12">
+        <div className="slotHintLabel">День недели</div>
+        <div className="slotHintLabel">Время начала (HH:MM)</div>
+        <div className="slotHintLabel">Часы</div>
+        <div className="slotHintLabel">Минуты</div>
+        <div></div>
+        <select className="input selectSmall" value={slotDraft.day} onChange={e=>setSlotDraft(v=>({...v,day:e.target.value}))}>{['ПН','ВТ','СР','ЧТ','ПТ','СБ','ВС'].map(day=><option key={day}>{day}</option>)}</select>
+        <input className="input selectSmall" type="time" value={slotDraft.time} onChange={e=>setSlotDraft(v=>({...v,time:e.target.value}))} />
+        <input className="input selectSmall" type="number" min="0" value={slotDraft.durationHours} onChange={e=>setSlotDraft(v=>({...v,durationHours:e.target.value}))} placeholder="0" />
+        <input className="input selectSmall" type="number" min="0" max="59" value={slotDraft.durationMinutes} onChange={e=>setSlotDraft(v=>({...v,durationMinutes:e.target.value}))} placeholder="0" />
+        <div className="row gap8"><button className="secondaryBtn" onClick={addSlot}>Добавить слот</button><button className="ghostBtn" onClick={()=>{setShowSlotEditor(false); setSlotError('');}}>Скрыть</button></div>
+      </div>}
+    </>}
     {slotError && <div className="pill danger mt12">{slotError}</div>}
-    {!!slots.length && <div className="stack gap8 mt16">{slots.map(slot => <div key={slot.id} className={cx('listRow', (hasLocalDuplicate(slot, slot.id) || hasExternalConflict(slot)) && 'conflictRow')}><span>{slot.day} {slot.time} · {slot.durationHours || 0} ч {slot.durationMinutes || 0} мин</span><button className="iconGhost" onClick={()=>setSlots(prev=>prev.filter(s=>s.id!==slot.id))}><Trash2 size={14}/></button></div>)}</div>}
-    <div className="modalActions"><button className="primaryBtn" onClick={submit}>Сохранить ученика</button></div>
+    {!isCreate && !!slots.length && <div className="stack gap8 mt16">{slots.map(slot => <div key={slot.id} className={cx('listRow', (hasLocalDuplicate(slot, slot.id) || hasExternalConflict(slot)) && 'conflictRow')}><span>{slot.day} {slot.time} · {slot.durationHours || 0} ч {slot.durationMinutes || 0} мин</span><button className="iconGhost" onClick={()=>setSlots(prev=>prev.filter(s=>s.id!==slot.id))}><Trash2 size={14}/></button></div>)}</div>}
+    {isCreate && <div className="muted small mt16">В будущем вы сможете объединить с аккаунтом реального ученика.</div>}
+    <div className="modalActions"><button className="primaryBtn" onClick={submit}>{isCreate ? 'Сохранить виртуального ученика' : 'Сохранить ученика'}</button></div>
   </Modal>;
 }
 
@@ -1057,7 +1247,7 @@ function AssignmentModal({ mode, db, assignment, onClose, onSave, notify, teache
     </div>
     <div className="sectionLabel mt20">Вложения</div>
     <label className="uploadZone small"><input type="file" multiple onChange={async e=>{const files=Array.from(e.target.files||[]); if(files.length) await uploadMore(files); e.target.value='';}} /><UploadCloud size={20} /> Добавить несколько фото и/или файлов</label>
-    {!!form.attachments?.length && <div className="gallery mt16">{form.attachments.map(att => att.kind==='photo' ? <img key={att.id} src={normalizeUrl(att.url)} alt={att.name} className="galleryImg" /> : <a key={att.id} href={normalizeUrl(att.url)} target="_blank" rel="noreferrer" className="fileTile">{att.name}</a>)}</div>}
+    {!!form.attachments?.length && <div className="mt16"><AttachmentGallery files={form.attachments} compact /></div>}
     <div className="modalActions">
       <button className="secondaryBtn" onClick={saveCard}>{mode === 'create' || form.status === 'Черновик' ? 'Сохранить черновик' : 'Сохранить изменения'}</button>
       {form.status === 'Черновик' && <button className="ghostBtn" onClick={()=>onSave({}, 'delete')}><Trash2 size={16}/> Удалить черновик</button>}
@@ -1097,7 +1287,7 @@ function QueueReview({ db, reload, notify, pendingWorks, selectedStudentId }) {
   }, [selected]);
 
   if (selected) {
-    return <div className="stack gap24"><button className="secondaryBtn fit" onClick={()=>setSelected(null)}>← Назад к очереди</button><div className="grid reviewGrid"><Card title="Распознанный текст"><pre className="typedText">{selected.ocrText}</pre></Card><Card title="Исходные файлы">{selected.files?.length ? <div className="gallery">{selected.files.map(file => file.kind==='photo' ? <img key={file.id} src={normalizeUrl(file.url)} alt={file.name} className="galleryImg" /> : <a key={file.id} href={normalizeUrl(file.url)} target="_blank" rel="noreferrer" className="fileTile">{file.name}</a>)}</div> : <div className="empty">Нет приложенных файлов.</div>}</Card><Card title="AI-анализ и подтверждение"><div className="stack gap12">{(selected.aiErrors || []).map((err, idx) => <div key={idx} className="errorCard"><div className="row gap8 wrap">{(err.types||[]).map(type => <span key={type} className="pill warn">{type}</span>)}</div><div className="cardTitle mt8">{err.label}</div><div className="muted small mt6">{err.description}</div></div>)}<label className="field"><span>Итоговый балл</span><input className="input" type="number" value={finalScore} onChange={e=>setFinalScore(Number(e.target.value))} /></label><label className="field"><span>Комментарий для ученика</span><textarea className="input textarea" value={aiComment} onChange={e=>setAiComment(e.target.value)} /></label><button className="primaryBtn" onClick={async()=>{await api.confirmWork(selected.id,{ finalScore, aiComment }); await reload(); setSelected(null); notify({type:'success',text:'Изменения сохранены и результат отправлен ученику.'});}}>Подтвердить</button></div></Card></div></div>;
+    return <div className="stack gap24"><button className="secondaryBtn fit" onClick={()=>setSelected(null)}>← Назад к очереди</button><div className="grid reviewGrid"><Card title="Распознанный текст"><pre className="typedText">{selected.ocrText}</pre></Card><Card title="Исходные файлы">{selected.files?.length ? <AttachmentGallery files={selected.files} /> : <div className="empty">Нет приложенных файлов.</div>}</Card><Card title="AI-анализ и подтверждение"><div className="stack gap12">{(selected.aiErrors || []).map((err, idx) => <div key={idx} className="errorCard"><div className="row gap8 wrap">{(err.types||[]).map(type => <span key={type} className="pill warn">{type}</span>)}</div><div className="cardTitle mt8">{err.label}</div><div className="muted small mt6">{err.description}</div></div>)}<label className="field"><span>Итоговый балл</span><input className="input" type="number" value={finalScore} onChange={e=>setFinalScore(Number(e.target.value))} /></label><label className="field"><span>Комментарий для ученика</span><textarea className="input textarea" value={aiComment} onChange={e=>setAiComment(e.target.value)} /></label><button className="primaryBtn" onClick={async()=>{await api.confirmWork(selected.id,{ finalScore, aiComment }); await reload(); setSelected(null); notify({type:'success',text:'Изменения сохранены и результат отправлен ученику.'});}}>Подтвердить</button></div></Card></div></div>;
   }
 
   return <div className="stack gap12">{selectedStudentId !== 'all' && <div className="banner subtle">Очередь отфильтрована по выбранному ученику</div>}{pendingWorks.length ? pendingWorks.map(work => { const student = db.students.find(s=>s.id===work.studentId); const assignment = db.assignments.find(a=>a.id===work.assignmentId); return <button key={work.id} className="listCard polished" onClick={()=>setSelected(work)}><div className="row between wrap gap16"><div><div className="cardTitle">{student?.name}</div><div className="muted small mt6">{assignment?.title} · {assignment?.subject}</div></div><div className="row gap8"><span className={pillClass[work.status]}>{displayWorkStatus(work.status)}</span></div></div></button>; }) : <div className="empty">Нет работ для проверки.</div>}</div>;
@@ -1214,36 +1404,44 @@ function TeacherReportsPage({ db, reload, notify, session }) {
   const teacherGroups = teacherOwnedGroups(db, teacherId);
   const [targetType, setTargetType] = useState('student');
   const [targetId, setTargetId] = useState(teacherStudents[0]?.id || '');
-  const [frequency, setFrequency] = useState('Самостоятельно');
-  const [period, setPeriod] = useState('7');
-  const [saved, setSaved] = useState(false);
-  const eligibleStudents = targetType === 'student'
-    ? [teacherStudents.find(s=>s.id===targetId)].filter(Boolean).filter(s => s.parentName && (s.parentContact || s.parentEmail))
-    : (teacherGroups.find(g=>g.id===targetId)?.studentIds || []).map(id => teacherStudents.find(s=>s.id===id)).filter(Boolean).filter(s => s.parentName && (s.parentContact || s.parentEmail));
-  const previewRecipients = eligibleStudents.map(s=>`${s.parentName} <${s.parentContact || s.parentEmail}>`);
-  const sendingDisabled = !targetId || !previewRecipients.length;
+  const [frequency, setFrequency] = useState('Еженедельно');
+  const [previewStudentId, setPreviewStudentId] = useState(teacherStudents[0]?.id || '');
+  const [periodFrom, setPeriodFrom] = useState(() => new Date(Date.now() - 6 * 864e5).toISOString().slice(0, 10));
+  const [periodTo, setPeriodTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const autoEligibleStudents = targetType === 'student'
+    ? [teacherStudents.find(student => student.id === targetId)].filter(Boolean).filter(student => student.parentEmail)
+    : (teacherGroups.find(group => group.id === targetId)?.studentIds || []).map(id => teacherStudents.find(student => student.id === id)).filter(Boolean).filter(student => student.parentEmail);
+  const previewStudent = teacherStudents.find(student => student.id === previewStudentId) || null;
+  const previewRecipient = previewStudent?.parentEmail ? `${previewStudent.parentName || previewStudent.name} <${previewStudent.parentEmail}>` : 'Email родителя не заполнен';
+  const savingDisabled = !targetId || !autoEligibleStudents.length;
+  const sendingDisabled = !previewStudent?.parentEmail;
 
   return <div className="stack gap24">
-    <div><h2 className="pageTitle">Отчеты</h2><p className="muted">Настройки можно сохранить для weekly/monthly режима, а ручную отправку запускать из превью письма.</p></div>
+    <div><h2 className="pageTitle">Отчеты</h2><p className="muted">Автоматическую отправку можно сохранить для weekly/monthly режима, а ручной PDF-отчет формируется из превью письма для конкретного ученика.</p></div>
     <div className="grid twoCol">
       <Card title="Настройки отправки">
         <label className="field"><span>Объект</span><div className="segmented mini"><button className={cx(targetType==='student'&&'active')} onClick={()=>{setTargetType('student'); setTargetId(teacherStudents[0]?.id||'');}}>Ученик</button><button className={cx(targetType==='group'&&'active')} onClick={()=>{setTargetType('group'); setTargetId(teacherGroups[0]?.id||'');}}>Группа</button></div></label>
         <label className="field mt16"><span>Кому</span><select className="input" value={targetId} onChange={e=>setTargetId(e.target.value)}>{targetType==='student' ? teacherStudents.map(s=><option key={s.id} value={s.id}>{s.name}</option>) : teacherGroups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></label>
-        <label className="field mt16"><span>Режим отправки</span><select className="input" value={frequency} onChange={e=>setFrequency(e.target.value)}><option>Самостоятельно</option><option>Еженедельно</option><option>Ежемесячно</option></select></label>
-        <label className="field mt16"><span>Период</span><select className="input" value={period} onChange={e=>setPeriod(e.target.value)}><option value="7">7 дней</option><option value="30">30 дней</option></select></label>
-        {sendingDisabled && <div className="pill warn mt16">{targetType === 'student' ? 'Отправка недоступна, пока у выбранного ученика не заполнены имя и контакт родителя.' : 'В выбранной группе пока нет учеников с заполненными родительскими контактами.'}</div>}
-        <button className="primaryBtn mt20" disabled={sendingDisabled} onClick={async()=>{await api.saveReportConfig({ targetType, targetId, frequency, period, teacherId }); setSaved(true); await reload(); notify({type:'success',text:'Настройки отчетов сохранены.'});}}>Сохранить</button>
+        <label className="field mt16"><span>Режим отправки</span><select className="input" value={frequency} onChange={e=>setFrequency(e.target.value)}><option>Еженедельно</option><option>Ежемесячно</option></select></label>
+        {savingDisabled && <div className="pill warn mt16">{targetType === 'student' ? 'Автоотправка недоступна, пока у выбранного ученика не заполнен Email родителя.' : 'В выбранной группе пока нет учеников с заполненным Email родителя.'}</div>}
+        <button className="primaryBtn mt20" disabled={savingDisabled} onClick={async()=>{try { await api.saveReportConfig({ targetType, targetId, frequency, teacherId }); await reload(); notify({type:'success',text:'Настройки автоотправки сохранены.'}); } catch (e) { notify({ type:'error', text:e.message }); }}}>Сохранить</button>
       </Card>
       <Card title="Превью email">
-        <div className="previewMail">
-          <div className="mailTitle">Тема: Отчет по {targetType === 'student' ? 'ученику' : 'группе'} · {new Date().toLocaleDateString('ru-RU')}</div>
-          <div className="mailRecipients">Получатели: {previewRecipients.length ? previewRecipients.join('; ') : 'Нет родительских контактов'}</div>
-          <ul className="mailList"><li>Имя ученика</li><li>Частые типы ошибок</li><li>Частота посещаемости</li><li>Гистограмма оценок</li></ul>
+        <div className="grid twoCol">
+          <label className="field"><span>Кому</span><select className="input" value={previewStudentId} onChange={e=>setPreviewStudentId(e.target.value)}>{teacherStudents.map(student => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label>
+          <label className="field"><span>За период</span><div className="row gap8"><input className="input" type="date" value={periodFrom} onChange={e=>setPeriodFrom(e.target.value)} /><input className="input" type="date" value={periodTo} onChange={e=>setPeriodTo(e.target.value)} /></div></label>
         </div>
-        <button className="primaryBtn mt20" disabled={sendingDisabled} onClick={async()=>{await api.sendReport({ targetType, targetId, period, teacherId }); await reload(); notify({type:'success',text:'Отчет отправлен по логике backend.'});}}>Отправить отчет</button>
+        <div className="previewMail">
+          <div className="mailTitle">Тема: Отчет по ученику · {new Date().toLocaleDateString('ru-RU')}</div>
+          <div className="mailRecipients">Получатель: {previewRecipient}</div>
+          <div className="mailRecipients">Период: {formatDateOnly(periodFrom)} - {formatDateOnly(periodTo)}</div>
+          <ul className="mailList"><li>Имя ученика</li><li>Частые типы ошибок</li><li>Гистограмма оценок</li></ul>
+        </div>
+        {sendingDisabled && <div className="pill warn mt16">Отправка недоступна, пока у выбранного ученика не заполнен Email родителя.</div>}
+        <button className="primaryBtn mt20" disabled={sendingDisabled} onClick={async()=>{try { const result = await api.sendReport({ targetType: 'student', targetId: previewStudentId, teacherId, periodFrom, periodTo }); await reload(); notify({type:'success',text: result.deliveries?.[0]?.url ? 'PDF-отчет сформирован и добавлен в журнал отправок.' : 'Отчет отправлен.'}); } catch (e) { notify({ type:'error', text:e.message }); }}}>Отправить отчет</button>
       </Card>
     </div>
-    <Card title="Журнал отправок"><div className="stack gap10">{(db.reportLogs || []).filter(log => log.teacherId === teacherId).length ? (db.reportLogs || []).filter(log => log.teacherId === teacherId).slice(0,8).map(log => <div key={log.id} className="listRow"><div><div>{log.targetLabel}</div><div className="muted small">{new Date(log.createdAt).toLocaleString('ru-RU')} · {log.mode}</div></div><div className="muted small">{log.recipients.length} получателей</div></div>) : <div className="empty">Отправок пока не было.</div>}</div></Card>
+    <Card title="Журнал отправок"><div className="stack gap10">{(db.reportLogs || []).filter(log => log.teacherId === teacherId).length ? (db.reportLogs || []).filter(log => log.teacherId === teacherId).slice(0,8).map(log => <div key={log.id} className="listRow"><div><div>{log.targetLabel}</div><div className="muted small">{new Date(log.createdAt).toLocaleString('ru-RU')} · {log.mode} · {log.periodLabel || 'Период не указан'}</div></div><div className="row gap8 wrap">{log.deliveries?.[0]?.url && <a className="secondaryBtn linkButton" href={log.deliveries[0].url} target="_blank" rel="noreferrer"><FileText size={16} /> PDF</a>}<div className="muted small">{log.recipients.length} получателей</div></div></div>) : <div className="empty">Отправок пока не было.</div>}</div></Card>
   </div>;
 }
 
@@ -1264,13 +1462,13 @@ function TeacherSettingsPage({ db, reload, notify, session }) {
   const [profile, setProfile] = useState({ name: teacher?.name || '', email: teacher?.email || '', phone: teacher?.phone || '', avatarUrl: teacher?.avatarUrl || '' });
   const [subjectsState, setSubjectsState] = useState(teacher?.subjects || []);
   const [notifications, setNotifications] = useState(teacher?.notifications || {});
-  const [reportPreferences, setReportPreferences] = useState(teacher?.reportPreferences || {});
+  const [reportPreferences, setReportPreferences] = useState(Object.fromEntries(PARENT_REPORT_FIELDS.map(key => [key, teacher?.reportPreferences?.[key] ?? true])));
 
   useEffect(() => {
     setProfile({ name: teacher?.name || '', email: teacher?.email || '', phone: teacher?.phone || '', avatarUrl: teacher?.avatarUrl || '' });
     setSubjectsState(teacher?.subjects || []);
     setNotifications(teacher?.notifications || {});
-    setReportPreferences(teacher?.reportPreferences || {});
+    setReportPreferences(Object.fromEntries(PARENT_REPORT_FIELDS.map(key => [key, teacher?.reportPreferences?.[key] ?? true])));
   }, [teacher?.id, teacher?.name, teacher?.email, teacher?.phone, teacher?.avatarUrl]);
 
   const uploadAvatar = async(files) => {
@@ -1288,14 +1486,13 @@ function TeacherSettingsPage({ db, reload, notify, session }) {
     {tab==='profile' && <Card title="Профиль"><div className="profileHero"><label className="avatarUploader circularAvatar"><input type="file" accept="image/*" onChange={e=>uploadAvatar(Array.from(e.target.files||[]))} />{profile.avatarUrl ? <img src={normalizeUrl(profile.avatarUrl)} className="avatarCoverImage" /> : <div className="avatarPlaceholderCircle"><UploadCloud size={22} /></div>}</label><div className="profileFields"><div className="grid twoCol"><label className="field"><span>Имя</span><input className="input" value={profile.name} onChange={e=>setProfile(v=>({...v,name:e.target.value}))} /></label><label className="field"><span>Email</span><input className="input" value={profile.email} onChange={e=>setProfile(v=>({...v,email:e.target.value}))} /></label><label className="field"><span>Телефон</span><input className="input" value={profile.phone} onChange={e=>setProfile(v=>({...v,phone:e.target.value}))} /></label></div></div></div><div className="modalActions nicerSettingsActions"><button className="primaryBtn" onClick={()=>saveAll(profile)}>Сохранить профиль</button></div></Card>}
     {tab==='subjects' && <Card title="Предметы"><div className="checkboxGrid">{['Математика','Физика','Химия'].map(subject => <label key={subject} className="checkRow"><input type="checkbox" checked={subjectsState.includes(subject)} onChange={e=>setSubjectsState(v=>e.target.checked?[...v,subject]:v.filter(s=>s!==subject))} /><span>{subject}</span></label>)}</div><div className="modalActions nicerSettingsActions"><button className="primaryBtn" onClick={()=>saveAll({ subjects: [...new Set(subjectsState)] })}>Сохранить предметы</button></div></Card>}
     {tab==='notifications' && <Card title="Уведомления"><div className="checkboxGrid">{Object.keys(notifications).map(key => <label key={key} className="checkRow"><input type="checkbox" checked={Boolean(notifications[key])} onChange={e=>setNotifications(v=>({...v,[key]:e.target.checked}))} /><span>{key}</span></label>)}</div><div className="modalActions nicerSettingsActions"><button className="primaryBtn" onClick={()=>saveAll({ notifications })}>Сохранить уведомления</button></div></Card>}
-    {tab==='reports' && <Card title="Содержимое отчета родителям"><div className="checkboxGrid">{Object.keys(reportPreferences).map(key => <label key={key} className="checkRow"><input type="checkbox" checked={Boolean(reportPreferences[key])} onChange={e=>setReportPreferences(v=>({...v,[key]:e.target.checked}))} /><span>{key}</span></label>)}</div><div className="modalActions nicerSettingsActions"><button className="primaryBtn" onClick={()=>saveAll({ reportPreferences })}>Сохранить настройки отчета</button></div></Card>}
+    {tab==='reports' && <Card title="Содержимое отчета родителям"><div className="checkboxGrid">{PARENT_REPORT_FIELDS.map(key => <label key={key} className="checkRow"><input type="checkbox" checked={Boolean(reportPreferences[key])} onChange={e=>setReportPreferences(v=>({...v,[key]:e.target.checked}))} /><span>{key}</span></label>)}</div><div className="modalActions nicerSettingsActions"><button className="primaryBtn" onClick={()=>saveAll({ reportPreferences })}>Сохранить настройки отчета</button></div></Card>}
   </div>;
 }
 
 
-function StudentDashboardPage({ db, session, navigate }) {
+function StudentDashboardPage({ db, session, navigate, reload, notify }) {
   const student = getCurrentStudent(db, session);
-  const [search, setSearch] = useState('');
   const [showUndone, setShowUndone] = useState(false);
   const [detail, setDetail] = useState(null);
 
@@ -1306,12 +1503,12 @@ function StudentDashboardPage({ db, session, navigate }) {
   const undone = assignments.filter(a => !works.some(w => w.assignmentId === a.id));
   const reviewedWorks = works.filter(item => item.status === 'Проверено');
   const recommendations = reviewedWorks.flatMap(work => (work.aiErrors || []).map(item => item.description).filter(Boolean)).slice(0, 3);
-  const searchResults = search.trim()
-    ? [
-        ...assignments.filter(item => `${item.title} ${item.subject}`.toLowerCase().includes(search.toLowerCase())).map(item => ({ type: 'assignment', id: item.id, title: item.title, meta: item.subject })),
-        ...reviewedWorks.filter(item => `${db.assignments.find(entry => entry.id === item.assignmentId)?.title || ''} ${item.aiComment || ''}`.toLowerCase().includes(search.toLowerCase())).map(item => ({ type: 'result', id: item.id, title: db.assignments.find(entry => entry.id === item.assignmentId)?.title || 'Проверенная работа', meta: `Баллы: ${item.finalScore ?? 0}` })),
-      ]
-    : [];
+  const decisionNotifications = (db.teacherInvites || [])
+    .filter(invite => invite.studentId === student.id && invite.direction === 'student_to_teacher' && ['accepted', 'declined'].includes(invite.status) && !invite.studentNotificationDismissedAt)
+    .map(invite => ({
+      ...invite,
+      teacher: (db.teachers || []).find(teacher => teacher.id === invite.teacherId),
+    }));
 
   return <div className="stack gap24">
     <div className="row between wrap gap16">
@@ -1319,17 +1516,36 @@ function StudentDashboardPage({ db, session, navigate }) {
         <h2 className="pageTitle">Главная</h2>
         <p className="muted">Все, что важно ученику: активные задания, результаты проверок и рекомендации после них.</p>
       </div>
-      <div className="toolbar compactToolbar"><Search size={16} /><input className="toolbarInput" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Поиск по заданиям и результатам" /></div>
     </div>
+    {!!decisionNotifications.length && <Card title="Решения преподавателей">
+      <div className="stack gap12">
+        {decisionNotifications.map(item => (
+          <div key={item.id} className="listRow">
+            <div>
+              <div>{item.teacher?.name || 'Преподаватель'}: {item.status === 'accepted' ? 'Принято' : 'Отказ'}</div>
+              <div className="muted small">{item.teacher?.email || 'Почта не указана'}</div>
+            </div>
+            <button className="ghostBtn" onClick={async () => {
+              try {
+                await api.dismissTeacherInviteNotification(item.id);
+                await reload();
+                notify({ type: 'success', text: 'Уведомление скрыто.' });
+              } catch (error) {
+                notify({ type: 'error', text: error.message });
+              }
+            }}><X size={16} /> Закрыть</button>
+          </div>
+        ))}
+      </div>
+    </Card>}
     <div className="grid twoCol"><button className="kpiCard clickable" onClick={()=>setShowUndone(true)}><div className="kpiTitle">Задания, которые не сделаны</div><div className="kpiValue">{undone.length}</div></button><KPI title="Score" value={db.computed.studentScores[student.id] || 0} /></div>
     {!studentTeacherIds(student).length && <EmptyOnboarding role="student" title="Новый аккаунт ученика" text="Сейчас кабинет пустой, потому что вы еще не подключили преподавателя и не получили первое задание." actions={[<button key="tutors" className="primaryBtn" onClick={()=>navigate('/student/tutors')}>Открыть репетиторов</button>]} />}
-    {search.trim() && <Card title="Результаты поиска"><div className="stack gap10">{searchResults.length ? searchResults.map(item => <div key={`${item.type}-${item.id}`} className="listRow"><div>{item.title}</div><div className="muted small">{item.meta}</div></div>) : <div className="empty">Ничего не найдено.</div>}</div></Card>}
     <div className="grid twoCol">
       <Card title="Последние результаты"><div className="stack gap10">{reviewedWorks.length ? reviewedWorks.slice(0,4).map(w => { const a = db.assignments.find(x=>x.id===w.assignmentId); return <div key={w.id} className="listRow"><div>{a?.title}</div><div>{w.finalScore}</div></div>; }) : <div className="empty">Пока нет проверенных работ.</div>}</div></Card>
       <Card title="Рекомендации"><div className="stack gap8">{recommendations.length ? recommendations.map((item, index) => <div key={`${item}-${index}`} className="cardInner">{item}</div>) : <div className="empty">Рекомендации появятся после первых проверенных работ.</div>}</div></Card>
     </div>
     {showUndone && <Modal title="Задания, которые не сделаны" onClose={()=>setShowUndone(false)}><div className="stack gap12">{undone.length ? undone.map(a => <button key={a.id} className="assignmentCard polished" onClick={()=>setDetail(a)}><div className="row between wrap gap12"><div><div className="cardTitle">{a.title}</div><div className="muted small">{a.subject}</div></div><DeadlineBadge assignment={a} hasWork={false} /></div></button>) : <div className="empty">Новых заданий пока нет.</div>}</div></Modal>}
-    {detail && <StudentAssignmentDetail assignment={detail} work={works.find(w=>w.assignmentId===detail.id)} onClose={()=>setDetail(null)} onUpload={async()=>{}} readonly />}
+    {detail && <StudentAssignmentDetail assignment={detail} work={works.find(w=>w.assignmentId===detail.id)} onClose={()=>setDetail(null)} onUpload={async(files)=>{ try { await submitAssignmentWork({ assignment: detail, student, works, files, reload, notify }); setDetail(null); } catch (e) { notify({ type: 'error', text: e.message }); } }} />}
   </div>;
 }
 
@@ -1344,24 +1560,11 @@ function StudentAssignmentsPage({ db, reload, notify, session }) {
   const subjectOptions = ['Все', ...new Set(assignments.map(item => item.subject).filter(Boolean))];
   const filtered = assignments.filter(a => subject === 'Все' || a.subject === subject);
 
-  const uploadWork = async (assignment, files) => {
-    const uploaded = await api.upload(files);
-    const existing = works.find(w => w.assignmentId === assignment.id);
-    if (existing) {
-      await api.updateWork(existing.id, { files: [...(existing.files || []), ...uploaded.files] });
-      notify({ type:'success', text:'Файлы добавлены к существующей работе.' });
-    } else {
-      await api.createWork({ assignmentId: assignment.id, studentId: student.id, teacherId: assignment.teacherId || studentTeacherIds(student)[0] || null, files: uploaded.files, ocrText: 'Распознанный текст будет добавлен после обработки.', aiComment: 'AI-анализ будет добавлен после обработки.', aiErrors: [], suggestedScore: 0, finalScore: null, status: 'Ожидает подтверждения' });
-      notify({ type:'success', text:'Решение загружено.' });
-    }
-    await reload();
-  };
-
   return <div className="stack gap24">
     <div><h2 className="pageTitle">Мои задания</h2><p className="muted">Здесь собраны только ваши задания. Можно быстро открыть карточку и добавить решение.</p></div>
     <div className="row gap12 wrap alignCenter"><span className="sectionLabel">Предмет</span><select className="input selectSmall" value={subject} onChange={e=>setSubject(e.target.value)}>{subjectOptions.map(item => <option key={item} value={item}>{item}</option>)}</select></div>
-    <div className="stack gap12">{filtered.length ? filtered.map(a => { const work = works.find(w => w.assignmentId === a.id); return <button key={a.id} className="assignmentCard polished" onClick={()=>setDetail(a)}><div className="row between wrap gap12"><div><div className="cardTitle">{a.title}</div><div className="muted small">{a.subject}</div></div><div className="row gap8">{!work && <DeadlineBadge assignment={a} hasWork={false} />}{work && <span className={pillClass[work.status]}>{displayWorkStatus(work.status)}</span>}</div></div></button>; }) : <div className="empty">У вас пока нет заданий.</div>}</div>
-    {detail && <StudentAssignmentDetail assignment={detail} work={works.find(w=>w.assignmentId===detail.id)} onClose={()=>setDetail(null)} onUpload={async(files)=>{await uploadWork(detail, files); setDetail(null);}} />}
+    <div className="stack gap12">{filtered.length ? filtered.map(a => { const work = works.find(w => w.assignmentId === a.id); return <button key={a.id} className="assignmentCard polished" onClick={()=>setDetail(a)}><div className="row between wrap gap12"><div><div className="cardTitle">{a.title}</div><div className="muted small">{a.subject} · Дедлайн: {formatDeadline(a.deadline)}</div></div><div className="row gap8">{!work && <DeadlineBadge assignment={a} hasWork={false} />}{work && <span className={pillClass[displayWorkStatus(work.status, 'student')]}>{displayWorkStatus(work.status, 'student')}</span>}</div></div></button>; }) : <div className="empty">У вас пока нет заданий.</div>}</div>
+    {detail && <StudentAssignmentDetail assignment={detail} work={works.find(w=>w.assignmentId===detail.id)} onClose={()=>setDetail(null)} onUpload={async(files)=>{ try { await submitAssignmentWork({ assignment: detail, student, works, files, reload, notify }); setDetail(null); } catch (e) { notify({ type: 'error', text: e.message }); } }} />}
   </div>;
 }
 
@@ -1370,10 +1573,16 @@ function StudentAssignmentDetail({ assignment, work, onClose, onUpload, readonly
   return <Modal title={assignment.title} onClose={onClose} wide>
     <div className="stack gap16">
       <div className="muted">{assignment.description}</div>
-      {assignment.attachments?.length > 0 && <div className="gallery">{assignment.attachments.map(att => att.kind === 'photo' ? <img key={att.id} src={normalizeUrl(att.url)} className="galleryImg" /> : <a key={att.id} href={normalizeUrl(att.url)} target="_blank" rel="noreferrer" className="fileTile">{att.name}</a>)}</div>}
-      {work && <div className="cardInner">К этому заданию уже загружено решение. Можно добавить еще файлы или фотографии.</div>}
-      {!readonly && <><label className="uploadZone small"><input type="file" multiple onChange={e=>setFiles(prev=>[...prev, ...Array.from(e.target.files||[]).filter(file => !prev.some(existing => existing.name === file.name && existing.size === file.size))])} /> <UploadCloud size={20} /> Добавить несколько фото/файлов</label>{files.length>0 && <div className="attachList">{files.map(file => <span key={file.name+file.size} className="attachChip">{file.name}</span>)}</div>}<div className="modalActions"><button className="secondaryBtn" onClick={onClose}>Закрыть</button><button className="primaryBtn" onClick={()=>onUpload(files)} disabled={!files.length}>Загрузить</button></div></>}
+      <div className="cardInner">Дедлайн сдачи: {formatDeadline(assignment.deadline)}</div>
+      {assignment.attachments?.length > 0 && <AttachmentGallery files={assignment.attachments} />}
+      {work && <>
+        <div className="cardInner">Решение уже отправлено преподавателю. Повторная дозагрузка файлов для этой работы недоступна.</div>
+        <div className="row gap8 wrap"><span className={pillClass[displayWorkStatus(work.status, 'student')]}>{displayWorkStatus(work.status, 'student')}</span>{work.submittedAt && <span className="muted small">Отправлено: {work.submittedAt}</span>}</div>
+        {!!work.files?.length && <AttachmentGallery files={work.files} compact />}
+      </>}
+      {!readonly && !work && <><label className="uploadZone small"><input type="file" multiple onChange={e=>setFiles(prev=>[...prev, ...Array.from(e.target.files||[]).filter(file => !prev.some(existing => existing.name === file.name && existing.size === file.size))])} /> <UploadCloud size={20} /> Добавить несколько фото/файлов</label>{files.length>0 && <div className="attachList">{files.map(file => <span key={file.name+file.size} className="attachChip">{file.name}</span>)}</div>}<div className="modalActions"><button className="secondaryBtn" onClick={onClose}>Закрыть</button><button className="primaryBtn" onClick={()=>onUpload(files)} disabled={!files.length}>Загрузить</button></div></>}
       {readonly && <div className="modalActions"><button className="secondaryBtn" onClick={onClose}>Закрыть</button></div>}
+      {!readonly && work && <div className="modalActions"><button className="secondaryBtn" onClick={onClose}>Закрыть</button></div>}
     </div>
   </Modal>;
 }
@@ -1382,15 +1591,21 @@ function StudentTutorsPage({ db, reload, notify, session }) {
   const student = getCurrentStudent(db, session);
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [directory, setDirectory] = useState([]);
   const inviteToken = searchParams.get('invite');
   const invites = (db.teacherInvites || []).filter(item => item.studentId === student?.id);
   const connectedTeachers = (db.teachers || []).filter(item => studentHasTeacher(student, item.id));
   const incomingInvites = invites.filter(item => item.direction === 'teacher_to_student');
-  const outgoingInvites = invites.filter(item => item.direction === 'student_to_teacher');
 
   useEffect(() => {
     let active = true;
+    if (!searchOpen || search.trim().length < 2) {
+      setDirectory([]);
+      return () => {
+        active = false;
+      };
+    }
     api.searchTeachers(search).then(result => {
       if (active) setDirectory(result);
     }).catch(error => {
@@ -1399,7 +1614,7 @@ function StudentTutorsPage({ db, reload, notify, session }) {
     return () => {
       active = false;
     };
-  }, [search, notify]);
+  }, [search, notify, searchOpen]);
 
   useEffect(() => {
     if (!inviteToken || !student?.id) return;
@@ -1425,17 +1640,58 @@ function StudentTutorsPage({ db, reload, notify, session }) {
 
   const inviteStatusFor = (teacherId) => {
     if (studentHasTeacher(student, teacherId)) return 'accepted';
-    return invites.find(item => item.teacherId === teacherId)?.status || null;
+    const invite = invites.find(item => item.teacherId === teacherId && item.status === 'pending');
+    return invite?.status || null;
   };
 
   if (!student) return <div className="empty">Не удалось загрузить список преподавателей.</div>;
 
   return <div className="stack gap24">
-    <div><h2 className="pageTitle">Репетиторы</h2><p className="muted">Здесь собраны ваши преподаватели, входящие приглашения и поиск нового преподавателя.</p></div>
+    <div><h2 className="pageTitle">Репетиторы</h2><p className="muted">Сверху расположен поиск преподавателей, ниже ваши активные подключения и входящие приглашения.</p></div>
+    <Card title="Поиск">
+      <div className="toolbar">
+        <Search size={16} />
+        <input className="toolbarInput" value={search} onFocus={() => setSearchOpen(true)} onChange={e=>setSearch(e.target.value)} placeholder="Поиск по имени или email" />
+      </div>
+      {searchOpen && <div className="suggestions mt12">
+        {search.trim().length < 2 ? (
+          <div className="searchDropdownHint">Введите минимум 2 символа, чтобы открыть результаты поиска.</div>
+        ) : directory.length ? directory.map(teacher => {
+          const status = inviteStatusFor(teacher.id);
+          return (
+            <button key={teacher.id} className="suggestion" onMouseDown={event => event.preventDefault()} onClick={async () => {
+              if (status) return;
+              try {
+                await api.createTeacherInvite({ teacherId: teacher.id, studentId: student.id });
+                await reload();
+                notify({ type: 'success', text: 'Запрос преподавателю отправлен.' });
+              } catch (e) {
+                notify({ type: 'error', text: e.message });
+              }
+            }}>
+              <div className="stack gap6 alignStart">
+                <div className="cardTitle">{teacher.name}</div>
+                <div className="muted small">{teacher.email || 'Почта не указана'}</div>
+              </div>
+              {status === 'accepted' ? <span className="searchSuccess"><CheckSquare size={16} /> Подключен</span> : status === 'pending' ? <span className="pill info">Запрос отправлен</span> : <span className="primaryInlineAction">Отправить запрос</span>}
+            </button>
+          );
+        }) : <div className="searchDropdownHint">Преподаватели по вашему запросу не найдены.</div>}
+      </div>}
+    </Card>
+
     <Card title="Подключенные преподаватели">
       <div className="grid twoCol">
         {connectedTeachers.length ? connectedTeachers.map(teacher => (
-          <Card key={`connected-${teacher.id}`} title={teacher.name} subtitle={teacher.email || 'Почта не указана'} actions={<span className="pill success">Подключен</span>}>
+          <Card key={`connected-${teacher.id}`} title={teacher.name} subtitle={teacher.email || 'Почта не указана'} actions={<div className="row gap8 wrap"><span className="pill success">Подключен</span><button className="secondaryBtn dangerOutline" onClick={async () => {
+            try {
+              await api.detachTeacherStudent(teacher.id, student.id);
+              await reload();
+              notify({ type: 'success', text: 'Связь с преподавателем удалена.' });
+            } catch (e) {
+              notify({ type: 'error', text: e.message });
+            }
+          }}>Удалить</button></div>}>
             <div className="chipWrap">{(teacher.subjects || []).map(subject => <span key={`${teacher.id}-${subject}`} className="chip">{subject}</span>)}</div>
           </Card>
         )) : <div className="empty">Пока нет подключенных преподавателей.</div>}
@@ -1475,55 +1731,16 @@ function StudentTutorsPage({ db, reload, notify, session }) {
         }) : <div className="empty">Новых приглашений пока нет.</div>}
       </div>
     </Card>
-
-    <Card title="Исходящие запросы">
-      <div className="stack gap12">
-        {outgoingInvites.length ? outgoingInvites.map(invite => {
-          const teacher = (db.teachers || []).find(item => item.id === invite.teacherId);
-          return <div key={invite.id} className="listRow"><div><div>{teacher?.name || 'Преподаватель'}</div><div className="muted small">{teacher?.email || 'Почта не указана'}</div></div><span className={pillClass[invite.status]}>{invite.status === 'pending' ? 'В ожидании' : invite.status === 'accepted' ? 'Принято' : 'Отклонено'}</span></div>;
-        }) : <div className="empty">Вы еще не отправляли запросы преподавателям.</div>}
-      </div>
-    </Card>
-
-    <div className="toolbar"><Search size={16} /><input className="toolbarInput" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Поиск по имени или почте" /></div>
-    <div className="grid twoCol">
-      {directory.length ? directory.map(teacher => {
-        const status = inviteStatusFor(teacher.id);
-        const initials = teacher.name.split(' ').map(item => item[0]).join('').slice(0, 2).toUpperCase();
-        return (
-          <Card key={teacher.id} title={teacher.name} subtitle={teacher.email || 'Почта не указана'} actions={status === 'accepted' ? <span className="pill success">Подключен</span> : status === 'pending' ? <span className="pill info">Запрос отправлен</span> : null}>
-            <div className="row gap16 alignStart">
-              <div className="avatar tutorAvatar">{teacher.avatarUrl ? <img src={normalizeUrl(teacher.avatarUrl)} alt={teacher.name} className="avatarCoverImage" /> : initials}</div>
-              <div className="stack gap10 grow">
-                <div className="chipWrap">{(teacher.subjects || []).map(subject => <span key={`${teacher.id}-${subject}`} className="chip">{subject}</span>)}</div>
-                <div className="muted small">Поиск работает по имени, фамилии и email из базы приложения.</div>
-                <div className="row wrap gap8">
-                  {status === 'accepted' ? <button className="secondaryBtn" disabled>Уже подключен</button> : status === 'pending' ? <button className="secondaryBtn" disabled>Запрос в ожидании</button> : <button className="primaryBtn" onClick={async () => {
-                    try {
-                      await api.createTeacherInvite({ teacherId: teacher.id, studentId: student.id });
-                      await reload();
-                      notify({ type: 'success', text: 'Запрос преподавателю отправлен.' });
-                    } catch (e) {
-                      notify({ type: 'error', text: e.message });
-                    }
-                  }}>Отправить запрос</button>}
-                </div>
-              </div>
-            </div>
-          </Card>
-        );
-      }) : <div className="empty">Преподаватели по вашему запросу не найдены.</div>}
-    </div>
   </div>;
 }
 
 function StudentProfilePage({ db, session, reload, notify }) {
   const student = getCurrentStudent(db, session);
-  const [form, setForm] = useState({ email: '', phone: '', parentName: '', parentContact: '' });
+  const [form, setForm] = useState({ email: '', phone: '', parentName: '', parentEmail: '' });
 
   useEffect(() => {
     if (!student) return;
-    setForm({ email: student.email || '', phone: student.phone || '', parentName: student.parentName || '', parentContact: student.parentContact || student.parentEmail || '' });
+    setForm({ email: student.email || '', phone: student.phone || '', parentName: student.parentName || '', parentEmail: student.parentEmail || student.parentContact || '' });
   }, [student?.id, student?.email, student?.phone, student?.parentName, student?.parentContact, student?.parentEmail]);
 
   if (!student) return <div className="empty">Не удалось загрузить профиль ученика.</div>;
@@ -1534,7 +1751,7 @@ function StudentProfilePage({ db, session, reload, notify }) {
   const assignments = assignmentsForStudent(db, student.id);
   const saveProfile = async () => {
     try {
-      await api.updateStudent(student.id, { email: form.email, phone: form.phone, parentName: form.parentName, parentContact: form.parentContact });
+      await api.updateStudent(student.id, { email: form.email, phone: form.phone, parentName: form.parentName, parentEmail: form.parentEmail });
       await reload();
       notify({ type: 'success', text: 'Профиль обновлен.' });
     } catch (e) {
@@ -1542,7 +1759,7 @@ function StudentProfilePage({ db, session, reload, notify }) {
     }
   };
 
-  return <div className="stack gap24"><div><h2 className="pageTitle">Профиль</h2></div><div className="grid twoCol refinedStudentProfileGrid"><Card title="Основная информация"><div className="studentProfilePanel"><div className="studentProfileName">{student.name}</div><div className="studentProfileMeta">{student.level || 'Статус пока не заполнен'}</div><div className="stack gap12 mt16"><label className="field"><span>Email</span><input className="input" value={form.email} onChange={e=>setForm(v=>({...v, email: e.target.value}))} /></label><label className="field"><span>Телефон</span><input className="input" value={form.phone} onChange={e=>setForm(v=>({...v, phone: e.target.value}))} /></label><label className="field"><span>Имя родителя</span><input className="input" value={form.parentName} onChange={e=>setForm(v=>({...v, parentName: e.target.value}))} placeholder="Опционально" /></label><label className="field"><span>Контакт родителя</span><input className="input" value={form.parentContact} onChange={e=>setForm(v=>({...v, parentContact: e.target.value}))} placeholder="Телефон или email" /></label><div className="modalActions"><button className="primaryBtn" onClick={async()=>{try { await saveProfile(); } catch (e) { notify({ type: 'error', text: e.message }); }}}>Сохранить изменения</button></div></div></div></Card><Card title="Учебный статус"><div className="studentProfilePanel"><div className="scoreHero">{score}</div><div className="studentProfileMeta">Текущий score</div><div className="stack gap12 mt16"><InfoBox label="Преподаватели" value={teachers.length ? teachers.map(item => item.name).join(', ') : 'Еще не выбраны'} /><InfoBox label="Активные задания" value={String(assignments.length)} /><InfoBox label="Слоты занятий" value={slots.length ? `${slots.length}` : 'Не заданы'} secondary={slots.length ? slots.map(slot => `${slot.day} ${slot.time}`).join(' · ') : 'Добавятся после подключения преподавателя'} /></div>{student.subjects.length ? <div className="chipWrap mt16">{student.subjects.map(subject => <span key={subject} className="chip">{subject}</span>)}</div> : <div className="muted small mt16">Предметы пока не назначены.</div>}</div></Card></div></div>;
+  return <div className="stack gap24"><div><h2 className="pageTitle">Профиль</h2></div><div className="grid twoCol refinedStudentProfileGrid"><Card title="Основная информация"><div className="studentProfilePanel"><div className="studentProfileName">{student.name}</div><div className="studentProfileMeta">{student.level || 'Статус пока не заполнен'}</div><div className="stack gap12 mt16"><label className="field"><span>Email</span><input className="input" value={form.email} onChange={e=>setForm(v=>({...v, email: e.target.value}))} /></label><label className="field"><span>Телефон</span><input className="input" value={form.phone} onChange={e=>setForm(v=>({...v, phone: e.target.value}))} /></label><label className="field"><span>Имя родителя</span><input className="input" value={form.parentName} onChange={e=>setForm(v=>({...v, parentName: e.target.value}))} placeholder="Опционально" /></label><label className="field"><span>Email родителя</span><input className="input" type="email" value={form.parentEmail} onChange={e=>setForm(v=>({...v, parentEmail: e.target.value}))} placeholder="parent@example.com" /></label><div className="modalActions"><button className="primaryBtn" onClick={async()=>{try { await saveProfile(); } catch (e) { notify({ type: 'error', text: e.message }); }}}>Сохранить изменения</button></div></div></div></Card><Card title="Учебный статус"><div className="studentProfilePanel"><div className="scoreHero">{score}</div><div className="studentProfileMeta">Текущий score</div><div className="stack gap12 mt16"><InfoBox label="Преподаватели" value={teachers.length ? teachers.map(item => item.name).join(', ') : 'Еще не выбраны'} /><InfoBox label="Активные задания" value={String(assignments.length)} /><InfoBox label="Слоты занятий" value={slots.length ? `${slots.length}` : 'Не заданы'} secondary={slots.length ? slots.map(slot => `${slot.day} ${slot.time}`).join(' · ') : 'Добавятся после подключения преподавателя'} /></div>{student.subjects.length ? <div className="chipWrap mt16">{student.subjects.map(subject => <span key={subject} className="chip">{subject}</span>)}</div> : <div className="muted small mt16">Предметы пока не назначены.</div>}</div></Card></div></div>;
 }
 
 

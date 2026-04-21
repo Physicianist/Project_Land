@@ -20,14 +20,22 @@
     "reportPreferences": {
       "Имя ученика": true,
       "Частые типы ошибок": true,
-      "Частота посещаемости": true,
       "Гистограмма оценок": true,
+      "Частота посещаемости": true,
       "Оценки за период": true,
       "Динамику успеваемости": true,
       "Слабые темы": true,
       "Рекомендации": true,
       "Просроченные задания": true
-    }
+    },
+    "historicalStudentIds": [
+      "s1",
+      "s2",
+      "s3",
+      "s4",
+      "s5",
+      "s6"
+    ]
   },
   "accounts": [
     {
@@ -65,9 +73,30 @@
       "createdAt": "2026-04-19T16:35:20.285Z",
       "userId": "t2",
       "onboardingCompleted": true
+    },
+    {
+      "id": "acc-1776616941456",
+      "role": "student",
+      "name": "Артём Сокерин",
+      "email": "rambletot2@gmail.com",
+      "phone": "+79527381098",
+      "password": "12345678",
+      "verified": true,
+      "createdAt": "2026-04-19T16:42:21.456Z",
+      "userId": "s101",
+      "onboardingCompleted": true
     }
   ],
   "smsLogs": [
+    {
+      "id": "sms-1776616941456",
+      "email": "rambletot2@gmail.com",
+      "role": "student",
+      "phone": "+79527381098",
+      "code": "1611",
+      "createdAt": "2026-04-19T16:42:21.456Z",
+      "used": true
+    },
     {
       "id": "sms-1776616520285",
       "email": "rambletot@gmail.com",
@@ -112,7 +141,8 @@
       "parentContact": "smirnov.parent@mail.ru",
       "teacherIds": [
         "t1"
-      ]
+      ],
+      "virtual": false
     },
     {
       "id": "s2",
@@ -140,7 +170,8 @@
       "parentContact": "sokolova.parent@mail.ru",
       "teacherIds": [
         "t1"
-      ]
+      ],
+      "virtual": true
     },
     {
       "id": "s3",
@@ -167,7 +198,8 @@
       "parentContact": "panov.parent@mail.ru",
       "teacherIds": [
         "t1"
-      ]
+      ],
+      "virtual": true
     },
     {
       "id": "s4",
@@ -194,7 +226,8 @@
       "parentContact": "krylova.parent@mail.ru",
       "teacherIds": [
         "t1"
-      ]
+      ],
+      "virtual": true
     },
     {
       "id": "s5",
@@ -221,7 +254,8 @@
       "parentContact": "orlov.parent@mail.ru",
       "teacherIds": [
         "t1"
-      ]
+      ],
+      "virtual": true
     },
     {
       "id": "s6",
@@ -249,7 +283,26 @@
       "parentContact": "",
       "teacherIds": [
         "t1"
-      ]
+      ],
+      "virtual": true
+    },
+    {
+      "id": "s101",
+      "name": "Артём Сокерин",
+      "email": "rambletot2@gmail.com",
+      "phone": "+79527381098",
+      "parentName": "",
+      "parentEmail": "",
+      "parentContact": "",
+      "level": "",
+      "subjects": [],
+      "active": true,
+      "lessonSlots": [],
+      "teacherId": "t2",
+      "teacherIds": [
+        "t2"
+      ],
+      "virtual": false
     }
   ],
   "groups": [
@@ -399,6 +452,21 @@
       "attachments": [],
       "teacherId": "t1",
       "recipientIds": []
+    },
+    {
+      "id": "a101",
+      "createdAt": "2026-04-19",
+      "attachments": [],
+      "teacherId": "t2",
+      "status": "Активно",
+      "title": "hjbjjh",
+      "subject": "Математика",
+      "description": "jhjkhjjhkjh",
+      "recipientType": "student",
+      "recipientId": "s101",
+      "recipientIds": [],
+      "deadline": "2026-07-13T17:00",
+      "maxScore": 100
     }
   ],
   "works": [
@@ -625,9 +693,9 @@
   ],
   "batchSessions": [],
   "counters": {
-    "student": 100,
+    "student": 101,
     "group": 100,
-    "assignment": 100,
+    "assignment": 101,
     "work": 100,
     "batch": 100,
     "report": 100,
@@ -636,13 +704,45 @@
   "resetRequests": [],
   "teacherInvites": [
     {
-      "id": "invite-1776616567743",
+      "id": "invite-1776757289250",
       "teacherId": "t2",
       "studentId": null,
       "direction": "teacher_to_student",
       "status": "pending",
+      "token": "aeac620bb53ef5e796e295209e484b5f",
+      "createdAt": "2026-04-21T07:41:29.251Z"
+    },
+    {
+      "status": "accepted",
+      "direction": "teacher_to_student",
+      "token": "272c18ea4b28245bd0a0d2cef324859b",
+      "createdAt": "2026-04-19T16:42:02.489Z",
+      "studentNotificationDismissedAt": null,
+      "id": "invite-1776616922488",
+      "teacherId": "t2",
+      "studentId": "s101",
+      "claimedAt": "2026-04-19T16:42:55.640Z",
+      "reviewedAt": "2026-04-19T16:43:01.524Z"
+    },
+    {
+      "status": "pending",
+      "direction": "teacher_to_student",
+      "token": "130ad1cde4f3779bae0d174a39c9c94a",
+      "createdAt": "2026-04-19T16:41:46.189Z",
+      "studentNotificationDismissedAt": null,
+      "id": "invite-1776616906189",
+      "teacherId": "t2",
+      "studentId": null
+    },
+    {
+      "status": "pending",
+      "direction": "teacher_to_student",
       "token": "8628bd860e646adcdf93f60f8d15128e",
-      "createdAt": "2026-04-19T16:36:07.744Z"
+      "createdAt": "2026-04-19T16:36:07.744Z",
+      "studentNotificationDismissedAt": null,
+      "id": "invite-1776616567743",
+      "teacherId": "t2",
+      "studentId": null
     }
   ],
   "teachers": [
@@ -667,14 +767,22 @@
       "reportPreferences": {
         "Имя ученика": true,
         "Частые типы ошибок": true,
-        "Частота посещаемости": true,
         "Гистограмма оценок": true,
+        "Частота посещаемости": true,
         "Оценки за период": true,
         "Динамику успеваемости": true,
         "Слабые темы": true,
         "Рекомендации": true,
         "Просроченные задания": true
-      }
+      },
+      "historicalStudentIds": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s5",
+        "s6"
+      ]
     },
     {
       "id": "t2",
@@ -697,9 +805,12 @@
       "reportPreferences": {
         "Имя ученика": true,
         "Частые типы ошибок": true,
-        "Частота посещаемости": true,
-        "Гистограмма оценок": true
-      }
+        "Гистограмма оценок": true,
+        "Частота посещаемости": true
+      },
+      "historicalStudentIds": [
+        "s101"
+      ]
     }
   ],
   "attendanceRecords": []
