@@ -46,6 +46,8 @@ const api = {
   createWork: post('/api/works'),
   updateWork: put('/api/works'),
   confirmWork: put('/api/works', 'confirm'),
+  reprocessWork: (id, payload = {}) => jsonPost(`/api/works/${id}/reprocess`, payload),
+  markWorkManualReview: (id, payload = {}) => jsonPut(`/api/works/${id}/manual-review`, payload),
   saveReportConfig: post('/api/reports/configs'),
   sendReport: post('/api/reports/send'),
   createBatchSession: async (files, scale, teacherId) => {
@@ -68,6 +70,12 @@ const api = {
     });
     if (!res.ok) throw new Error('Не удалось обновить результат');
     return res.json();
+  },
+  retryFailedBatch: async (sessionId) => {
+    const res = await fetch(`${API}/api/batch/sessions/${sessionId}/retry-failed`, { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Не удалось повторно поставить файлы в очередь');
+    return data;
   },
   exportCsvUrl: (sessionId) => `${API}/api/batch/sessions/${sessionId}/export.csv`,
   exportPdfUrl: (sessionId) => `${API}/api/batch/sessions/${sessionId}/export.pdf`,
@@ -148,7 +156,14 @@ const cx = (...items) => items.filter(Boolean).join(' ');
 const pillClass = {
   'Активно': 'pill info', 'Черновик': 'pill warn', 'Завершено': 'pill success',
   'Проверено': 'pill success', 'Ожидает подтверждения': 'pill info', 'На проверке': 'pill info',
-  pending: 'pill info', accepted: 'pill success', declined: 'pill warn'
+  pending: 'pill info', accepted: 'pill success', declined: 'pill warn',
+  uploaded: 'pill info',
+  queued: 'pill info',
+  processing: 'pill warn',
+  draft_ready: 'pill success',
+  needs_human_review: 'pill warn',
+  approved: 'pill success',
+  failed: 'pill danger',
 };
 const SUBJECT_OPTIONS = ['Математика', 'Физика', 'Химия'];
 const PARENT_REPORT_FIELDS = ['Имя ученика', 'Частые типы ошибок', 'Гистограмма оценок'];
@@ -157,6 +172,15 @@ const WORK_STATUS_LABELS = {
     'Ожидает подтверждения': 'На проверке',
   },
   teacher: {},
+};
+const AI_PROCESSING_LABELS = {
+  uploaded: 'Загружено',
+  queued: 'В очереди AI',
+  processing: 'AI обрабатывает',
+  draft_ready: 'Черновик готов',
+  needs_human_review: 'Требует ручной проверки',
+  approved: 'Проверено',
+  failed: 'Ошибка AI',
 };
 const onboardingVariants = {
   student: [
@@ -174,6 +198,10 @@ const onboardingVariants = {
 
 function displayWorkStatus(status, role = 'teacher') {
   return WORK_STATUS_LABELS[role]?.[status] || status;
+}
+
+function displayAiStatus(status) {
+  return AI_PROCESSING_LABELS[status] || status || 'Загружено';
 }
 
 function getTeacherProfile(db, session) {
@@ -286,6 +314,105 @@ function AttachmentGallery({ files = [], compact = false }) {
         }
         return <a key={file.id} href={href} target="_blank" rel="noreferrer" className="fileTile">{file.name}</a>;
       })}
+    </div>
+  );
+}
+
+function formatConfidence(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return 'н/д';
+  return `${Math.round(Number(value) * 100)}%`;
+}
+
+function ReviewFileViewer({ files = [] }) {
+  const [pageIndex, setPageIndex] = useState(0);
+  const [zoom, setZoom] = useState(100);
+  const safeFiles = files.length ? files : [];
+  const selected = safeFiles[Math.min(pageIndex, Math.max(safeFiles.length - 1, 0))] || null;
+
+  useEffect(() => {
+    setPageIndex(0);
+  }, [safeFiles.length]);
+
+  if (!selected) return <div className="empty">Нет приложенных файлов.</div>;
+  const href = normalizeUrl(selected.previewUrl || selected.normalizedUrl || selected.url);
+  return (
+    <div className="stack gap12">
+      <div className="row between wrap gap8">
+        <div className="chipWrap">
+          {safeFiles.map((file, index) => (
+            <button
+              key={file.id || `${file.name}-${index}`}
+              className={cx('chipBtn', index === pageIndex && 'active')}
+              onClick={() => setPageIndex(index)}
+            >
+              {safeFiles.length > 1 ? `Стр. ${index + 1}` : 'Файл'}
+            </button>
+          ))}
+        </div>
+        <label className="field compactField">
+          <span>Zoom</span>
+          <select className="input selectSmall" value={zoom} onChange={e => setZoom(Number(e.target.value))}>
+            {[80, 100, 125, 150].map(value => <option key={value} value={value}>{value}%</option>)}
+          </select>
+        </label>
+      </div>
+      <div className="reviewViewerSurface">
+        {selected.kind === 'photo'
+          ? <img src={href} alt={selected.name} className="reviewViewerImage" style={{ transform: `scale(${zoom / 100})` }} />
+          : (
+            <object data={href} type={selected.mimeType || 'application/pdf'} className="reviewViewerPdf">
+              <a href={href} target="_blank" rel="noreferrer" className="fileTile">Открыть файл</a>
+            </object>
+          )}
+      </div>
+      <div className="muted small">{selected.originalName || selected.name}</div>
+    </div>
+  );
+}
+
+function ReviewSummaryCard({ selected, editMode, finalScore, setFinalScore, studentComment, setStudentComment, teacherComment, setTeacherComment, onConfirm, onEnableEdit, onReprocess, onManualReview, busy }) {
+  const analysis = selected.analysisDraft || {};
+  const warnings = [...new Set([...(selected.reviewWarnings || []), ...(analysis.warnings || [])].filter(Boolean))];
+  return (
+    <div className="stack gap12">
+      <div className="row gap8 wrap">
+        <span className={pillClass[selected.processingStatus || 'uploaded']}>{displayAiStatus(selected.processingStatus)}</span>
+        <span className="pill info">OCR {formatConfidence(selected.recognitionConfidence)}</span>
+        <span className="pill info">AI {formatConfidence(selected.aiConfidence)}</span>
+        {selected.needsHumanReview && <span className="pill warn">Нужна ручная проверка</span>}
+      </div>
+      {!!warnings.length && <div className="stack gap8">{warnings.map((warning, index) => <div key={`${warning}-${index}`} className="banner subtle">{warning}</div>)}</div>}
+      <label className="field">
+        <span>Предварительный балл</span>
+        <input className="input" type="number" value={finalScore} disabled={!editMode || busy} onChange={e => setFinalScore(Number(e.target.value))} />
+      </label>
+      <label className="field">
+        <span>Комментарий ученику</span>
+        <textarea className="input textarea" value={studentComment} disabled={!editMode || busy} onChange={e => setStudentComment(e.target.value)} />
+      </label>
+      <label className="field">
+        <span>Комментарий преподавателю</span>
+        <textarea className="input textarea" value={teacherComment} disabled={!editMode || busy} onChange={e => setTeacherComment(e.target.value)} />
+      </label>
+      <details className="advancedDisclosure">
+        <summary>Расширенный разбор</summary>
+        <div className="stack gap12 mt12">
+          <div className="cardInner">
+            <div className="sectionLabel">Извлеченное условие</div>
+            <div className="mt8">{analysis.extractedTask || 'Пока не выделено.'}</div>
+          </div>
+          <div className="cardInner">
+            <div className="sectionLabel">Эталон / верификация</div>
+            <div className="mt8">{analysis.canonicalSolution || 'Пока не сформировано.'}</div>
+          </div>
+        </div>
+      </details>
+      <div className="modalActions alignStart">
+        <button className="primaryBtn" disabled={busy || !studentComment.trim()} onClick={onConfirm}>Подтвердить</button>
+        <button className="secondaryBtn" disabled={busy} onClick={onEnableEdit}>{editMode ? 'Режим редактирования включен' : 'Исправить'}</button>
+        <button className="ghostBtn" disabled={busy} onClick={onReprocess}>Сгенерировать заново</button>
+        <button className="ghostBtn" disabled={busy} onClick={onManualReview}>Пометить как требует ручной проверки</button>
+      </div>
     </div>
   );
 }
@@ -1203,6 +1330,11 @@ function AssignmentModal({ mode, db, assignment, onClose, onSave, notify, teache
     title: assignment?.title || '',
     subject: assignment?.subject || 'Математика',
     description: assignment?.description || '',
+    rubric: assignment?.rubric || assignment?.gradingCriteria || '',
+    gradingCriteria: assignment?.gradingCriteria || assignment?.rubric || '',
+    expectedAnswer: assignment?.expectedAnswer || '',
+    scoringScale: assignment?.scoringScale || assignment?.maxScore || 100,
+    toneOfVoiceForFeedback: assignment?.toneOfVoiceForFeedback || 'доброжелательный и понятный ученику',
     recipientType: assignment?.recipientType || 'student',
     recipientId: assignment?.recipientId || availableStudents[0]?.id || availableGroups[0]?.id || null,
     recipientIds: assignment?.recipientIds || [],
@@ -1232,6 +1364,8 @@ function AssignmentModal({ mode, db, assignment, onClose, onSave, notify, teache
       <label className="field"><span>Название</span><input className="input" value={form.title} onChange={e=>setForm(v=>({...v,title:e.target.value}))} /></label>
       <label className="field"><span>Предмет</span><select className="input" value={form.subject} onChange={e=>setForm(v=>({...v,subject:e.target.value}))}>{['Математика','Физика','Химия'].map(s=><option key={s}>{s}</option>)}</select></label>
       <label className="field full"><span>Описание</span><textarea className="input textarea" value={form.description} onChange={e=>setForm(v=>({...v,description:e.target.value}))} /></label>
+      <label className="field full"><span>Критерии / rubric для AI</span><textarea className="input textarea" value={form.gradingCriteria} onChange={e=>setForm(v=>({...v, gradingCriteria:e.target.value, rubric:e.target.value}))} placeholder="Например: 2 балла за верный метод, 2 балла за вычисления, 1 балл за ответ" /></label>
+      <label className="field full"><span>Эталонный ответ (необязательно)</span><textarea className="input textarea" value={form.expectedAnswer} onChange={e=>setForm(v=>({...v, expectedAnswer:e.target.value}))} placeholder="Можно оставить пустым, если AI должен восстановить решение по условию" /></label>
       <label className="field"><span>Получатель</span><div className="stack gap10">
         <div className="segmented mini">
           <button className={cx(form.recipientType === 'student' && 'active')} onClick={() => setForm(v => ({ ...v, recipientType: 'student', recipientId: availableStudents[0]?.id || null }))}>Один ученик</button>
@@ -1244,6 +1378,8 @@ function AssignmentModal({ mode, db, assignment, onClose, onSave, notify, teache
       </div></label>
       <label className="field"><span>Дедлайн</span><input className="input" type="datetime-local" value={form.deadline} onChange={e=>setForm(v=>({...v,deadline:e.target.value}))} /></label>
       <label className="field"><span>Максимальный балл</span><input className="input" type="number" value={form.maxScore} onChange={e=>setForm(v=>({...v,maxScore:Number(e.target.value)}))} /></label>
+      <label className="field"><span>Шкала оценивания</span><select className="input" value={form.scoringScale} onChange={e=>setForm(v=>({...v, scoringScale:Number(e.target.value)}))}>{[5,10,100].map(scale => <option key={scale} value={scale}>{scale}-балльная</option>)}</select></label>
+      <label className="field"><span>Тон комментария ученику</span><input className="input" value={form.toneOfVoiceForFeedback} onChange={e=>setForm(v=>({...v, toneOfVoiceForFeedback:e.target.value}))} placeholder="доброжелательный и понятный ученику" /></label>
     </div>
     <div className="sectionLabel mt20">Вложения</div>
     <label className="uploadZone small"><input type="file" multiple onChange={async e=>{const files=Array.from(e.target.files||[]); if(files.length) await uploadMore(files); e.target.value='';}} /><UploadCloud size={20} /> Добавить несколько фото и/или файлов</label>
@@ -1263,45 +1399,162 @@ function TeacherGradingPage({ db, reload, session, notify }) {
   const isLimited = session.role === 'teacher' && session.accessMode === 'limited';
   const tab = isLimited ? 'batch' : (searchParams.get('tab') || 'queue');
   const pendingWorks = teacherOwnedWorks(db, session.userId).filter(w => w.status !== 'Проверено' && (studentFilter === 'all' || w.studentId === studentFilter));
-  const [selected, setSelected] = useState(null);
-
-  if (selected) {
-    const [finalScore, setFinalScore] = [selected.finalScore ?? selected.suggestedScore ?? 0, ()=>{}];
-  }
 
   return <div className="stack gap24">
     <div className="row between wrap gap16"><div><h2 className="pageTitle">Проверка</h2><p className="muted">Очередь преподавателя и пакетная проверка разделены. В Free-режиме доступна только пакетная проверка.</p></div>{!isLimited && <div className="segmentedWide"><button className={cx(tab==='queue' && 'active')} onClick={()=>setSearchParams(studentFilter!=='all'?{ tab:'queue', student:studentFilter }:{ tab:'queue' })}>Очередь проверки</button><button className={cx(tab==='batch' && 'active')} onClick={()=>setSearchParams({ tab:'batch' })}>Пакетная проверка</button></div>}</div>
-    {tab === 'queue' && !isLimited ? <QueueReview db={db} reload={reload} notify={notify} pendingWorks={pendingWorks} selectedStudentId={studentFilter} /> : <BatchReview db={db} reload={reload} session={session} notify={notify} />}
+    {tab === 'queue' && !isLimited ? <QueueReview db={db} reload={reload} notify={notify} pendingWorks={pendingWorks} selectedStudentId={studentFilter} teacherId={session.userId} /> : <BatchReview db={db} reload={reload} session={session} notify={notify} />}
   </div>;
 }
 
-function QueueReview({ db, reload, notify, pendingWorks, selectedStudentId }) {
+function QueueReview({ db, reload, notify, pendingWorks, selectedStudentId, teacherId }) {
   const [selected, setSelected] = useState(null);
   const [finalScore, setFinalScore] = useState(0);
-  const [aiComment, setAiComment] = useState('');
+  const [studentComment, setStudentComment] = useState('');
+  const [teacherComment, setTeacherComment] = useState('');
+  const [editMode, setEditMode] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!selected) return;
     setFinalScore(selected.finalScore ?? selected.suggestedScore ?? 0);
-    setAiComment(selected.aiComment || '');
+    setStudentComment(selected.finalFeedback?.studentComment || selected.analysisDraft?.studentCommentDraft || selected.aiComment || '');
+    setTeacherComment(selected.finalFeedback?.teacherComment || selected.analysisDraft?.teacherCommentDraft || selected.teacherCommentDraft || '');
+    setEditMode(selected.processingStatus === 'failed' || selected.processingStatus === 'needs_human_review');
   }, [selected]);
 
+  useEffect(() => {
+    if (!selected) return;
+    const fresh = pendingWorks.find(item => item.id === selected.id);
+    if (fresh && fresh !== selected) setSelected(fresh);
+  }, [pendingWorks, selected]);
+
+  useEffect(() => {
+    if (!pendingWorks.some(work => ['queued', 'processing'].includes(work.processingStatus))) return undefined;
+    const timer = setInterval(() => reload(), 4000);
+    return () => clearInterval(timer);
+  }, [pendingWorks, reload]);
+
   if (selected) {
-    return <div className="stack gap24"><button className="secondaryBtn fit" onClick={()=>setSelected(null)}>← Назад к очереди</button><div className="grid reviewGrid"><Card title="Распознанный текст"><pre className="typedText">{selected.ocrText}</pre></Card><Card title="Исходные файлы">{selected.files?.length ? <AttachmentGallery files={selected.files} /> : <div className="empty">Нет приложенных файлов.</div>}</Card><Card title="AI-анализ и подтверждение"><div className="stack gap12">{(selected.aiErrors || []).map((err, idx) => <div key={idx} className="errorCard"><div className="row gap8 wrap">{(err.types||[]).map(type => <span key={type} className="pill warn">{type}</span>)}</div><div className="cardTitle mt8">{err.label}</div><div className="muted small mt6">{err.description}</div></div>)}<label className="field"><span>Итоговый балл</span><input className="input" type="number" value={finalScore} onChange={e=>setFinalScore(Number(e.target.value))} /></label><label className="field"><span>Комментарий для ученика</span><textarea className="input textarea" value={aiComment} onChange={e=>setAiComment(e.target.value)} /></label><button className="primaryBtn" onClick={async()=>{await api.confirmWork(selected.id,{ finalScore, aiComment }); await reload(); setSelected(null); notify({type:'success',text:'Изменения сохранены и результат отправлен ученику.'});}}>Подтвердить</button></div></Card></div></div>;
+    const recognizedText = selected.recognitionPages?.length
+      ? selected.recognitionPages.map(page => `Страница ${page.pageNumber}\n${page.recognizedText || ''}`).join('\n\n')
+      : selected.ocrText;
+    const mistakes = selected.analysisDraft?.detectedMistakes || selected.aiErrors || [];
+    const sourceFiles = selected.submissionAssets?.length ? selected.submissionAssets : selected.files || [];
+
+    return <div className="stack gap24">
+      <button className="secondaryBtn fit" onClick={()=>setSelected(null)}>← Назад к очереди</button>
+      <div className="grid reviewGrid aiReviewGrid">
+        <Card title="Оригинал и страницы">
+          <ReviewFileViewer files={sourceFiles} />
+        </Card>
+        <Card title="Распознавание и найденные ошибки">
+          <div className="stack gap12">
+            <div className="cardInner">
+              <div className="sectionLabel">Извлеченное условие</div>
+              <div className="mt8">{selected.analysisDraft?.extractedTask || 'AI еще не выделил условие.'}</div>
+            </div>
+            <pre className="typedText">{recognizedText || 'AI еще не собрал распознанный текст.'}</pre>
+            <div className="stack gap12">
+              {mistakes.length ? mistakes.map((err, idx) => <div key={idx} className="errorCard"><div className="row gap8 wrap">{(err.types||[]).map(type => <span key={type} className="pill warn">{type}</span>)}{err.severity && <span className="pill info">{err.severity}</span>}</div><div className="cardTitle mt8">{err.label}</div><div className="muted small mt6">{err.description}</div>{err.locationHint && <div className="muted small mt6">Где смотреть: {err.locationHint}</div>}</div>) : <div className="empty">Ошибки пока не выделены или решение корректно.</div>}
+            </div>
+          </div>
+        </Card>
+        <Card title="Черновик AI и подтверждение">
+          <ReviewSummaryCard
+            selected={selected}
+            editMode={editMode}
+            finalScore={finalScore}
+            setFinalScore={setFinalScore}
+            studentComment={studentComment}
+            setStudentComment={setStudentComment}
+            teacherComment={teacherComment}
+            setTeacherComment={setTeacherComment}
+            busy={busy}
+            onEnableEdit={() => setEditMode(true)}
+            onReprocess={async () => {
+              try {
+                setBusy(true);
+                await api.reprocessWork(selected.id, { teacherId });
+                await reload();
+                notify({ type: 'success', text: 'Работа снова поставлена в AI-очередь.' });
+                setSelected(prev => prev ? ({ ...prev, processingStatus: 'queued' }) : prev);
+              } catch (error) {
+                notify({ type: 'error', text: error.message });
+              } finally {
+                setBusy(false);
+              }
+            }}
+            onManualReview={async () => {
+              try {
+                setBusy(true);
+                await api.markWorkManualReview(selected.id, { actorId: teacherId });
+                await reload();
+                notify({ type: 'success', text: 'Работа помечена как требующая ручной проверки.' });
+                setSelected(prev => prev ? ({ ...prev, processingStatus: 'needs_human_review', needsHumanReview: true }) : prev);
+              } catch (error) {
+                notify({ type: 'error', text: error.message });
+              } finally {
+                setBusy(false);
+              }
+            }}
+            onConfirm={async () => {
+              try {
+                setBusy(true);
+                await api.confirmWork(selected.id, { finalScore, aiComment: studentComment, teacherComment, teacherId });
+                await reload();
+                setSelected(null);
+                notify({ type: 'success', text: 'Результат подтвержден и опубликован ученику.' });
+              } catch (error) {
+                notify({ type: 'error', text: error.message });
+              } finally {
+                setBusy(false);
+              }
+            }}
+          />
+        </Card>
+      </div>
+    </div>;
   }
 
-  return <div className="stack gap12">{selectedStudentId !== 'all' && <div className="banner subtle">Очередь отфильтрована по выбранному ученику</div>}{pendingWorks.length ? pendingWorks.map(work => { const student = db.students.find(s=>s.id===work.studentId); const assignment = db.assignments.find(a=>a.id===work.assignmentId); return <button key={work.id} className="listCard polished" onClick={()=>setSelected(work)}><div className="row between wrap gap16"><div><div className="cardTitle">{student?.name}</div><div className="muted small mt6">{assignment?.title} · {assignment?.subject}</div></div><div className="row gap8"><span className={pillClass[work.status]}>{displayWorkStatus(work.status)}</span></div></div></button>; }) : <div className="empty">Нет работ для проверки.</div>}</div>;
+  return <div className="stack gap12">
+    {selectedStudentId !== 'all' && <div className="banner subtle">Очередь отфильтрована по выбранному ученику</div>}
+    {pendingWorks.length ? pendingWorks.map(work => {
+      const student = db.students.find(s=>s.id===work.studentId);
+      const assignment = db.assignments.find(a=>a.id===work.assignmentId);
+      return <button key={work.id} className="listCard polished" onClick={()=>setSelected(work)}>
+        <div className="row between wrap gap16">
+          <div>
+            <div className="cardTitle">{student?.name}</div>
+            <div className="muted small mt6">{assignment?.title} · {assignment?.subject}</div>
+          </div>
+          <div className="row gap8 wrap">
+            <span className={pillClass[work.processingStatus || 'uploaded']}>{displayAiStatus(work.processingStatus)}</span>
+            <span className={pillClass[work.status]}>{displayWorkStatus(work.status)}</span>
+          </div>
+        </div>
+      </button>;
+    }) : <div className="empty">Нет работ для проверки.</div>}
+  </div>;
 }
 
 function BatchReview({ db, reload, session, notify }) {
   const isLimited = session.role === 'teacher' && session.accessMode === 'limited';
   const [scale, setScale] = useState('100');
   const [files, setFiles] = useState([]);
+  const [dragActive, setDragActive] = useState(false);
   const teacherSessions = (db.batchSessions || []).filter(item => item.teacherId === session.userId);
   const [sessionId, setSessionId] = useState(teacherSessions?.[0]?.id || null);
   const [loading, setLoading] = useState(false);
   const [selectedResult, setSelectedResult] = useState(null);
   const current = teacherSessions.find(s => s.id === sessionId) || null;
+  const activeSession = teacherSessions.find(s => s.id === sessionId) || current;
+  const progress = activeSession?.results?.length
+    ? {
+      total: activeSession.results.length,
+      ready: activeSession.results.filter(result => ['draft_ready', 'needs_human_review', 'approved'].includes(result.status)).length,
+      failed: activeSession.results.filter(result => result.status === 'failed').length,
+    }
+    : { total: 0, ready: 0, failed: 0 };
 
   const startBatchReview = async () => {
     if (!files.length) return notify({ type:'error', text:'Добавь файлы перед началом пакетной проверки.' });
@@ -1312,23 +1565,60 @@ function BatchReview({ db, reload, session, notify }) {
       await api.analyzeBatch(created.id);
       await reload();
       setFiles([]);
-      notify({ type:'success', text:'AI-анализ завершен.' });
+      notify({ type:'success', text:'Файлы загружены и поставлены в AI-очередь.' });
     } finally { setLoading(false); }
   };
-  const activeSession = teacherSessions.find(s => s.id === sessionId) || current;
+
+  useEffect(() => {
+    if (!activeSession?.results?.some(result => ['queued', 'processing'].includes(result.status))) return undefined;
+    const timer = setInterval(() => reload(), 4000);
+    return () => clearInterval(timer);
+  }, [activeSession?.id, activeSession?.results, reload]);
+
+  useEffect(() => {
+    if (!selectedResult || !activeSession?.results) return;
+    const fresh = activeSession.results.find(result => result.id === selectedResult.id);
+    if (fresh && fresh !== selectedResult) setSelectedResult(fresh);
+  }, [activeSession?.results, selectedResult]);
+
+  const nextNeedsApproval = activeSession?.results?.find(result => ['draft_ready', 'needs_human_review'].includes(result.status)) || null;
+  const onDropFiles = (incoming) => {
+    setFiles(prev => [...prev, ...incoming.filter(file => !prev.some(existing => existing.name === file.name && existing.size === file.size))]);
+  };
 
   return <div className="stack gap24">
     <div className="row between wrap gap16"><div><h2 className="pageTitle">Пакетная проверка</h2><p className="muted">Множественные фото и файлы, явный запуск анализа и компактная таблица результатов.</p></div><div className="row gap8"><select className="input selectSmall" value={scale} onChange={e=>setScale(e.target.value)}><option value="5">5-балльная</option><option value="10">10-балльная</option><option value="100">100-балльная</option></select>{isLimited && <span className="pill info">Текущий тариф: Free</span>}</div></div>
     <div className="grid batchSplit">
       <Card title="Исходники для проверки">
         <div className="stack gap12">
-          <label className="uploadZone"><input type="file" multiple onChange={e=>{const incoming = Array.from(e.target.files || []); setFiles(prev => [...prev, ...incoming.filter(file => !prev.some(existing => existing.name === file.name && existing.size === file.size))]); e.target.value='';}} /><UploadCloud size={24} /> Добавить несколько фото и/или файлов</label>
-          <div className="batchFileList">{files.length ? files.map(file => <div key={file.name+file.size} className="listRow compact"><div className="stack"><span>{file.name}</span><span className="muted small">{loading ? 'в обработке' : 'загружено'}</span></div></div>) : <div className="empty">Файлы еще не добавлены.</div>}</div>
-          <div className="row gap8 wrap"><button className="primaryBtn" onClick={startBatchReview} disabled={loading || !files.length}>Начать проверку</button>{activeSession?.results?.length ? <a className="secondaryBtn linkButton" href={api.exportCsvUrl(activeSession.id)} target="_blank" rel="noreferrer"><FileSpreadsheet size={16}/> Экспорт</a> : null}</div>
+          <label
+            className={cx('uploadZone', dragActive && 'uploadZoneActive')}
+            onDragOver={e => { e.preventDefault(); setDragActive(true); }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={e => {
+              e.preventDefault();
+              setDragActive(false);
+              onDropFiles(Array.from(e.dataTransfer.files || []));
+            }}
+          >
+            <input type="file" multiple onChange={e=>{const incoming = Array.from(e.target.files || []); onDropFiles(incoming); e.target.value='';}} />
+            <UploadCloud size={24} />
+            <div>Добавить несколько фото и/или файлов</div>
+            <div className="muted small">Можно перетащить файлы прямо в эту область</div>
+          </label>
+          <div className="batchFileList">{files.length ? files.map(file => <div key={file.name+file.size} className="listRow compact"><div className="stack"><span>{file.name}</span><span className="muted small">{loading ? 'в обработке' : 'ожидает загрузки'}</span></div></div>) : <div className="empty">Файлы еще не добавлены.</div>}</div>
+          {activeSession?.results?.length ? <div className="batchProgressCard"><div className="sectionLabel">Прогресс</div><div className="row between wrap gap8 mt8"><strong>{progress.ready}/{progress.total}</strong><span className="muted small">готово к просмотру</span></div>{progress.failed > 0 && <div className="muted small mt8">Ошибок AI: {progress.failed}</div>}</div> : null}
+          <div className="row gap8 wrap">
+            <button className="primaryBtn" onClick={startBatchReview} disabled={loading || !files.length}>Начать обработку</button>
+            {nextNeedsApproval && <button className="secondaryBtn" onClick={() => setSelectedResult(nextNeedsApproval)}>Открыть следующий требующий подтверждения</button>}
+            {activeSession?.results?.some(result => result.status === 'failed') && <button className="ghostBtn" onClick={async () => { try { await api.retryFailedBatch(activeSession.id); await reload(); notify({ type:'success', text:'Ошибочные файлы снова поставлены в очередь.' }); } catch (error) { notify({ type:'error', text:error.message }); } }}>Retry failed</button>}
+            {activeSession?.results?.length ? <a className="secondaryBtn linkButton" href={api.exportCsvUrl(activeSession.id)} target="_blank" rel="noreferrer"><FileSpreadsheet size={16}/> CSV</a> : null}
+            {activeSession?.results?.length ? <a className="secondaryBtn linkButton" href={api.exportPdfUrl(activeSession.id)} target="_blank" rel="noreferrer"><FileText size={16}/> PDF</a> : null}
+          </div>
         </div>
       </Card>
       <Card title="Результаты пакетной обработки">
-        {!activeSession || !activeSession.results?.length ? <div className="empty">Таблица пуста. Сначала добавь файлы и нажми «Начать проверку».</div> : <div className="tableScroll compactTableWrap"><table className="dataTable compactTable"><thead><tr><th>Имя</th><th>Типы ошибок</th><th>Описание ошибок</th><th>Итоговый балл</th><th>Дата</th></tr></thead><tbody>{activeSession.results.map(result => <tr key={result.id} onClick={()=>setSelectedResult(result)}><td>{result.name}</td><td><div className="chipWrap">{(result.errorTypes||[]).map(type => <span key={type} className="chip">{type}</span>)}</div></td><td>{result.errorDescription}</td><td>{result.score}</td><td>{result.submittedAt}</td></tr>)}</tbody></table></div>}
+        {!activeSession || !activeSession.results?.length ? <div className="empty">Таблица пуста. Сначала добавь файлы и нажми «Начать обработку».</div> : <div className="tableScroll compactTableWrap"><table className="dataTable compactTable"><thead><tr><th>Файл</th><th>Статус</th><th>Ошибки</th><th>Балл</th><th>OCR / AI</th></tr></thead><tbody>{activeSession.results.map(result => <tr key={result.id} onClick={()=>setSelectedResult(result)}><td>{result.name}</td><td><span className={pillClass[result.status || 'uploaded']}>{displayAiStatus(result.status)}</span></td><td><div className="chipWrap">{(result.errorTypes||[]).slice(0,3).map(type => <span key={type} className="chip">{type}</span>)}</div></td><td>{result.score ?? '—'}</td><td><span className="muted small">{formatConfidence(result.recognitionConfidence)} / {formatConfidence(result.aiConfidence)}</span></td></tr>)}</tbody></table></div>}
       </Card>
     </div>
     {selectedResult && <BatchResultModal result={selectedResult} sessionId={activeSession.id} onClose={()=>setSelectedResult(null)} onSave={async(payload)=>{await api.updateBatchResult(activeSession.id, selectedResult.id, payload); await reload(); setSelectedResult(null); notify({type:'success',text:'Результат пакетной проверки обновлен.'});}} />}
@@ -1337,13 +1627,32 @@ function BatchReview({ db, reload, session, notify }) {
 
 
 function BatchResultModal({ result, onClose, onSave }) {
-  const [score, setScore] = useState(result.score);
+  const [score, setScore] = useState(result.score ?? 0);
   const [aiComment, setAiComment] = useState(result.aiComment || '');
+  const files = result.submissionAssets?.length ? result.submissionAssets : (result.file ? [result.file] : result.sourceUrl ? [{ id: result.id, url: result.sourceUrl, kind: 'photo', name: result.name }] : []);
+  const recognizedText = result.recognitionPages?.length
+    ? result.recognitionPages.map(page => `Страница ${page.pageNumber}\n${page.recognizedText || ''}`).join('\n\n')
+    : result.typedText;
   return <Modal title={result.name} onClose={onClose} wide>
-    <div className="grid reviewGrid">
-      <Card title="Печатный формат работы"><pre className="typedText">{result.typedText}</pre></Card>
-      <Card title="Рукописный исходник">{result.sourceUrl ? <img src={normalizeUrl(result.sourceUrl)} alt={result.name} className="galleryImg tall" /> : <div className="empty">Нет исходника</div>}</Card>
-      <Card title="Комментарии AI и итоговый балл"><div className="chipWrap">{(result.errorTypes||[]).map(type => <span key={type} className="pill warn">{type}</span>)}</div><p className="muted mt12">{result.errorDescription}</p><label className="field mt16"><span>Комментарий AI</span><textarea className="input textarea" value={aiComment} onChange={e=>setAiComment(e.target.value)} /></label><label className="field mt16"><span>Итоговый балл</span><input className="input" type="number" value={score} onChange={e=>setScore(Number(e.target.value))} /></label><div className="modalActions"><button className="secondaryBtn" onClick={onClose}>Отмена</button><button className="primaryBtn" onClick={()=>onSave({ score, aiComment })}>Сохранить</button></div></Card>
+    <div className="grid reviewGrid aiReviewGrid">
+      <Card title="Исходник">
+        <ReviewFileViewer files={files} />
+      </Card>
+      <Card title="Распознанный текст и ошибки">
+        <pre className="typedText">{recognizedText || 'AI еще не закончил распознавание.'}</pre>
+        <div className="chipWrap mt12">{(result.errorTypes||[]).map(type => <span key={type} className="pill warn">{type}</span>)}</div>
+        {result.errorDescription && <p className="muted mt12">{result.errorDescription}</p>}
+      </Card>
+      <Card title="Черновик результата">
+        <div className="row gap8 wrap">
+          <span className={pillClass[result.status || 'uploaded']}>{displayAiStatus(result.status)}</span>
+          <span className="pill info">OCR {formatConfidence(result.recognitionConfidence)}</span>
+          <span className="pill info">AI {formatConfidence(result.aiConfidence)}</span>
+        </div>
+        <label className="field mt16"><span>Комментарий AI</span><textarea className="input textarea" value={aiComment} onChange={e=>setAiComment(e.target.value)} /></label>
+        <label className="field mt16"><span>Итоговый балл</span><input className="input" type="number" value={score} onChange={e=>setScore(Number(e.target.value))} /></label>
+        <div className="modalActions"><button className="secondaryBtn" onClick={onClose}>Отмена</button><button className="primaryBtn" onClick={()=>onSave({ score, aiComment })}>Сохранить</button></div>
+      </Card>
     </div>
   </Modal>;
 }
@@ -1449,11 +1758,11 @@ function TeacherReportsPage({ db, reload, notify, session }) {
 function TeacherPricingPage({ db, session }) {
   const current = session.role === 'teacher' && session.accessMode === 'limited' ? 'Free' : 'Pro Trial';
   const plans = [
-    { name:'Free', price:'0 ₽', features:['Только пакетная проверка','CSV/PDF экспорт','Без очереди ручной проверки'] },
-    { name:'Pro Trial', price:'Первые 30 дней бесплатно', features:['Полный набор кабинета преподавателя','Ученики, группы, задания, аналитика','Настройки и отчеты'] },
-    { name:'Pro', price:'1 490 ₽/мес', features:['Без лимита учеников','Полный набор кабинета преподавателя','Пакетная проверка и отчеты'] }
+    { name:'Free', price:'0 ₽', features:['Пакетная проверка','Ограниченный лимит обработок','Базовое распознавание','CSV/PDF экспорт','Без полной очереди ручной проверки и расширенной аналитики'] },
+    { name:'Pro Trial', price:'30 дней бесплатно', features:['Полный доступ ко всем функциям','Одиночная и пакетная проверка','Ученики, группы, задания','Редактирование AI-черновиков','Аналитика и отчеты'] },
+    { name:'Pro', price:'1 490 ₽/мес', features:['Полный кабинет преподавателя','Ученики, группы, задания','Одиночная и пакетная проверка','Комментарии ученикам','Аналитика и отчеты','Итог всегда подтверждает преподаватель'] }
   ];
-  return <div className="stack gap24"><div><h2 className="pageTitle">Тарифы</h2><p className="muted">После 30 дней trial преподаватель автоматически переходит в Free-режим с доступом только к пакетной проверке.</p></div><div className="grid threeCol">{plans.map(plan => <Card key={plan.name} title={plan.name} actions={current===plan.name && <span className="pill info">Текущий тариф</span>}><div className="price">{plan.price}</div><ul className="featureList">{plan.features.map(f=><li key={f}>{f}</li>)}</ul></Card>)}</div></div>;
+  return <div className="stack gap24"><div><h2 className="pageTitle">Тарифы</h2><p className="muted">AI экономит время на распознавании и черновике проверки, но финальный результат всегда подтверждает преподаватель.</p></div><div className="grid threeCol">{plans.map(plan => <Card key={plan.name} title={plan.name} actions={current===plan.name && <span className="pill info">Текущий тариф</span>}><div className="price">{plan.price}</div><ul className="featureList">{plan.features.map(f=><li key={f}>{f}</li>)}</ul></Card>)}</div></div>;
 }
 
 function TeacherSettingsPage({ db, reload, notify, session }) {
@@ -1502,7 +1811,9 @@ function StudentDashboardPage({ db, session, navigate, reload, notify }) {
   const works = db.works.filter(w => w.studentId === student.id);
   const undone = assignments.filter(a => !works.some(w => w.assignmentId === a.id));
   const reviewedWorks = works.filter(item => item.status === 'Проверено');
-  const recommendations = reviewedWorks.flatMap(work => (work.aiErrors || []).map(item => item.description).filter(Boolean)).slice(0, 3);
+  const recommendations = reviewedWorks
+    .flatMap(work => work.finalFeedback?.recommendations?.length ? work.finalFeedback.recommendations : (work.aiErrors || []).map(item => item.description).filter(Boolean))
+    .slice(0, 3);
   const decisionNotifications = (db.teacherInvites || [])
     .filter(invite => invite.studentId === student.id && invite.direction === 'student_to_teacher' && ['accepted', 'declined'].includes(invite.status) && !invite.studentNotificationDismissedAt)
     .map(invite => ({
@@ -1541,7 +1852,7 @@ function StudentDashboardPage({ db, session, navigate, reload, notify }) {
     <div className="grid twoCol"><button className="kpiCard clickable" onClick={()=>setShowUndone(true)}><div className="kpiTitle">Задания, которые не сделаны</div><div className="kpiValue">{undone.length}</div></button><KPI title="Score" value={db.computed.studentScores[student.id] || 0} /></div>
     {!studentTeacherIds(student).length && <EmptyOnboarding role="student" title="Новый аккаунт ученика" text="Сейчас кабинет пустой, потому что вы еще не подключили преподавателя и не получили первое задание." actions={[<button key="tutors" className="primaryBtn" onClick={()=>navigate('/student/tutors')}>Открыть репетиторов</button>]} />}
     <div className="grid twoCol">
-      <Card title="Последние результаты"><div className="stack gap10">{reviewedWorks.length ? reviewedWorks.slice(0,4).map(w => { const a = db.assignments.find(x=>x.id===w.assignmentId); return <div key={w.id} className="listRow"><div>{a?.title}</div><div>{w.finalScore}</div></div>; }) : <div className="empty">Пока нет проверенных работ.</div>}</div></Card>
+      <Card title="Последние результаты"><div className="stack gap10">{reviewedWorks.length ? reviewedWorks.slice(0,4).map(w => { const a = db.assignments.find(x=>x.id===w.assignmentId); return <div key={w.id} className="listRow"><div><div>{a?.title}</div>{w.finalFeedback?.studentComment && <div className="muted small mt6">{w.finalFeedback.studentComment}</div>}</div><div>{w.finalFeedback?.finalScore ?? w.finalScore}</div></div>; }) : <div className="empty">Пока нет проверенных работ.</div>}</div></Card>
       <Card title="Рекомендации"><div className="stack gap8">{recommendations.length ? recommendations.map((item, index) => <div key={`${item}-${index}`} className="cardInner">{item}</div>) : <div className="empty">Рекомендации появятся после первых проверенных работ.</div>}</div></Card>
     </div>
     {showUndone && <Modal title="Задания, которые не сделаны" onClose={()=>setShowUndone(false)}><div className="stack gap12">{undone.length ? undone.map(a => <button key={a.id} className="assignmentCard polished" onClick={()=>setDetail(a)}><div className="row between wrap gap12"><div><div className="cardTitle">{a.title}</div><div className="muted small">{a.subject}</div></div><DeadlineBadge assignment={a} hasWork={false} /></div></button>) : <div className="empty">Новых заданий пока нет.</div>}</div></Modal>}
@@ -1579,6 +1890,7 @@ function StudentAssignmentDetail({ assignment, work, onClose, onUpload, readonly
         <div className="cardInner">Решение уже отправлено преподавателю. Повторная дозагрузка файлов для этой работы недоступна.</div>
         <div className="row gap8 wrap"><span className={pillClass[displayWorkStatus(work.status, 'student')]}>{displayWorkStatus(work.status, 'student')}</span>{work.submittedAt && <span className="muted small">Отправлено: {work.submittedAt}</span>}</div>
         {!!work.files?.length && <AttachmentGallery files={work.files} compact />}
+        {work.finalFeedback && <div className="cardInner"><div className="sectionLabel">Подтвержденный результат</div><div className="mt8"><strong>Балл:</strong> {work.finalFeedback.finalScore}</div><div className="mt8">{work.finalFeedback.studentComment || 'Комментарий появится после подтверждения преподавателем.'}</div>{work.finalFeedback.recommendations?.length ? <div className="chipWrap mt12">{work.finalFeedback.recommendations.map(item => <span key={item} className="chip">{item}</span>)}</div> : null}</div>}
       </>}
       {!readonly && !work && <><label className="uploadZone small"><input type="file" multiple onChange={e=>setFiles(prev=>[...prev, ...Array.from(e.target.files||[]).filter(file => !prev.some(existing => existing.name === file.name && existing.size === file.size))])} /> <UploadCloud size={20} /> Добавить несколько фото/файлов</label>{files.length>0 && <div className="attachList">{files.map(file => <span key={file.name+file.size} className="attachChip">{file.name}</span>)}</div>}<div className="modalActions"><button className="secondaryBtn" onClick={onClose}>Закрыть</button><button className="primaryBtn" onClick={()=>onUpload(files)} disabled={!files.length}>Загрузить</button></div></>}
       {readonly && <div className="modalActions"><button className="secondaryBtn" onClick={onClose}>Закрыть</button></div>}

@@ -1,78 +1,54 @@
-import { ArrowRight, BookOpen, Check, Crown, Sparkles, Star, X } from 'lucide-react';
+import { ArrowRight, Check, Crown, Sparkles, Star, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const plans = [
   {
     title: 'Free',
-    subtitle: 'Попробовать бесплатно',
+    subtitle: 'Для старта и batch-only режима',
     price: '0 ₽',
     buttonLabel: 'Начать бесплатно',
     icon: Sparkles,
     featured: false,
     features: [
-      'Решение задач по фото',
-      'Короткий ответ',
-      'Проверка решения',
-      '5 задач в день',
+      'Пакетная проверка',
+      'Ограниченный лимит проверок',
+      'Базовое распознавание',
+      'CSV/PDF экспорт',
     ],
     disabled: [
-      'Подробные объяснения',
-      'Разбор ошибок',
-      'История задач',
+      'Очередь ручной проверки',
+      'Расширенная аналитика',
     ],
   },
   {
-    title: 'Basic',
-    subtitle: 'Для домашних заданий',
-    price: '690 ₽',
-    buttonLabel: 'Оформить Basic',
-    icon: BookOpen,
-    featured: false,
-    features: [
-      'Решение задач по фото и тексту',
-      'Краткие объяснения',
-      'Подходит для повседневных задач',
-      'Работа с PDF и скриншотами',
-      'До 100 задач',
-    ],
-    disabled: [
-      'Глубокий разбор',
-      'Объяснение как преподаватель',
-    ],
-  },
-  {
-    title: 'Standard',
-    subtitle: 'Лучший выбор',
-    price: '1190 ₽',
-    buttonLabel: 'Оформить Standard',
+    title: 'Pro Trial',
+    subtitle: '30 дней полного доступа',
+    price: '30 дней бесплатно',
+    buttonLabel: 'Активировать Trial',
     icon: Star,
     featured: true,
     features: [
-      'Пошаговые решения',
-      'Объяснение как учитель',
-      'Разбор ошибок',
-      'Подготовка к контрольным',
-      'История задач',
-      'До 250 задач',
+      'Полный кабинет преподавателя',
+      'Ученики, группы и задания',
+      'Одиночная и пакетная проверка',
+      'Редактирование AI-черновиков',
+      'Аналитика и отчеты',
     ],
-    disabled: [
-      'Нет приоритета в очереди',
-    ],
+    disabled: [],
   },
   {
-    title: 'Premium',
-    subtitle: 'Максимум возможностей',
-    price: '1990 ₽',
-    buttonLabel: 'Оформить Premium',
+    title: 'Pro',
+    subtitle: 'Основной рабочий тариф',
+    price: '1490 ₽',
+    buttonLabel: 'Оформить Pro',
     icon: Crown,
     featured: false,
     features: [
-      'Полные разборы задач',
-      'Объяснение с нуля',
-      'Подготовка к экзаменам',
-      'Быстрые ответы',
-      'История и повтор решений',
-      'До 500 задач',
+      'Полный кабинет преподавателя',
+      'Комментарии ученикам',
+      'Одиночная и пакетная проверка',
+      'Аналитика и отчеты',
+      'Ручное подтверждение результата',
     ],
     disabled: [],
   },
@@ -128,7 +104,7 @@ function PricingCard({ plan }) {
 
           <div className="mt-6 flex items-end gap-2">
             <span className="text-4xl font-semibold tracking-tight text-slate-950">{plan.price}</span>
-            <span className="pb-1 text-sm text-slate-400">/ мес</span>
+            {plan.title === 'Pro' ? <span className="pb-1 text-sm text-slate-400">/ мес</span> : null}
           </div>
         </div>
       </div>
@@ -189,11 +165,11 @@ export default function TailwindPricingSection() {
                 Тарифы
               </div>
               <h2 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
-                Выберите план под свой формат учебы
+                Тарифы для преподавателя без противоречий между лендингом и кабинетом
               </h2>
               <p className="mt-3 max-w-xl text-sm leading-6 text-slate-500 sm:text-base">
-                От быстрого старта до полного разбора задач с объяснениями как у преподавателя.
-                Карточки адаптивны, а основной акцент сразу падает на рекомендуемый план.
+                AI ускоряет распознавание и черновик проверки, но итоговый комментарий и балл
+                по-прежнему подтверждает преподаватель.
               </p>
             </div>
 
@@ -203,7 +179,7 @@ export default function TailwindPricingSection() {
             </div>
           </div>
 
-          <div className="relative mt-10 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+          <div className="relative mt-10 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
             {plans.map(plan => (
               <PricingCard key={plan.title} plan={plan} />
             ))}

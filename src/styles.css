@@ -88,6 +88,7 @@ img { max-width: 100%; display: block; }
 .onePlusSide { grid-template-columns: .9fr 1.1fr; }
 .detailGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .reviewGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+.aiReviewGrid { grid-template-columns: 1.02fr 1.08fr .9fr; }
 .grid { display: grid; gap: 16px; }
 
 .kpiCard, .infoBox { background: rgba(255,255,255,.92); border: 1px solid var(--line); border-radius: 24px; padding: 18px; text-align: left; }
@@ -149,6 +150,13 @@ img { max-width: 100%; display: block; }
 .pdfPreviewCard { min-height: 320px; border: 1px solid var(--line); border-radius: 22px; background: rgba(248,250,252,.95); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
 .pdfPreviewTitle { font-size: 13px; font-weight: 700; line-height: 1.4; word-break: break-word; }
 .pdfPreviewObject { width: 100%; min-height: 250px; border: 0; border-radius: 16px; background: white; }
+.reviewViewerSurface { min-height: 420px; overflow: auto; display: grid; place-items: start center; border: 1px solid var(--line); border-radius: 22px; background: #f8fafc; padding: 16px; }
+.reviewViewerImage { max-width: 100%; transform-origin: top center; transition: transform .2s ease; border-radius: 18px; border: 1px solid rgba(148,163,184,.24); }
+.reviewViewerPdf { width: 100%; min-height: 420px; border: 0; background: white; border-radius: 18px; }
+.advancedDisclosure { border: 1px solid var(--line); border-radius: 20px; background: rgba(248,250,252,.92); padding: 14px 16px; }
+.advancedDisclosure summary { cursor: pointer; font-weight: 700; }
+.batchProgressCard { border: 1px solid var(--line); border-radius: 20px; background: rgba(248,250,252,.92); padding: 14px 16px; }
+.uploadZoneActive { border-color: #7c3aed; background: rgba(124,58,237,.06); color: #5b21b6; }
 
 .filterRow { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 .suggestions { margin-top: 8px; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: white; box-shadow: 0 14px 30px rgba(15,23,42,.08); }
@@ -196,6 +204,7 @@ img { max-width: 100%; display: block; }
   .sidebar { width: 100%; border-right: 0; border-bottom: 1px solid var(--line); }
   .content { padding: 20px; }
   .hero h1 { font-size: 40px; }
+  .aiReviewGrid { grid-template-columns: 1fr; }
 }
 
 .fixedSidebarShell { grid-template-columns: 280px 1fr; }

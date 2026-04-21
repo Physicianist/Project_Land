@@ -8,6 +8,25 @@ import crypto from 'crypto';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { readDb, writeDb, nextId, publicFileUrl } from './db.js';
+import { createRecognitionQueue } from './ai/queue.js';
+import { featureFlagsPayload, loadAiConfig, redactAiError } from './ai/config.js';
+import {
+  allowedUploadMimeTypes,
+  guessPdfPageCountFromBuffer,
+  safeStoredFilename,
+  sha256File,
+} from './ai/file-utils.js';
+import {
+  SubmissionStatuses,
+  approveSubmissionReview,
+  attachParentReportSnapshot,
+  createBatchResultsFromUploadedFiles,
+  decorateBatchResultWithAi,
+  decorateWorkWithAi,
+  ensureAiDbDefaults,
+  markSubmissionNeedsHumanReview,
+  registerWorkSubmission,
+} from './ai/pipeline.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,6 +34,7 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const TRIAL_DAYS = 30;
 const uploadsDir = path.join(__dirname, 'uploads');
+const aiConfig = loadAiConfig();
 const pdfFontPath = ['/Library/Fonts/Arial Unicode.ttf', '/System/Library/Fonts/Supplemental/Arial Unicode.ttf']
   .find(candidate => fs.existsSync(candidate));
 
@@ -28,13 +48,87 @@ app.use('/uploads', express.static(uploadsDir));
 
 const storage = multer.diskStorage({
   destination: (_, __, cb) => cb(null, uploadsDir),
-  filename: (_, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`),
+  filename: (_, file, cb) => cb(null, safeStoredFilename(file.originalname)),
 });
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: {
+    files: aiConfig.limits.maxFilesPerSubmission,
+    fileSize: aiConfig.limits.maxUploadMb * 1024 * 1024,
+  },
+  fileFilter: (_, file, cb) => {
+    if (!allowedUploadMimeTypes.has(file.mimetype)) {
+      const error = new Error('Поддерживаются только JPG, PNG, WEBP, HEIC и PDF.');
+      error.code = 'UNSUPPORTED_FILE_TYPE';
+      cb(error);
+      return;
+    }
+    cb(null, true);
+  },
+});
+
+const rateLimitState = new Map();
+const createRateLimit = ({ windowMs, maxRequests }) => (req, res, next) => {
+  const bucketKey = `${req.ip}:${req.path}`;
+  const now = Date.now();
+  const current = rateLimitState.get(bucketKey);
+  if (!current || current.expiresAt <= now) {
+    rateLimitState.set(bucketKey, { count: 1, expiresAt: now + windowMs });
+    next();
+    return;
+  }
+  if (current.count >= maxRequests) {
+    res.status(429).json({ error: 'Слишком много запросов. Попробуйте чуть позже.' });
+    return;
+  }
+  current.count += 1;
+  next();
+};
+
+const apiRateLimit = createRateLimit({
+  windowMs: aiConfig.rateLimits.windowMs,
+  maxRequests: aiConfig.rateLimits.maxRequestsPerWindow,
+});
+const aiRateLimit = createRateLimit({
+  windowMs: aiConfig.rateLimits.windowMs,
+  maxRequests: aiConfig.rateLimits.maxAiRequestsPerWindow,
+});
+app.use('/api', apiRateLimit);
 
 const subjects = ['Математика', 'Физика', 'Химия'];
 const notificationKeys = ['Новая работа загружена', 'Запрос на пересмотр', 'Дедлайн приближается', 'Еженедельная сводка'];
 const reportFieldKeys = ['Имя ученика', 'Частые типы ошибок', 'Гистограмма оценок'];
+const recognitionQueue = createRecognitionQueue({
+  config: aiConfig,
+  readDb,
+  writeDb,
+  uploadsDir,
+});
+
+async function buildUploadedFileDescriptors(req, files = []) {
+  return Promise.all((files || []).map(async (file, index) => {
+    const absolutePath = path.join(uploadsDir, file.filename);
+    const sha256 = await sha256File(absolutePath);
+    const pageCount = file.mimetype === 'application/pdf'
+      ? guessPdfPageCountFromBuffer(await fs.promises.readFile(absolutePath))
+      : 1;
+    return {
+      id: `${Date.now()}-${index}-${file.originalname}`,
+      name: file.originalname,
+      originalName: file.originalname,
+      storageName: file.filename,
+      url: publicFileUrl(req, file.filename),
+      previewUrl: publicFileUrl(req, file.filename),
+      normalizedUrl: publicFileUrl(req, file.filename),
+      kind: file.mimetype.startsWith('image/') ? 'photo' : 'file',
+      mimeType: file.mimetype,
+      sizeBytes: file.size,
+      sha256,
+      pageCount,
+    };
+  }));
+}
+
 const defaultTeacherProfile = (overrides = {}) => ({
   id: overrides.id || '',
   name: overrides.name || 'Преподаватель',
@@ -465,6 +559,7 @@ function ensureDbDefaults(db) {
     account.onboardingCompleted ??= account.id?.includes('demo');
   });
 
+  ensureAiDbDefaults(db);
   return db;
 }
 
@@ -712,7 +807,7 @@ const emptyScopedPayload = (scope = 'public') => ({
   batchSessions: [],
   attendanceRecords: [],
   computed: { studentScores: {}, groupScores: {} },
-  meta: { scope },
+  meta: { scope, featureFlags: featureFlagsPayload(aiConfig) },
 });
 
 const serializeBootstrap = ({ role = null, userId = null } = {}) => {
@@ -735,14 +830,21 @@ const serializeBootstrap = ({ role = null, userId = null } = {}) => {
       students,
       groups,
       assignments: db.assignments.filter(item => teacherOwnsAssignment(item, userId)),
-      works: db.works.filter(item => teacherOwnsWork(item, userId) && relatedStudentIds.has(item.studentId)),
+      works: db.works
+        .filter(item => teacherOwnsWork(item, userId) && relatedStudentIds.has(item.studentId))
+        .map(item => decorateWorkWithAi(db, item)),
       teacherInvites: invites,
       reportConfigs: db.reportConfigs.filter(item => item.teacherId === userId),
       reportLogs: db.reportLogs.filter(item => item.teacherId === userId),
-      batchSessions: db.batchSessions.filter(item => item.teacherId === userId),
+      batchSessions: db.batchSessions
+        .filter(item => item.teacherId === userId)
+        .map(session => ({
+          ...session,
+          results: (session.results || []).map(result => decorateBatchResultWithAi(db, session, result)),
+        })),
       attendanceRecords: db.attendanceRecords.filter(item => teacherOwnsAttendance(item, userId)),
       computed: buildComputedForScope(db, students.filter(student => teacherOwnsStudent(student, userId)), groups, userId),
-      meta: { scope: 'teacher' },
+      meta: { scope: 'teacher', featureFlags: featureFlagsPayload(aiConfig) },
     };
   }
 
@@ -765,14 +867,23 @@ const serializeBootstrap = ({ role = null, userId = null } = {}) => {
       students: [student],
       groups,
       assignments,
-      works: db.works.filter(item => item.studentId === userId && (!teacherIds.length || !item.teacherId || teacherIds.includes(item.teacherId) || invites.some(invite => invite.teacherId === item.teacherId))),
+      works: db.works
+        .filter(item => item.studentId === userId && (!teacherIds.length || !item.teacherId || teacherIds.includes(item.teacherId) || invites.some(invite => invite.teacherId === item.teacherId)))
+        .map(item => {
+          const decorated = decorateWorkWithAi(db, item);
+          return {
+            ...item,
+            processingStatus: decorated.submission?.status || item.processingStatus || SubmissionStatuses.uploaded,
+            finalFeedback: decorated.finalFeedback || null,
+          };
+        }),
       teacherInvites: invites,
       reportConfigs: [],
       reportLogs: [],
       batchSessions: [],
       attendanceRecords: db.attendanceRecords.filter(item => item.studentId === userId && (!item.teacherId || teacherIds.includes(item.teacherId))),
       computed: buildComputedForScope(db, [student], groups),
-      meta: { scope: 'student' },
+      meta: { scope: 'student', featureFlags: featureFlagsPayload(aiConfig) },
     };
   }
 
@@ -1098,14 +1209,13 @@ app.post('/api/teacher-invites/:id/dismiss-student-notification', (req, res) => 
   res.json({ success: true });
 });
 
-app.post('/api/upload', upload.array('files', 20), (req, res) => {
-  const files = (req.files || []).map(file => ({
-    id: `${Date.now()}-${file.originalname}`,
-    name: file.originalname,
-    url: publicFileUrl(req, file.filename),
-    kind: file.mimetype.startsWith('image/') ? 'photo' : 'file',
-  }));
-  res.json({ files });
+app.post('/api/upload', aiRateLimit, upload.array('files', aiConfig.limits.maxFilesPerSubmission), async (req, res, next) => {
+  try {
+    const files = await buildUploadedFileDescriptors(req, req.files || []);
+    res.json({ files });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.post('/api/students', (req, res) => {
@@ -1343,8 +1453,24 @@ app.post('/api/works', (req, res) => {
     ...req.body,
   };
   db.works.push(work);
+  registerWorkSubmission(db, work, assignment);
   writeDb(db);
-  res.json(work);
+  if (aiConfig.flags.ENABLE_OPENAI_RECOGNITION) {
+    recognitionQueue.enqueueSubmission(work.submissionId, work.teacherId);
+  } else {
+    const persistedDb = readDb();
+    ensureDbDefaults(persistedDb);
+    const persistedWork = persistedDb.works.find(item => item.id === work.id);
+    if (persistedWork) {
+      persistedWork.processingStatus = SubmissionStatuses.failed;
+      persistedWork.aiProcessingError = 'AI-обработка отключена на сервере. Укажите OPENAI_API_KEY и включите ENABLE_OPENAI_RECOGNITION.';
+      writeDb(persistedDb);
+    }
+  }
+  const responseDb = readDb();
+  ensureDbDefaults(responseDb);
+  const responseWork = responseDb.works.find(item => item.id === work.id);
+  res.json(decorateWorkWithAi(responseDb, responseWork || work));
 });
 
 app.put('/api/works/:id', (req, res) => {
@@ -1361,13 +1487,36 @@ app.put('/api/works/:id', (req, res) => {
 app.put('/api/works/:id/confirm', (req, res) => {
   const db = readDb();
   ensureDbDefaults(db);
-  const work = db.works.find(item => item.id === req.params.id);
-  if (!work) return res.status(404).json({ error: 'Work not found' });
-  work.finalScore = req.body.finalScore;
-  work.aiComment = req.body.aiComment;
-  work.status = 'Проверено';
+  const result = approveSubmissionReview(db, {
+    workId: req.params.id,
+    finalScore: req.body.finalScore,
+    studentComment: req.body.aiComment ?? req.body.studentComment,
+    teacherComment: req.body.teacherComment,
+    actorId: req.body.teacherId || req.body.actorId || null,
+    reviewRequired: aiConfig.flags.ENABLE_TEACHER_REVIEW_REQUIRED,
+  });
+  if (result?.error) return res.status(409).json({ error: result.error });
   writeDb(db);
-  res.json(work);
+  res.json(decorateWorkWithAi(db, result.work));
+});
+
+app.post('/api/works/:id/reprocess', aiRateLimit, (req, res) => {
+  const db = readDb();
+  ensureDbDefaults(db);
+  const work = db.works.find(item => item.id === req.params.id);
+  if (!work) return res.status(404).json({ error: 'Работа не найдена.' });
+  if (!aiConfig.flags.ENABLE_OPENAI_RECOGNITION) return res.status(409).json({ error: 'AI-обработка отключена на сервере.' });
+  const job = recognitionQueue.enqueueSubmission(work.submissionId || `sub-${work.id}`, work.teacherId, true);
+  res.json({ success: true, jobId: job?.id || null });
+});
+
+app.put('/api/works/:id/manual-review', (req, res) => {
+  const db = readDb();
+  ensureDbDefaults(db);
+  const submission = markSubmissionNeedsHumanReview(db, req.params.id, req.body.actorId || null);
+  if (!submission) return res.status(404).json({ error: 'Работа не найдена.' });
+  writeDb(db);
+  res.json({ success: true, submission });
 });
 
 app.get('/api/reports/configs', (req, res) => {
@@ -1447,6 +1596,14 @@ app.post('/api/reports/send', (req, res) => {
         teacherId: teacherId || null,
       };
       db.reportLogs.unshift(entry);
+      attachParentReportSnapshot(db, {
+        teacherId: teacherId || null,
+        targetType,
+        targetId,
+        periodLabel: period.label,
+        payload: entry.payload,
+        recipients: entry.recipients,
+      });
       writeDb(db);
       res.json(entry);
     })
@@ -1462,46 +1619,47 @@ app.get('/api/reports/logs', (req, res) => {
   res.json(teacherId ? db.reportLogs.filter(item => item.teacherId === teacherId) : []);
 });
 
-app.post('/api/batch/sessions', upload.array('files', 20), (req, res) => {
-  const db = readDb();
-  ensureDbDefaults(db);
-  const session = {
-    id: nextId(db, 'batch', 'b'),
-    createdAt: new Date().toISOString(),
-    teacherId: req.body.teacherId || null,
-    scale: req.body.scale || '100',
-    files: (req.files || []).map(file => ({
-      id: `${Date.now()}-${file.originalname}`,
-      name: file.originalname,
-      url: publicFileUrl(req, file.filename),
-      kind: file.mimetype.startsWith('image/') ? 'photo' : 'file',
-      originalName: file.originalname,
-    })),
-    results: []
-  };
-  db.batchSessions.unshift(session);
-  writeDb(db);
-  res.json(session);
+app.post('/api/batch/sessions', aiRateLimit, upload.array('files', aiConfig.limits.maxBatchFiles), async (req, res, next) => {
+  try {
+    const db = readDb();
+    ensureDbDefaults(db);
+    const uploadedFiles = await buildUploadedFileDescriptors(req, req.files || []);
+    const session = {
+      id: nextId(db, 'batch', 'b'),
+      createdAt: new Date().toISOString(),
+      teacherId: req.body.teacherId || null,
+      scale: req.body.scale || '100',
+      files: uploadedFiles,
+      results: [],
+    };
+    session.results = createBatchResultsFromUploadedFiles(session, uploadedFiles);
+    db.batchSessions.unshift(session);
+    writeDb(db);
+    res.json({
+      ...session,
+      results: session.results.map(result => decorateBatchResultWithAi(db, session, result)),
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
-app.post('/api/batch/sessions/:id/analyze', (req, res) => {
+app.post('/api/batch/sessions/:id/analyze', aiRateLimit, (req, res) => {
   const db = readDb();
   ensureDbDefaults(db);
   const session = db.batchSessions.find(item => item.id === req.params.id);
   if (!session) return res.status(404).json({ error: 'Session not found' });
-  session.results = session.files.map((file, index) => ({
-    id: `${session.id}-r${index + 1}`,
-    name: `Ученик ${index + 1}`,
-    errorTypes: index % 3 === 0 ? ['Вычислительная', 'Оформление'] : index % 3 === 1 ? ['Логическая', 'Терминология'] : ['Оформление'],
-    errorDescription: index % 3 === 0 ? 'Есть арифметическая ошибка и неполное оформление финального ответа.' : index % 3 === 1 ? 'Неверно выбран метод решения, из-за чего ход решения уходит в сторону.' : 'Решение в целом верно, но оформление ответа не соответствует критериям.',
-    score: session.scale === '5' ? 4 : session.scale === '10' ? 8 : 78,
-    typedText: `Распознанный текст работы ${index + 1}:\nФормула, промежуточные вычисления, итоговый ответ...`,
-    sourceUrl: file.url,
-    aiComment: 'AI предлагает пересмотреть участок с формулой и финальным ответом.',
-    submittedAt: new Date().toISOString().slice(0, 10)
-  }));
+  if (!aiConfig.flags.ENABLE_BATCH_AI_GRADING) return res.status(409).json({ error: 'Пакетная AI-проверка отключена.' });
+  if (!aiConfig.flags.ENABLE_OPENAI_RECOGNITION) return res.status(409).json({ error: 'AI-обработка отключена на сервере.' });
   writeDb(db);
-  res.json(session);
+  recognitionQueue.enqueueBatchSession(session.id, session.teacherId);
+  const responseDb = readDb();
+  ensureDbDefaults(responseDb);
+  const responseSession = responseDb.batchSessions.find(item => item.id === req.params.id);
+  res.json({
+    ...responseSession,
+    results: (responseSession?.results || []).map(result => decorateBatchResultWithAi(responseDb, responseSession, result)),
+  });
 });
 
 app.get('/api/batch/sessions/:id', (req, res) => {
@@ -1509,7 +1667,10 @@ app.get('/api/batch/sessions/:id', (req, res) => {
   ensureDbDefaults(db);
   const session = db.batchSessions.find(item => item.id === req.params.id);
   if (!session) return res.status(404).json({ error: 'Session not found' });
-  res.json(session);
+  res.json({
+    ...session,
+    results: (session.results || []).map(result => decorateBatchResultWithAi(db, session, result)),
+  });
 });
 
 app.put('/api/batch/sessions/:id/results/:resultId', (req, res) => {
@@ -1522,6 +1683,16 @@ app.put('/api/batch/sessions/:id/results/:resultId', (req, res) => {
   Object.assign(result, req.body);
   writeDb(db);
   res.json(result);
+});
+
+app.post('/api/batch/sessions/:id/retry-failed', aiRateLimit, (req, res) => {
+  const db = readDb();
+  ensureDbDefaults(db);
+  const session = db.batchSessions.find(item => item.id === req.params.id);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+  if (!aiConfig.flags.ENABLE_OPENAI_RECOGNITION) return res.status(409).json({ error: 'AI-обработка отключена на сервере.' });
+  recognitionQueue.enqueueBatchSession(session.id, session.teacherId, true);
+  res.json({ success: true });
 });
 
 app.get('/api/batch/sessions/:id/export.csv', (req, res) => {
@@ -1592,6 +1763,14 @@ cron.schedule('* * * * *', async () => {
         mode: 'scheduled',
         teacherId: config.teacherId || null,
       });
+      attachParentReportSnapshot(db, {
+        teacherId: config.teacherId || null,
+        targetType: config.targetType,
+        targetId: config.targetId,
+        periodLabel: period.label,
+        payload: buildParentReportPayload(db, config.teacherId, config.targetType, config.targetId, recipients, period),
+        recipients,
+      });
     }
     const nextRun = new Date(now);
     nextRun.setDate(nextRun.getDate() + (config.frequency === 'Еженедельно' ? 7 : 30));
@@ -1601,4 +1780,19 @@ cron.schedule('* * * * *', async () => {
   if (changed) writeDb(db);
 });
 
+app.use((error, req, res, next) => {
+  if (!error) return next();
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ error: `Файл слишком большой. Лимит: ${aiConfig.limits.maxUploadMb} МБ.` });
+    }
+    return res.status(400).json({ error: 'Не удалось загрузить файл.' });
+  }
+  if (error.code === 'UNSUPPORTED_FILE_TYPE') {
+    return res.status(415).json({ error: error.message });
+  }
+  return res.status(500).json({ error: redactAiError(error) });
+});
+
+recognitionQueue.start();
 app.listen(PORT, () => console.log(`Backend running on http://127.0.0.1:${PORT}`));
