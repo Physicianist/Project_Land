@@ -7,6 +7,7 @@ import path from 'path';
 import crypto from 'crypto';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { loadServerEnv } from './load-env.js';
 import { readDb, writeDb, nextId, publicFileUrl } from './db.js';
 import { createRecognitionQueue } from './ai/queue.js';
 import { featureFlagsPayload, loadAiConfig, redactAiError } from './ai/config.js';
@@ -30,11 +31,14 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+loadServerEnv({ cwd: path.join(__dirname, '..') });
 const app = express();
 const PORT = process.env.PORT || 4000;
 const TRIAL_DAYS = 30;
 const uploadsDir = path.join(__dirname, 'uploads');
 const aiConfig = loadAiConfig();
+const envFileExists = ['.env', '.env.local']
+  .some(fileName => fs.existsSync(path.join(path.join(__dirname, '..'), fileName)));
 const pdfFontPath = ['/Library/Fonts/Arial Unicode.ttf', '/System/Library/Fonts/Supplemental/Arial Unicode.ttf']
   .find(candidate => fs.existsSync(candidate));
 
@@ -1795,4 +1799,12 @@ app.use((error, req, res, next) => {
 });
 
 recognitionQueue.start();
-app.listen(PORT, () => console.log(`Backend running on http://127.0.0.1:${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Backend running on http://127.0.0.1:${PORT}`);
+  console.log(`AI config: enabled=${aiConfig.flags.ENABLE_OPENAI_RECOGNITION}, batch=${aiConfig.flags.ENABLE_BATCH_AI_GRADING}, model=${aiConfig.openai.model}`);
+  if (!envFileExists) {
+    console.warn('AI env warning: .env or .env.local was not found in the project root. Server-only AI features will stay disabled until the file is created.');
+  } else if (!aiConfig.openai.apiKey) {
+    console.warn('AI env warning: OPENAI_API_KEY is empty. Server-only AI features will stay disabled until the key is set.');
+  }
+});

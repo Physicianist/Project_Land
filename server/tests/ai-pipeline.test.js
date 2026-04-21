@@ -52,7 +52,7 @@ test('loadAiConfig validates missing server secret', () => {
   );
   const config = loadAiConfig({ OPENAI_API_KEY: 'sk-test', ENABLE_OPENAI_RECOGNITION: 'true' });
   assert.equal(config.flags.ENABLE_OPENAI_RECOGNITION, true);
-  assert.equal(config.openai.model, 'gpt-5.4');
+  assert.equal(config.openai.model, 'gpt-5.2');
 });
 
 test('submission registration, job dedupe and teacher approval keep final feedback consistent', () => {

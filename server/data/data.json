@@ -467,6 +467,26 @@
       "recipientIds": [],
       "deadline": "2026-07-13T17:00",
       "maxScore": 100
+    },
+    {
+      "id": "a102",
+      "createdAt": "2026-04-21",
+      "attachments": [],
+      "teacherId": "t2",
+      "status": "Активно",
+      "title": "ДЗ Геома",
+      "subject": "Математика",
+      "description": "Найти площадь равнобедренного треугольника. Известно что a = 10, alpha (угол) = 30 градусам",
+      "rubric": "2 балла за верный ответ, 1 балл за частичное решение и правильный ход мыслей без правильного ответа, 0 баллов за неправильный ответ и неверный ход мыслей или пустое решение",
+      "gradingCriteria": "2 балла за верный ответ, 1 балл за частичное решение и правильный ход мыслей без правильного ответа, 0 баллов за неправильный ответ и неверный ход мыслей или пустое решение",
+      "expectedAnswer": "",
+      "scoringScale": 5,
+      "toneOfVoiceForFeedback": "доброжелательный и понятный ученику",
+      "recipientType": "student",
+      "recipientId": "s101",
+      "recipientIds": [],
+      "deadline": "2026-04-22T15:00",
+      "maxScore": 2
     }
   ],
   "works": [
@@ -504,7 +524,8 @@
       "suggestedScore": 31,
       "finalScore": 31,
       "status": "Проверено",
-      "teacherId": "t1"
+      "teacherId": "t1",
+      "submissionId": "sub-w1"
     },
     {
       "id": "w2",
@@ -533,7 +554,8 @@
       "suggestedScore": 34,
       "finalScore": 33,
       "status": "Проверено",
-      "teacherId": "t1"
+      "teacherId": "t1",
+      "submissionId": "sub-w2"
     },
     {
       "id": "w3",
@@ -563,7 +585,8 @@
       "suggestedScore": 37,
       "finalScore": 37,
       "status": "Ожидает подтверждения",
-      "teacherId": "t1"
+      "teacherId": "t1",
+      "submissionId": "sub-w3"
     },
     {
       "id": "w4",
@@ -592,7 +615,8 @@
       "suggestedScore": 33,
       "finalScore": 32,
       "status": "Ожидает подтверждения",
-      "teacherId": "t1"
+      "teacherId": "t1",
+      "submissionId": "sub-w4"
     },
     {
       "id": "w5",
@@ -622,7 +646,96 @@
       "suggestedScore": 16,
       "finalScore": 15,
       "status": "Проверено",
-      "teacherId": "t1"
+      "teacherId": "t1",
+      "submissionId": "sub-w5"
+    },
+    {
+      "id": "w101",
+      "submittedAt": "2026-04-21",
+      "status": "Ожидает подтверждения",
+      "aiComment": "Ты правильно выбрал идею использовать формулу площади через синус, но в формуле должен быть коэффициент 1/2: S = (1/2)·a^2·sinα. Тогда при a=10 и α=30° получится S = 25 (если α — угол между равными сторонами).",
+      "aiErrors": [
+        {
+          "types": [
+            "формула площади",
+            "треугольники",
+            "тригонометрия"
+          ],
+          "label": "Неверный коэффициент в формуле площади через две стороны и угол между ними",
+          "description": "Для площади по двум сторонам и углу между ними используется S = (1/2)ab·sinγ. При a=b получаем S = (1/2)·a^2·sinα. В работе написано S = 2·a^2·sinα, что завышает ответ в 4 раза.",
+          "locationHint": "Строка с формулой: «S = 2·a^2·sinα …»",
+          "severity": "high",
+          "isRecognitionUncertain": false
+        },
+        {
+          "types": [
+            "формула площади",
+            "треугольники",
+            "тригонометрия"
+          ],
+          "label": "Неверный численный ответ из-за неверной формулы",
+          "description": "При a=10 и sin30°=1/2 правильное значение (если α — угол между равными сторонами) равно 25, а не 150.",
+          "locationHint": "Строка вычислений и «Ответ: 150»",
+          "severity": "high",
+          "isRecognitionUncertain": false
+        },
+        {
+          "types": [
+            "формула площади",
+            "треугольники",
+            "тригонометрия"
+          ],
+          "label": "Возможная неоднозначность: какой именно угол задан (α при вершине или при основании)",
+          "description": "По рисунку угол отмечен у вершины, но текст «∠ = 30°» может быть без уточнения. Если α не является углом между равными сторонами, решение нужно строить иначе. Это влияет на корректность проверки результата.",
+          "locationHint": "Формулировка условия и рисунок с отмеченным углом",
+          "severity": "medium",
+          "isRecognitionUncertain": true
+        }
+      ],
+      "suggestedScore": 1,
+      "finalScore": null,
+      "teacherId": "t2",
+      "assignmentId": "a102",
+      "studentId": "s101",
+      "files": [
+        {
+          "id": "1776764649433-0-Ð¡Ð½Ð¸Ð¼Ð¾Ðº ÑÐºÑÐ°Ð½Ð°Â â 2026-04-21 Ð²Â 12.44.05.png",
+          "name": "Ð¡Ð½Ð¸Ð¼Ð¾Ðº ÑÐºÑÐ°Ð½Ð°Â â 2026-04-21 Ð²Â 12.44.05.png",
+          "originalName": "Ð¡Ð½Ð¸Ð¼Ð¾Ðº ÑÐºÑÐ°Ð½Ð°Â â 2026-04-21 Ð²Â 12.44.05.png",
+          "storageName": "1776764649405-cc4202ac7e8c-1-2-1-4-3-4-o-N-oN-1-2-A-a-2026-04-21-2A-12.44.05.png",
+          "url": "http://127.0.0.1:4000/uploads/1776764649405-cc4202ac7e8c-1-2-1-4-3-4-o-N-oN-1-2-A-a-2026-04-21-2A-12.44.05.png",
+          "previewUrl": "http://127.0.0.1:4000/uploads/1776764649405-cc4202ac7e8c-1-2-1-4-3-4-o-N-oN-1-2-A-a-2026-04-21-2A-12.44.05.png",
+          "normalizedUrl": "http://127.0.0.1:4000/uploads/1776764649405-cc4202ac7e8c-1-2-1-4-3-4-o-N-oN-1-2-A-a-2026-04-21-2A-12.44.05.png",
+          "kind": "photo",
+          "mimeType": "image/png",
+          "sizeBytes": 2029590,
+          "sha256": "88d42357758185e86e2c346b88fd78ee130c8fbead6d7a87fce11c5fa53f383c",
+          "pageCount": 1
+        }
+      ],
+      "ocrText": "№1.\nЗадание: Найти S равнобедр. Δ, известна a = 10, ∠ = 30°\n\nРешение:\n\nРисунок: равнобедренный треугольник, на боковых сторонах подписано «a» и «a», у вершины отмечен угол (похоже, α).\n\nS = 2·a^2·sinα = 2·10^2·sin30 = 150\n\nОтвет: 150\n\nСправа нарисован круг/овал с зачёркиванием; внутри неразборчивые буквы (похоже на «M…»).",
+      "submissionId": "sub-w101",
+      "processingStatus": "needs_human_review",
+      "processingRevision": 1,
+      "aiProcessingError": null,
+      "lastJobId": "rjob-779e7c737f91c7f97489497b",
+      "processingStartedAt": "2026-04-21T10:22:31.296Z",
+      "processingFinishedAt": "2026-04-21T10:23:09.707Z",
+      "teacherCommentDraft": "По распознаванию: ученик считает площадь равнобедр. треугольника с боковыми сторонами a=a=10 и отмеченным углом α=30° у вершины. Применена формула с синусом, но коэффициент ошибочный: вместо S=(1/2)a^2 sinα записано S=2a^2 sinα → завышение в 4 раза, ответ 150 неверный (должно быть 25 при вершинном угле). При этом ход мысли частично верный (выбор тригонометрической формулы и sin30). Рекомендую 1/2 по рубрике. Есть небольшая неоднозначность: в тексте угол не уточнён, но по рисунку — вершинный; при другом понимании угла требовалось бы иное решение.",
+      "studentCommentDraft": "Ты правильно выбрал идею использовать формулу площади через синус, но в формуле должен быть коэффициент 1/2: S = (1/2)·a^2·sinα. Тогда при a=10 и α=30° получится S = 25 (если α — угол между равными сторонами).",
+      "reviewWarnings": [
+        "Угол α в условии может быть не уточнён; корректность эталона зависит от того, является ли α углом между равными сторонами (по рисунку — да)."
+      ],
+      "recommendations": [
+        "Уточнить у ученика/в условии: α — вершинный угол между равными сторонами или угол при основании.",
+        "Если цель — именно вершинный угол, закрепить формулу S = (1/2)ab·sinγ и частный случай S=(1/2)a^2 sinα.",
+        "Попросить ученика перепроверять коэффициенты (1/2) в геометрических формулах и оценивать порядок величины ответа."
+      ],
+      "aiConfidence": 0.78,
+      "recognitionConfidence": 0.77,
+      "needsHumanReview": true,
+      "analysisDraftId": "ad-sub-w101",
+      "aiProvider": "openai"
     }
   ],
   "reportConfigs": [
@@ -695,8 +808,8 @@
   "counters": {
     "student": 101,
     "group": 100,
-    "assignment": 101,
-    "work": 100,
+    "assignment": 102,
+    "work": 101,
     "batch": 100,
     "report": 100,
     "teacher": 2
@@ -704,13 +817,14 @@
   "resetRequests": [],
   "teacherInvites": [
     {
+      "status": "pending",
+      "direction": "teacher_to_student",
+      "token": "aeac620bb53ef5e796e295209e484b5f",
+      "createdAt": "2026-04-21T07:41:29.251Z",
+      "studentNotificationDismissedAt": null,
       "id": "invite-1776757289250",
       "teacherId": "t2",
-      "studentId": null,
-      "direction": "teacher_to_student",
-      "status": "pending",
-      "token": "aeac620bb53ef5e796e295209e484b5f",
-      "createdAt": "2026-04-21T07:41:29.251Z"
+      "studentId": null
     },
     {
       "status": "accepted",
@@ -813,5 +927,675 @@
       ]
     }
   ],
-  "attendanceRecords": []
+  "attendanceRecords": [],
+  "submissions": [
+    {
+      "id": "sub-w1",
+      "workId": "w1",
+      "sourceType": "assignment_work",
+      "sourceRefId": "w1",
+      "assignmentId": "a1",
+      "teacherId": "t1",
+      "studentId": "s1",
+      "status": "approved",
+      "processingRevision": 1,
+      "processingStartedAt": null,
+      "processingFinishedAt": null,
+      "createdAt": "2026-03-28",
+      "lastJobId": null
+    },
+    {
+      "id": "sub-w2",
+      "workId": "w2",
+      "sourceType": "assignment_work",
+      "sourceRefId": "w2",
+      "assignmentId": "a1",
+      "teacherId": "t1",
+      "studentId": "s2",
+      "status": "approved",
+      "processingRevision": 1,
+      "processingStartedAt": null,
+      "processingFinishedAt": null,
+      "createdAt": "2026-03-29",
+      "lastJobId": null
+    },
+    {
+      "id": "sub-w3",
+      "workId": "w3",
+      "sourceType": "assignment_work",
+      "sourceRefId": "w3",
+      "assignmentId": "a2",
+      "teacherId": "t1",
+      "studentId": "s3",
+      "status": "draft_ready",
+      "processingRevision": 1,
+      "processingStartedAt": null,
+      "processingFinishedAt": null,
+      "createdAt": "2026-03-27",
+      "lastJobId": null
+    },
+    {
+      "id": "sub-w4",
+      "workId": "w4",
+      "sourceType": "assignment_work",
+      "sourceRefId": "w4",
+      "assignmentId": "a2",
+      "teacherId": "t1",
+      "studentId": "s6",
+      "status": "draft_ready",
+      "processingRevision": 1,
+      "processingStartedAt": null,
+      "processingFinishedAt": null,
+      "createdAt": "2026-03-27",
+      "lastJobId": null
+    },
+    {
+      "id": "sub-w5",
+      "workId": "w5",
+      "sourceType": "assignment_work",
+      "sourceRefId": "w5",
+      "assignmentId": "a3",
+      "teacherId": "t1",
+      "studentId": "s5",
+      "status": "approved",
+      "processingRevision": 1,
+      "processingStartedAt": null,
+      "processingFinishedAt": null,
+      "createdAt": "2026-03-20",
+      "lastJobId": null
+    },
+    {
+      "id": "sub-w101",
+      "workId": "w101",
+      "sourceType": "assignment_work",
+      "sourceRefId": "w101",
+      "assignmentId": "a102",
+      "teacherId": "t2",
+      "studentId": "s101",
+      "status": "draft_ready",
+      "processingRevision": 1,
+      "processingStartedAt": "2026-04-21T10:22:31.296Z",
+      "processingFinishedAt": "2026-04-21T10:23:09.707Z",
+      "createdAt": "2026-04-21",
+      "lastJobId": "rjob-779e7c737f91c7f97489497b"
+    }
+  ],
+  "submissionAssets": [
+    {
+      "id": "sa-sub-w1-1",
+      "submissionId": "sub-w1",
+      "type": "image",
+      "originalUrl": "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=800&q=80",
+      "normalizedUrl": "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=800&q=80",
+      "previewUrl": "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=800&q=80",
+      "pageCount": 1,
+      "sha256": null,
+      "mimeType": "",
+      "sizeBytes": null,
+      "originalName": "s1-page1.jpg",
+      "storageName": null,
+      "kind": "photo"
+    },
+    {
+      "id": "sa-sub-w1-2",
+      "submissionId": "sub-w1",
+      "type": "image",
+      "originalUrl": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80",
+      "normalizedUrl": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80",
+      "previewUrl": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80",
+      "pageCount": 1,
+      "sha256": null,
+      "mimeType": "",
+      "sizeBytes": null,
+      "originalName": "s1-page2.jpg",
+      "storageName": null,
+      "kind": "photo"
+    },
+    {
+      "id": "sa-sub-w2-1",
+      "submissionId": "sub-w2",
+      "type": "image",
+      "originalUrl": "https://images.unsplash.com/photo-1456324504439-367cee3b3c32?auto=format&fit=crop&w=800&q=80",
+      "normalizedUrl": "https://images.unsplash.com/photo-1456324504439-367cee3b3c32?auto=format&fit=crop&w=800&q=80",
+      "previewUrl": "https://images.unsplash.com/photo-1456324504439-367cee3b3c32?auto=format&fit=crop&w=800&q=80",
+      "pageCount": 1,
+      "sha256": null,
+      "mimeType": "",
+      "sizeBytes": null,
+      "originalName": "s2-page1.jpg",
+      "storageName": null,
+      "kind": "photo"
+    },
+    {
+      "id": "sa-sub-w3-1",
+      "submissionId": "sub-w3",
+      "type": "image",
+      "originalUrl": "https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=800&q=80",
+      "normalizedUrl": "https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=800&q=80",
+      "previewUrl": "https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=800&q=80",
+      "pageCount": 1,
+      "sha256": null,
+      "mimeType": "",
+      "sizeBytes": null,
+      "originalName": "s3-page1.jpg",
+      "storageName": null,
+      "kind": "photo"
+    },
+    {
+      "id": "sa-sub-w4-1",
+      "submissionId": "sub-w4",
+      "type": "image",
+      "originalUrl": "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=800&q=80",
+      "normalizedUrl": "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=800&q=80",
+      "previewUrl": "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=800&q=80",
+      "pageCount": 1,
+      "sha256": null,
+      "mimeType": "",
+      "sizeBytes": null,
+      "originalName": "s6-page1.jpg",
+      "storageName": null,
+      "kind": "photo"
+    },
+    {
+      "id": "sa-sub-w5-1",
+      "submissionId": "sub-w5",
+      "type": "image",
+      "originalUrl": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80",
+      "normalizedUrl": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80",
+      "previewUrl": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80",
+      "pageCount": 1,
+      "sha256": null,
+      "mimeType": "",
+      "sizeBytes": null,
+      "originalName": "s5-page1.jpg",
+      "storageName": null,
+      "kind": "photo"
+    },
+    {
+      "id": "sa-sub-w101-1",
+      "submissionId": "sub-w101",
+      "type": "image",
+      "originalUrl": "http://127.0.0.1:4000/uploads/1776764649405-cc4202ac7e8c-1-2-1-4-3-4-o-N-oN-1-2-A-a-2026-04-21-2A-12.44.05.png",
+      "normalizedUrl": "http://127.0.0.1:4000/uploads/1776764649405-cc4202ac7e8c-1-2-1-4-3-4-o-N-oN-1-2-A-a-2026-04-21-2A-12.44.05.png",
+      "previewUrl": "http://127.0.0.1:4000/uploads/1776764649405-cc4202ac7e8c-1-2-1-4-3-4-o-N-oN-1-2-A-a-2026-04-21-2A-12.44.05.png",
+      "pageCount": 1,
+      "sha256": "88d42357758185e86e2c346b88fd78ee130c8fbead6d7a87fce11c5fa53f383c",
+      "mimeType": "image/png",
+      "sizeBytes": 2029590,
+      "originalName": "Ð¡Ð½Ð¸Ð¼Ð¾Ðº ÑÐºÑÐ°Ð½Ð°Â â 2026-04-21 Ð²Â 12.44.05.png",
+      "storageName": "1776764649405-cc4202ac7e8c-1-2-1-4-3-4-o-N-oN-1-2-A-a-2026-04-21-2A-12.44.05.png",
+      "kind": "photo"
+    }
+  ],
+  "recognitionJobs": [
+    {
+      "id": "rjob-779e7c737f91c7f97489497b",
+      "submissionId": "sub-w101",
+      "teacherId": "t2",
+      "status": "completed",
+      "attempts": 1,
+      "createdAt": "2026-04-21T10:22:31.267Z",
+      "processingRevision": 2,
+      "idempotencyKey": "779e7c737f91c7f97489497b2b062776eb2953b6856d683a163ff0f966484e77",
+      "nextAttemptAt": "2026-04-21T10:22:31.267Z",
+      "lastError": null,
+      "sourceType": "assignment_work",
+      "sourceRefId": "w101",
+      "startedAt": "2026-04-21T10:22:31.296Z",
+      "completedAt": "2026-04-21T10:23:09.707Z",
+      "provider": "openai"
+    }
+  ],
+  "recognitionPages": [
+    {
+      "id": "sa-sub-w101-1-page-1",
+      "submissionAssetId": "sa-sub-w101-1",
+      "pageNumber": 1,
+      "recognizedText": "№1.\nЗадание: Найти S равнобедр. Δ, известна a = 10, ∠ = 30°\n\nРешение:\n\nРисунок: равнобедренный треугольник, на боковых сторонах подписано «a» и «a», у вершины отмечен угол (похоже, α).\n\nS = 2·a^2·sinα = 2·10^2·sin30 = 150\n\nОтвет: 150\n\nСправа нарисован круг/овал с зачёркиванием; внутри неразборчивые буквы (похоже на «M…»).",
+      "recognizedLatex": "S = 2\\cdot a^2\\cdot \\sin\\alpha = 2\\cdot 10^2\\cdot \\sin 30 = 150\n150",
+      "detectionBlocks": [
+        {
+          "type": "task",
+          "text": "№1.\nЗадание: Найти S равнобедр. Δ, известна a = 10, ∠ = 30°",
+          "latex": null,
+          "confidence": 0.78
+        },
+        {
+          "type": "solution",
+          "text": "Решение:",
+          "latex": null,
+          "confidence": 0.92
+        },
+        {
+          "type": "diagram",
+          "text": "Рисунок: равнобедренный треугольник, на боковых сторонах подписано «a» и «a», у вершины отмечен угол (похоже, α).",
+          "latex": null,
+          "confidence": 0.74
+        },
+        {
+          "type": "solution",
+          "text": "S = 2·a^2·sinα = 2·10^2·sin30 = 150",
+          "latex": "S = 2\\cdot a^2\\cdot \\sin\\alpha = 2\\cdot 10^2\\cdot \\sin 30 = 150",
+          "confidence": 0.83
+        },
+        {
+          "type": "answer",
+          "text": "Ответ: 150",
+          "latex": "150",
+          "confidence": 0.9
+        },
+        {
+          "type": "annotation",
+          "text": "Справа нарисован круг/овал с зачёркиванием; внутри неразборчивые буквы (похоже на «M…»).",
+          "latex": null,
+          "confidence": 0.45
+        }
+      ],
+      "recognitionConfidence": 0.77,
+      "provider": "openai",
+      "rawStructuredOutput": {
+        "pages": [
+          {
+            "pageNumber": 1,
+            "detectedBlocks": [
+              {
+                "type": "task",
+                "text": "№1.\nЗадание: Найти S равнобедр. Δ, известна a = 10, ∠ = 30°",
+                "latex": null,
+                "confidence": 0.78
+              },
+              {
+                "type": "solution",
+                "text": "Решение:",
+                "latex": null,
+                "confidence": 0.92
+              },
+              {
+                "type": "diagram",
+                "text": "Рисунок: равнобедренный треугольник, на боковых сторонах подписано «a» и «a», у вершины отмечен угол (похоже, α).",
+                "latex": null,
+                "confidence": 0.74
+              },
+              {
+                "type": "solution",
+                "text": "S = 2·a^2·sinα = 2·10^2·sin30 = 150",
+                "latex": "S = 2\\cdot a^2\\cdot \\sin\\alpha = 2\\cdot 10^2\\cdot \\sin 30 = 150",
+                "confidence": 0.83
+              },
+              {
+                "type": "answer",
+                "text": "Ответ: 150",
+                "latex": "150",
+                "confidence": 0.9
+              },
+              {
+                "type": "annotation",
+                "text": "Справа нарисован круг/овал с зачёркиванием; внутри неразборчивые буквы (похоже на «M…»).",
+                "latex": null,
+                "confidence": 0.45
+              }
+            ]
+          }
+        ],
+        "globalConfidence": 0.77,
+        "warnings": [
+          "Часть текста условия сокращена и не до конца разборчива (\"равнобедр.\", символ угла/α).",
+          "В правой части есть зачёркнутый набросок в круге; надпись внутри не читается."
+        ]
+      }
+    }
+  ],
+  "analysisDrafts": [
+    {
+      "id": "ad-sub-w1",
+      "submissionId": "sub-w1",
+      "extractedTask": "Лист из 8 заданий на производные и исследование функции.",
+      "extractedStudentSolution": "1) y = sin(x^2), y' = 2x cos(x^2)...\n5) Интервалы возрастания...",
+      "studentSolutionSummary": "1) y = sin(x^2), y' = 2x cos(x^2)...\n5) Интервалы возрастания...",
+      "canonicalSolution": "",
+      "detectedMistakes": [
+        {
+          "types": [
+            "Логическая",
+            "Вычислительная"
+          ],
+          "label": "Цепное правило",
+          "description": "Потерян множитель внутренней функции и неверно определены интервалы возрастания."
+        }
+      ],
+      "teacherCommentDraft": "",
+      "studentCommentDraft": "Ход решения в целом верный, но есть ошибки в применении цепного правила и анализе знаков производной.",
+      "suggestedScore": 31,
+      "confidence": 0.55,
+      "needsHumanReview": false,
+      "rawModelOutput": null,
+      "mistakeTags": [
+        "Логическая",
+        "Вычислительная"
+      ],
+      "recommendations": [],
+      "warnings": []
+    },
+    {
+      "id": "ad-sub-w2",
+      "submissionId": "sub-w2",
+      "extractedTask": "Лист из 8 заданий на производные и исследование функции.",
+      "extractedStudentSolution": "Производные вычислены, но в задаче 8 потерян множитель 1/2...",
+      "studentSolutionSummary": "Производные вычислены, но в задаче 8 потерян множитель 1/2...",
+      "canonicalSolution": "",
+      "detectedMistakes": [
+        {
+          "types": [
+            "Вычислительная"
+          ],
+          "label": "Потерян коэффициент",
+          "description": "В последнем пункте потерян множитель 1/2."
+        }
+      ],
+      "teacherCommentDraft": "",
+      "studentCommentDraft": "Сильная работа, но последняя задача требует аккуратности.",
+      "suggestedScore": 34,
+      "confidence": 0.55,
+      "needsHumanReview": false,
+      "rawModelOutput": null,
+      "mistakeTags": [
+        "Вычислительная"
+      ],
+      "recommendations": [],
+      "warnings": []
+    },
+    {
+      "id": "ad-sub-w3",
+      "submissionId": "sub-w3",
+      "extractedTask": "Домашняя работа по законам Ньютона и связанным телам.",
+      "extractedStudentSolution": "F=ma, задача на наклонную плоскость, задача на блоки...",
+      "studentSolutionSummary": "F=ma, задача на наклонную плоскость, задача на блоки...",
+      "canonicalSolution": "",
+      "detectedMistakes": [
+        {
+          "types": [
+            "Вычислительная",
+            "Оформление"
+          ],
+          "label": "Арифметика и единицы",
+          "description": "Вычисление ускорения выполнено с ошибкой, в ответе отсутствуют единицы измерения."
+        }
+      ],
+      "teacherCommentDraft": "",
+      "studentCommentDraft": "Основной ход решения верный, но есть арифметическая ошибка и неполное оформление ответов.",
+      "suggestedScore": 37,
+      "confidence": 0.55,
+      "needsHumanReview": true,
+      "rawModelOutput": null,
+      "mistakeTags": [
+        "Вычислительная",
+        "Оформление"
+      ],
+      "recommendations": [],
+      "warnings": []
+    },
+    {
+      "id": "ad-sub-w4",
+      "submissionId": "sub-w4",
+      "extractedTask": "Домашняя работа по законам Ньютона и связанным телам.",
+      "extractedStudentSolution": "Решение задачи 3: a=(m1-m2)g/(m1+m2)...",
+      "studentSolutionSummary": "Решение задачи 3: a=(m1-m2)g/(m1+m2)...",
+      "canonicalSolution": "",
+      "detectedMistakes": [
+        {
+          "types": [
+            "Оформление"
+          ],
+          "label": "Спорная описка",
+          "description": "В задаче 3 вероятна описка, влияющая на итоговую формулу."
+        }
+      ],
+      "teacherCommentDraft": "",
+      "studentCommentDraft": "Ученик просит пересмотр из-за описки в задаче 3.",
+      "suggestedScore": 33,
+      "confidence": 0.55,
+      "needsHumanReview": true,
+      "rawModelOutput": null,
+      "mistakeTags": [
+        "Оформление"
+      ],
+      "recommendations": [],
+      "warnings": []
+    },
+    {
+      "id": "ad-sub-w5",
+      "submissionId": "sub-w5",
+      "extractedTask": "Контрольная на ОВР и степени окисления.",
+      "extractedStudentSolution": "ОВР: 2Fe + 3Cl2 = 2FeCl3...",
+      "studentSolutionSummary": "ОВР: 2Fe + 3Cl2 = 2FeCl3...",
+      "canonicalSolution": "",
+      "detectedMistakes": [
+        {
+          "types": [
+            "Логическая",
+            "Терминология"
+          ],
+          "label": "Баланс ОВР",
+          "description": "Коэффициенты подобраны без полного электронного баланса, неверно определена степень окисления."
+        }
+      ],
+      "teacherCommentDraft": "",
+      "studentCommentDraft": "Нужно еще раз пройти электронный баланс.",
+      "suggestedScore": 16,
+      "confidence": 0.55,
+      "needsHumanReview": false,
+      "rawModelOutput": null,
+      "mistakeTags": [
+        "Логическая",
+        "Терминология"
+      ],
+      "recommendations": [],
+      "warnings": []
+    },
+    {
+      "id": "ad-sub-w101",
+      "submissionId": "sub-w101",
+      "extractedTask": "Найти площадь равнобедренного треугольника при a = 10 и α = 30° (по рисунку α — угол при вершине между равными сторонами a и a).",
+      "extractedStudentSolution": "Ученик нарисовал равнобедренный треугольник с боковыми сторонами a и a и углом α при вершине. Записал формулу S = 2·a^2·sinα, подставил a=10, α=30°, получил S = 150 и записал ответ 150.",
+      "studentSolutionSummary": "Ученик нарисовал равнобедренный треугольник с боковыми сторонами a и a и углом α при вершине. Записал формулу S = 2·a^2·sinα, подставил a=10, α=30°, получил S = 150 и записал ответ 150.",
+      "canonicalSolution": "Если α — угол между равными сторонами (вершинный угол), то площадь через две стороны и угол между ними:\nS = (1/2)·a·a·sinα = (1/2)·a^2·sinα.\nПодстановка: S = (1/2)·10^2·sin30° = (1/2)·100·(1/2) = 25.\n\nЕсли же α по условию был не вершинный, а, например, угол при основании, то нужна дополнительная связь (например, найти высоту/основание через тригонометрию), и результат будет другим. По распознанному рисунку α скорее именно вершинный угол.",
+      "detectedMistakes": [
+        {
+          "types": [
+            "формула площади",
+            "треугольники",
+            "тригонометрия"
+          ],
+          "label": "Неверный коэффициент в формуле площади через две стороны и угол между ними",
+          "description": "Для площади по двум сторонам и углу между ними используется S = (1/2)ab·sinγ. При a=b получаем S = (1/2)·a^2·sinα. В работе написано S = 2·a^2·sinα, что завышает ответ в 4 раза.",
+          "locationHint": "Строка с формулой: «S = 2·a^2·sinα …»",
+          "severity": "high",
+          "isRecognitionUncertain": false
+        },
+        {
+          "types": [
+            "формула площади",
+            "треугольники",
+            "тригонометрия"
+          ],
+          "label": "Неверный численный ответ из-за неверной формулы",
+          "description": "При a=10 и sin30°=1/2 правильное значение (если α — угол между равными сторонами) равно 25, а не 150.",
+          "locationHint": "Строка вычислений и «Ответ: 150»",
+          "severity": "high",
+          "isRecognitionUncertain": false
+        },
+        {
+          "types": [
+            "формула площади",
+            "треугольники",
+            "тригонометрия"
+          ],
+          "label": "Возможная неоднозначность: какой именно угол задан (α при вершине или при основании)",
+          "description": "По рисунку угол отмечен у вершины, но текст «∠ = 30°» может быть без уточнения. Если α не является углом между равными сторонами, решение нужно строить иначе. Это влияет на корректность проверки результата.",
+          "locationHint": "Формулировка условия и рисунок с отмеченным углом",
+          "severity": "medium",
+          "isRecognitionUncertain": true
+        }
+      ],
+      "teacherCommentDraft": "По распознаванию: ученик считает площадь равнобедр. треугольника с боковыми сторонами a=a=10 и отмеченным углом α=30° у вершины. Применена формула с синусом, но коэффициент ошибочный: вместо S=(1/2)a^2 sinα записано S=2a^2 sinα → завышение в 4 раза, ответ 150 неверный (должно быть 25 при вершинном угле). При этом ход мысли частично верный (выбор тригонометрической формулы и sin30). Рекомендую 1/2 по рубрике. Есть небольшая неоднозначность: в тексте угол не уточнён, но по рисунку — вершинный; при другом понимании угла требовалось бы иное решение.",
+      "studentCommentDraft": "Ты правильно выбрал идею использовать формулу площади через синус, но в формуле должен быть коэффициент 1/2: S = (1/2)·a^2·sinα. Тогда при a=10 и α=30° получится S = 25 (если α — угол между равными сторонами).",
+      "suggestedScore": 1,
+      "confidence": 0.78,
+      "needsHumanReview": true,
+      "rawModelOutput": {
+        "extractedTask": "Найти площадь равнобедренного треугольника при a = 10 и α = 30° (по рисунку α — угол при вершине между равными сторонами a и a).",
+        "studentSolutionSummary": "Ученик нарисовал равнобедренный треугольник с боковыми сторонами a и a и углом α при вершине. Записал формулу S = 2·a^2·sinα, подставил a=10, α=30°, получил S = 150 и записал ответ 150.",
+        "canonicalSolution": "Если α — угол между равными сторонами (вершинный угол), то площадь через две стороны и угол между ними:\nS = (1/2)·a·a·sinα = (1/2)·a^2·sinα.\nПодстановка: S = (1/2)·10^2·sin30° = (1/2)·100·(1/2) = 25.\n\nЕсли же α по условию был не вершинный, а, например, угол при основании, то нужна дополнительная связь (например, найти высоту/основание через тригонометрию), и результат будет другим. По распознанному рисунку α скорее именно вершинный угол.",
+        "mistakes": [
+          {
+            "title": "Неверный коэффициент в формуле площади через две стороны и угол между ними",
+            "description": "Для площади по двум сторонам и углу между ними используется S = (1/2)ab·sinγ. При a=b получаем S = (1/2)·a^2·sinα. В работе написано S = 2·a^2·sinα, что завышает ответ в 4 раза.",
+            "severity": "high",
+            "locationHint": "Строка с формулой: «S = 2·a^2·sinα …»",
+            "isRecognitionUncertain": false
+          },
+          {
+            "title": "Неверный численный ответ из-за неверной формулы",
+            "description": "При a=10 и sin30°=1/2 правильное значение (если α — угол между равными сторонами) равно 25, а не 150.",
+            "severity": "high",
+            "locationHint": "Строка вычислений и «Ответ: 150»",
+            "isRecognitionUncertain": false
+          },
+          {
+            "title": "Возможная неоднозначность: какой именно угол задан (α при вершине или при основании)",
+            "description": "По рисунку угол отмечен у вершины, но текст «∠ = 30°» может быть без уточнения. Если α не является углом между равными сторонами, решение нужно строить иначе. Это влияет на корректность проверки результата.",
+            "severity": "medium",
+            "locationHint": "Формулировка условия и рисунок с отмеченным углом",
+            "isRecognitionUncertain": true
+          }
+        ],
+        "mistakeTags": [
+          "формула площади",
+          "треугольники",
+          "тригонометрия",
+          "вычисления",
+          "неоднозначность условия/OCR"
+        ],
+        "suggestedScore": 1,
+        "studentCommentDraft": "Ты правильно выбрал идею использовать формулу площади через синус, но в формуле должен быть коэффициент 1/2: S = (1/2)·a^2·sinα. Тогда при a=10 и α=30° получится S = 25 (если α — угол между равными сторонами).",
+        "teacherCommentDraft": "По распознаванию: ученик считает площадь равнобедр. треугольника с боковыми сторонами a=a=10 и отмеченным углом α=30° у вершины. Применена формула с синусом, но коэффициент ошибочный: вместо S=(1/2)a^2 sinα записано S=2a^2 sinα → завышение в 4 раза, ответ 150 неверный (должно быть 25 при вершинном угле). При этом ход мысли частично верный (выбор тригонометрической формулы и sin30). Рекомендую 1/2 по рубрике. Есть небольшая неоднозначность: в тексте угол не уточнён, но по рисунку — вершинный; при другом понимании угла требовалось бы иное решение.",
+        "recommendations": [
+          "Уточнить у ученика/в условии: α — вершинный угол между равными сторонами или угол при основании.",
+          "Если цель — именно вершинный угол, закрепить формулу S = (1/2)ab·sinγ и частный случай S=(1/2)a^2 sinα.",
+          "Попросить ученика перепроверять коэффициенты (1/2) в геометрических формулах и оценивать порядок величины ответа."
+        ],
+        "confidence": 0.78,
+        "needsHumanReview": true,
+        "warnings": [
+          "Угол α в условии может быть не уточнён; корректность эталона зависит от того, является ли α углом между равными сторонами (по рисунку — да)."
+        ]
+      },
+      "mistakeTags": [
+        "формула площади",
+        "треугольники",
+        "тригонометрия",
+        "вычисления",
+        "неоднозначность условия/OCR"
+      ],
+      "recommendations": [
+        "Уточнить у ученика/в условии: α — вершинный угол между равными сторонами или угол при основании.",
+        "Если цель — именно вершинный угол, закрепить формулу S = (1/2)ab·sinγ и частный случай S=(1/2)a^2 sinα.",
+        "Попросить ученика перепроверять коэффициенты (1/2) в геометрических формулах и оценивать порядок величины ответа."
+      ],
+      "warnings": [
+        "Угол α в условии может быть не уточнён; корректность эталона зависит от того, является ли α углом между равными сторонами (по рисунку — да)."
+      ]
+    }
+  ],
+  "teacherReviews": [
+    {
+      "id": "tr-sub-w1",
+      "submissionId": "sub-w1",
+      "editedStudentComment": "Ход решения в целом верный, но есть ошибки в применении цепного правила и анализе знаков производной.",
+      "editedTeacherComment": "",
+      "finalScore": 31,
+      "teacherApprovedAt": null,
+      "wasEditedAfterAI": false
+    },
+    {
+      "id": "tr-sub-w2",
+      "submissionId": "sub-w2",
+      "editedStudentComment": "Сильная работа, но последняя задача требует аккуратности.",
+      "editedTeacherComment": "",
+      "finalScore": 33,
+      "teacherApprovedAt": null,
+      "wasEditedAfterAI": false
+    },
+    {
+      "id": "tr-sub-w5",
+      "submissionId": "sub-w5",
+      "editedStudentComment": "Нужно еще раз пройти электронный баланс.",
+      "editedTeacherComment": "",
+      "finalScore": 15,
+      "teacherApprovedAt": null,
+      "wasEditedAfterAI": false
+    }
+  ],
+  "finalFeedbacks": [
+    {
+      "id": "ff-sub-w1",
+      "submissionId": "sub-w1",
+      "studentId": "s1",
+      "teacherId": "t1",
+      "finalScore": 31,
+      "studentComment": "Ход решения в целом верный, но есть ошибки в применении цепного правила и анализе знаков производной.",
+      "teacherComment": "",
+      "recommendations": [],
+      "publishedAt": null
+    },
+    {
+      "id": "ff-sub-w2",
+      "submissionId": "sub-w2",
+      "studentId": "s2",
+      "teacherId": "t1",
+      "finalScore": 33,
+      "studentComment": "Сильная работа, но последняя задача требует аккуратности.",
+      "teacherComment": "",
+      "recommendations": [],
+      "publishedAt": null
+    },
+    {
+      "id": "ff-sub-w5",
+      "submissionId": "sub-w5",
+      "studentId": "s5",
+      "teacherId": "t1",
+      "finalScore": 15,
+      "studentComment": "Нужно еще раз пройти электронный баланс.",
+      "teacherComment": "",
+      "recommendations": [],
+      "publishedAt": null
+    }
+  ],
+  "parentReportSnapshots": [],
+  "auditTrail": [
+    {
+      "id": "audit-1776766989707-b48218",
+      "createdAt": "2026-04-21T10:23:09.708Z",
+      "actorId": "t2",
+      "action": "ai_job_completed",
+      "entityType": "submission",
+      "entityId": "sub-w101",
+      "meta": {
+        "provider": "openai",
+        "status": "needs_human_review"
+      }
+    },
+    {
+      "id": "audit-1776766951267-38e8eb",
+      "createdAt": "2026-04-21T10:22:31.267Z",
+      "actorId": "t2",
+      "action": "ai_job_enqueued",
+      "entityType": "submission",
+      "entityId": "sub-w101",
+      "meta": {
+        "sourceType": "assignment_work",
+        "processingRevision": 2
+      }
+    }
+  ]
 }

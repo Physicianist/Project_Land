@@ -53,14 +53,15 @@ ENABLE_TEACHER_REVIEW_REQUIRED=true
 Дополнительно поддерживаются:
 
 ```bash
-OPENAI_MODEL=gpt-5.4
-OPENAI_RECOGNITION_MODEL=gpt-5.4
-OPENAI_ANALYSIS_MODEL=gpt-5.4
+OPENAI_MODEL=gpt-5.2
+OPENAI_RECOGNITION_MODEL=gpt-5.2
+OPENAI_ANALYSIS_MODEL=gpt-5.2
 ENABLE_MATHPIX=false
 ENABLE_ADVANCED_FORMULA_RECOGNITION=false
 ```
 
 Mathpix пока подготовлен архитектурно через feature flag, но не включен в обязательный runtime flow.
+Если модель явно не указана, backend теперь по умолчанию берет `gpt-5.2`.
 
 ## Проверка вручную
 
