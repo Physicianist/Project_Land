@@ -1,4 +1,10 @@
 import { createIdempotencyKey, fileKindFromMime } from './file-utils.js';
+import {
+  normalizeErrorCategory,
+  normalizeErrorTags,
+  normalizeMistakeCollection,
+  sanitizeEditableErrorTags,
+} from '../../shared/error-taxonomy.js';
 
 const uniqueStrings = (items = []) => [...new Set(items.filter(Boolean).map(String))];
 
@@ -328,7 +334,8 @@ export function registerWorkSubmission(db, work, assignment = {}) {
 export function createBatchResultsFromUploadedFiles(session, uploadedFiles = []) {
   return uploadedFiles.map((file, index) => ({
     id: `r${index + 1}`,
-    name: file.originalName || file.name || `Файл ${index + 1}`,
+    name: `Ученик ${index + 1}`,
+    originalLabel: file.originalName || file.name || `Файл ${index + 1}`,
     originalName: file.originalName || file.name || `Файл ${index + 1}`,
     sourceUrl: file.url,
     file,
@@ -373,6 +380,7 @@ export function buildProcessingContext(db, submissionId) {
     subject: assignment.subject,
     title: assignment.title,
     description: assignment.description,
+    links: assignment.links || assignment.assignmentLinks || [],
     rubric: assignment.rubric || assignment.gradingCriteria || '',
     gradingCriteria: assignment.gradingCriteria || assignment.rubric || '',
     expectedAnswer: assignment.expectedAnswer || null,
@@ -382,7 +390,8 @@ export function buildProcessingContext(db, submissionId) {
   } : {
     subject: 'Свободная проверка',
     title: batchResult?.name || 'Пакетная проверка',
-    description: 'Пакетная проверка без привязки к конкретному заданию.',
+    description: batchSession?.assignmentText || 'Пакетная проверка без привязки к конкретному заданию.',
+    links: batchSession?.assignmentLinks || [],
     rubric: '',
     gradingCriteria: '',
     expectedAnswer: null,
@@ -392,7 +401,13 @@ export function buildProcessingContext(db, submissionId) {
   };
 
   const assets = getSubmissionAssets(db, submissionId);
-  const hintText = [assignmentContext.title, assignmentContext.description, assignmentContext.subject].filter(Boolean).join('\n');
+  const hintText = [
+    assignmentContext.title,
+    assignmentContext.description,
+    assignmentContext.subject,
+    ...(assignmentContext.links || []),
+    batchSession?.classGroupLabel || '',
+  ].filter(Boolean).join('\n');
   const assignmentSignature = buildAssignmentSignature(assignmentContext);
   return {
     submission,
@@ -531,12 +546,20 @@ function flattenRecognitionPages(db, submissionId) {
 
 function mistakesToLegacyErrors(mistakes = [], fallbackTags = []) {
   return mistakes.map(mistake => ({
-    types: uniqueStrings([...(fallbackTags || []), mistake.severity === 'high' ? 'Критично' : '', mistake.isRecognitionUncertain ? 'OCR uncertainty' : ''].filter(Boolean)).slice(0, 3),
+    types: uniqueStrings([
+      ...normalizeErrorTags([...(fallbackTags || []), mistake.title, mistake.label, ...(mistake.types || [])]),
+      mistake.severity === 'high' ? 'Критично' : '',
+    ].filter(Boolean)).slice(0, 3),
     label: mistake.title,
     description: mistake.description,
     locationHint: mistake.locationHint,
     severity: mistake.severity,
     isRecognitionUncertain: mistake.isRecognitionUncertain,
+    normalizedCategory: normalizeErrorCategory(
+      mistake.title,
+      mistake.description,
+      ...(mistake.types || []),
+    ),
   }));
 }
 
@@ -565,7 +588,8 @@ export function finalizeSuccessfulJob(db, jobId, { recognitionPages, analysisDra
     confidence: analysisDraft.confidence,
     needsHumanReview: analysisDraft.needsHumanReview,
     rawModelOutput: analysisDraft.rawModelOutput,
-    mistakeTags: analysisDraft.mistakeTags,
+    mistakeTags: sanitizeEditableErrorTags(analysisDraft.mistakeTags),
+    normalizedErrorCategories: normalizeErrorTags(analysisDraft.mistakeTags),
     recommendations: analysisDraft.recommendations,
     warnings: uniqueStrings([...(analysisDraft.warnings || [])]),
   });
@@ -605,7 +629,8 @@ export function finalizeSuccessfulJob(db, jobId, { recognitionPages, analysisDra
       .flatMap(page => (page.detectedBlocks || []).map(block => block.text))
       .filter(Boolean)
       .join('\n\n');
-    context.batchResult.errorTypes = uniqueStrings(analysisDraft.mistakeTags);
+    context.batchResult.errorTypes = sanitizeEditableErrorTags(analysisDraft.mistakeTags);
+    context.batchResult.normalizedErrorCategories = normalizeErrorTags(analysisDraft.mistakeTags);
     context.batchResult.errorDescription = (analysisDraft.mistakes || []).map(item => `${item.title}: ${item.description}`).join(' ');
     context.batchResult.score = analysisDraft.suggestedScore;
     context.batchResult.aiComment = analysisDraft.studentCommentDraft;
@@ -669,7 +694,15 @@ export function finalizeFailedJob(db, jobId, { safeMessage, retryConfig }) {
   return context;
 }
 
-export function approveSubmissionReview(db, { workId, finalScore, studentComment, teacherComment, actorId, reviewRequired = true }) {
+export function approveSubmissionReview(db, {
+  workId,
+  finalScore,
+  studentComment,
+  teacherComment,
+  actorId,
+  reviewRequired = true,
+  errorTags = [],
+}) {
   ensureAiDbDefaults(db);
   const work = (db.works || []).find(item => item.id === workId);
   if (!work) return { error: 'Работа не найдена.' };
@@ -683,12 +716,15 @@ export function approveSubmissionReview(db, { workId, finalScore, studentComment
   const finalStudentComment = String(studentComment ?? draft?.studentCommentDraft ?? work.aiComment ?? '').trim();
   const finalTeacherComment = String(teacherComment ?? draft?.teacherCommentDraft ?? work.teacherCommentDraft ?? '').trim();
   const score = Number(finalScore ?? draft?.suggestedScore ?? work.suggestedScore ?? 0);
+  const sanitizedTags = sanitizeEditableErrorTags(errorTags?.length ? errorTags : draft?.mistakeTags || []);
+  const normalizedCategories = normalizeErrorTags(sanitizedTags, draft?.normalizedErrorCategories || []);
   const wasEditedAfterAI = Boolean(
     draft
     && (
       finalStudentComment !== String(draft.studentCommentDraft || '')
       || finalTeacherComment !== String(draft.teacherCommentDraft || '')
       || score !== Number(draft.suggestedScore || 0)
+      || JSON.stringify(sanitizedTags) !== JSON.stringify(sanitizeEditableErrorTags(draft.mistakeTags || []))
     )
   );
   const approvedAt = new Date().toISOString();
@@ -700,6 +736,8 @@ export function approveSubmissionReview(db, { workId, finalScore, studentComment
     finalScore: score,
     teacherApprovedAt: approvedAt,
     wasEditedAfterAI,
+    finalErrorTags: sanitizedTags,
+    normalizedErrorCategories: normalizedCategories,
   });
   upsertById(db.finalFeedbacks, {
     id: finalFeedbackIdForSubmission(submission.id),
@@ -711,6 +749,8 @@ export function approveSubmissionReview(db, { workId, finalScore, studentComment
     teacherComment: finalTeacherComment,
     recommendations: draft?.recommendations || work.recommendations || [],
     publishedAt: approvedAt,
+    errorTags: sanitizedTags,
+    normalizedErrorCategories: normalizedCategories,
   });
   submission.status = SubmissionStatuses.approved;
   submission.processingFinishedAt = approvedAt;
@@ -721,12 +761,18 @@ export function approveSubmissionReview(db, { workId, finalScore, studentComment
   work.processingStatus = SubmissionStatuses.approved;
   work.approvedAt = approvedAt;
   work.wasEditedAfterAI = wasEditedAfterAI;
+  work.finalErrorTags = sanitizedTags;
+  work.normalizedErrorCategories = normalizedCategories;
+  if (draft) {
+    draft.mistakeTags = sanitizedTags;
+    draft.normalizedErrorCategories = normalizedCategories;
+  }
   appendAuditTrail(db, {
     actorId,
     action: 'teacher_review_approved',
     entityType: 'submission',
     entityId: submission.id,
-    meta: { wasEditedAfterAI },
+    meta: { wasEditedAfterAI, normalizedErrorCategories: normalizedCategories },
   });
   return { work, submission };
 }
@@ -767,4 +813,3 @@ export function storeRecognitionResult(db, asset, recognitionResult, provider) {
   ensureAiDbDefaults(db);
   persistRecognitionForAsset(db, asset, recognitionResult, provider);
 }
-

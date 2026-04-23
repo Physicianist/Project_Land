@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle, Archive, ArrowRight, BarChart3, BookOpen, CheckSquare, ChevronRight, Clock3,
   CreditCard, Eye, EyeOff, FileSpreadsheet, FileText, FolderOpen, GraduationCap, ImagePlus,
@@ -8,8 +8,16 @@ import {
 } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import Landing from './Landing.tsx';
+import {
+  NORMALIZED_ERROR_TAXONOMY,
+  countNormalizedCategories,
+  normalizeErrorCategory,
+  normalizeErrorTags,
+  sanitizeEditableErrorTags,
+} from '../shared/error-taxonomy.js';
 
 const API = 'http://127.0.0.1:4000';
+const PENDING_INVITE_STORAGE_KEY = 'proveriai_pending_invite_token';
 const PERIODS = [
   { value: '1', label: '1 месяц', days: 30 },
   { value: '3', label: '3 месяца', days: 90 },
@@ -50,11 +58,14 @@ const api = {
   markWorkManualReview: (id, payload = {}) => jsonPut(`/api/works/${id}/manual-review`, payload),
   saveReportConfig: post('/api/reports/configs'),
   sendReport: post('/api/reports/send'),
-  createBatchSession: async (files, scale, teacherId) => {
+  createBatchSession: async (files, scale, teacherId, context = {}) => {
     const fd = new FormData();
     Array.from(files).forEach(file => fd.append('files', file));
     fd.append('scale', scale);
     if (teacherId) fd.append('teacherId', teacherId);
+    if (context.assignmentText) fd.append('assignmentText', context.assignmentText);
+    if (context.assignmentLinks?.length) fd.append('assignmentLinks', JSON.stringify(context.assignmentLinks));
+    if (context.classGroupLabel) fd.append('classGroupLabel', context.classGroupLabel);
     const res = await fetch(`${API}/api/batch/sessions`, { method: 'POST', body: fd });
     if (!res.ok) throw new Error('Не удалось создать пакетную сессию');
     return res.json();
@@ -102,6 +113,30 @@ const api = {
   updateTeacherInvite: (id, payload) => jsonPut(`/api/teacher-invites/${id}`, payload),
   dismissTeacherInviteNotification: (id) => jsonPost(`/api/teacher-invites/${id}/dismiss-student-notification`, {}),
   detachTeacherStudent: (teacherId, studentId) => jsonPost(`/api/teachers/${teacherId}/students/${studentId}/detach`, {}),
+  resolveTeacherInviteToken: (token) => fetch(`${API}/api/teacher-invites/resolve/${encodeURIComponent(token)}`).then(async r => {
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || 'Не удалось проверить ссылку-приглашение');
+    return data;
+  }),
+  acceptTeacherInviteToken: (payload) => jsonPost('/api/teacher-invites/accept-token', payload),
+  updateTeacherStudentOverlay: (teacherId, studentId, payload) => jsonPut(`/api/teachers/${teacherId}/students/${studentId}/overlay`, payload),
+  previewReport: (payload) => jsonPost('/api/reports/preview', payload),
+  getBatchSession: async (sessionId) => {
+    const res = await fetch(`${API}/api/batch/sessions/${sessionId}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Не удалось обновить пакетную сессию');
+    return data;
+  },
+  saveBatchSession: async (sessionId, payload = {}) => {
+    const res = await fetch(`${API}/api/batch/sessions/${sessionId}/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Не удалось сохранить результаты пакетной проверки');
+    return data;
+  },
 };
 
 
@@ -151,10 +186,13 @@ function getSession() {
 }
 function setSession(next) { localStorage.setItem('proveriai_session', JSON.stringify(next)); }
 function clearSession() { localStorage.removeItem('proveriai_session'); }
+function getPendingInviteToken() { return localStorage.getItem(PENDING_INVITE_STORAGE_KEY) || ''; }
+function setPendingInviteToken(token) { if (token) localStorage.setItem(PENDING_INVITE_STORAGE_KEY, token); }
+function clearPendingInviteToken() { localStorage.removeItem(PENDING_INVITE_STORAGE_KEY); }
 
 const cx = (...items) => items.filter(Boolean).join(' ');
 const pillClass = {
-  'Активно': 'pill info', 'Черновик': 'pill warn', 'Завершено': 'pill success',
+  'Активно': 'pill info', 'Черновик': 'pill warn', 'Завершено': 'pill success', 'Прорешено': 'pill success',
   'Проверено': 'pill success', 'Ожидает подтверждения': 'pill info', 'На проверке': 'pill info',
   pending: 'pill info', accepted: 'pill success', declined: 'pill warn',
   uploaded: 'pill info',
@@ -166,7 +204,7 @@ const pillClass = {
   failed: 'pill danger',
 };
 const SUBJECT_OPTIONS = ['Математика', 'Физика', 'Химия'];
-const PARENT_REPORT_FIELDS = ['Имя ученика', 'Частые типы ошибок', 'Гистограмма оценок'];
+const PARENT_REPORT_FIELDS = ['Имя ученика', 'Частые типы ошибок', 'Гистограмма оценок', 'Динамика по темам', 'Рекомендации, на что обратить внимание'];
 const WORK_STATUS_LABELS = {
   student: {
     'Ожидает подтверждения': 'На проверке',
@@ -184,15 +222,15 @@ const AI_PROCESSING_LABELS = {
 };
 const onboardingVariants = {
   student: [
-    { title: 'Заполнить профиль', text: 'Добавьте телефон и Email родителя, если он нужен для отчетов.', path: '/student/profile', cta: 'Открыть профиль' },
-    { title: 'Найти преподавателя', text: 'Откройте раздел «Репетиторы» и отправьте запрос нужному преподавателю.', path: '/student/tutors', cta: 'Перейти к репетиторам' },
-    { title: 'Открыть первое задание', text: 'Как только преподаватель опубликует задание, оно появится в вашем списке.', path: '/student/assignments', cta: 'Открыть задания' },
+    { title: 'Заполнить профиль', text: 'Добавьте телефон и Email родителя, если он нужен для отчетов.', path: '/student/profile', cta: 'Открыть профиль', target: '[data-tour="profile-entry"]' },
+    { title: 'Найти преподавателя', text: 'Откройте раздел «Репетиторы» и отправьте запрос нужному преподавателю.', path: '/student/tutors', cta: 'Перейти к репетиторам', target: '[data-tour="nav-/student/tutors"]' },
+    { title: 'Открыть первое задание', text: 'Как только преподаватель опубликует задание, оно появится в вашем списке.', path: '/student/assignments', cta: 'Открыть задания', target: '[data-tour="nav-/student/assignments"]' },
   ],
   teacher: [
-    { title: 'Заполнить профиль', text: 'Укажите контакты и предметы, с которыми вы работаете.', path: '/teacher/settings', cta: 'Открыть настройки' },
-    { title: 'Пригласить ученика', text: 'Создайте ученика вручную или отправьте ссылку-приглашение.', path: '/teacher/students', cta: 'Открыть учеников' },
-    { title: 'Создать группу или пропустить', text: 'Можно собрать мини-группу сразу или сделать это позже.', path: '/teacher/groups', cta: 'Открыть группы' },
-    { title: 'Выдать первое задание', text: 'После публикации оно сразу появится в аккаунтах нужных учеников.', path: '/teacher/assignments', cta: 'Открыть задания' },
+    { title: 'Заполнить профиль', text: 'Укажите контакты и предметы, с которыми вы работаете.', path: '/teacher/settings', cta: 'Открыть настройки', target: '[data-tour="profile-entry"]' },
+    { title: 'Пригласить ученика', text: 'Создайте ученика вручную или отправьте ссылку-приглашение.', path: '/teacher/students', cta: 'Открыть учеников', target: '[data-tour="nav-/teacher/students"]' },
+    { title: 'Создать группу или пропустить', text: 'Можно собрать мини-группу сразу или сделать это позже.', path: '/teacher/groups', cta: 'Открыть группы', target: '[data-tour="nav-/teacher/groups"]' },
+    { title: 'Выдать первое задание', text: 'После публикации оно сразу появится в аккаунтах нужных учеников.', path: '/teacher/assignments', cta: 'Открыть задания', target: '[data-tour="nav-/teacher/assignments"]' },
   ],
 };
 
@@ -256,12 +294,10 @@ function formatDeadline(deadline) {
   if (!deadline) return 'Без дедлайна';
   const date = new Date(deadline);
   if (Number.isNaN(date.getTime())) return deadline;
-  return date.toLocaleString('ru-RU', {
+  return date.toLocaleDateString('ru-RU', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
   });
 }
 
@@ -270,6 +306,54 @@ function formatDateOnly(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString('ru-RU');
+}
+
+function deadlineBadgeState(deadline) {
+  if (!deadline) return { className: 'neutral', text: 'Без дедлайна' };
+  const date = new Date(deadline);
+  if (Number.isNaN(date.getTime())) return { className: 'neutral', text: String(deadline) };
+  return date < new Date()
+    ? { className: 'danger', text: formatDeadline(deadline) }
+    : { className: 'success', text: formatDeadline(deadline) };
+}
+
+function normalizePhoneForDisplay(value = '') {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return '';
+  const normalized = digits.startsWith('7') ? digits : `7${digits}`;
+  const country = normalized.slice(0, 1);
+  const area = normalized.slice(1, 4);
+  const first = normalized.slice(4, 7);
+  const second = normalized.slice(7, 9);
+  const third = normalized.slice(9, 11);
+  return `+${country}${area ? ` (${area}` : ''}${area.length === 3 ? ')' : ''}${first ? ` ${first}` : ''}${second ? `-${second}` : ''}${third ? `-${third}` : ''}`;
+}
+
+function isValidEmailInput(value = '') {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
+function isValidPhoneInput(value = '') {
+  const digits = String(value || '').replace(/\D/g, '');
+  return digits.length >= 10 && digits.length <= 15;
+}
+
+function formatTeacherVisibleTags(tags = [], fallback = []) {
+  const source = sanitizeEditableErrorTags([...(tags || []), ...(fallback || [])]);
+  return source.length ? source : normalizeErrorTags(source);
+}
+
+function buildNormalizedGroupRiskTopics(db, groupId, teacherId) {
+  const group = db.groups.find(item => item.id === groupId && item.teacherId === teacherId);
+  if (!group) return [];
+  const raw = teacherOwnedWorks(db, teacherId)
+    .filter(work => (group.studentIds || []).includes(work.studentId))
+    .flatMap(work => [
+      ...(work.normalizedErrorCategories || []),
+      ...(work.finalErrorTags || []),
+      ...(work.aiErrors || []).flatMap(error => [error.normalizedCategory, ...(error.types || []), error.label]),
+    ]);
+  return countNormalizedCategories(raw).slice(0, 3).map(item => item.name);
 }
 
 async function submitAssignmentWork({ assignment, student, works, files, reload, notify }) {
@@ -293,29 +377,59 @@ async function submitAssignmentWork({ assignment, student, works, files, reload,
   notify({ type: 'success', text: 'Решение отправлено преподавателю.' });
 }
 
-function AttachmentGallery({ files = [], compact = false }) {
+function AttachmentGallery({ files = [], compact = false, onRemove = null }) {
+  const [preview, setPreview] = useState(null);
   if (!files.length) return null;
   return (
-    <div className={cx('gallery', compact && 'attachmentGalleryCompact')}>
-      {files.map(file => {
-        const href = normalizeUrl(file.url);
-        if (file.kind === 'photo') {
-          return <img key={file.id} src={href} alt={file.name} className="galleryImg" />;
-        }
-        if (isPdfAttachment(file)) {
+    <>
+      <div className={cx('gallery', compact && 'attachmentGalleryCompact')}>
+        {files.map(file => {
+          const href = normalizeUrl(file.url || file.previewUrl || file.normalizedUrl);
+          const isPdf = isPdfAttachment(file);
           return (
-            <div key={file.id} className="pdfPreviewCard">
-              <div className="pdfPreviewTitle">{file.name}</div>
-              <object data={href} type="application/pdf" className="pdfPreviewObject">
-                <a href={href} target="_blank" rel="noreferrer" className="fileTile">Открыть PDF</a>
-              </object>
+            <div key={file.id || `${file.name}-${href}`} className="attachmentCard">
+              {file.kind === 'photo' ? (
+                <button className="attachmentPreviewButton" onClick={() => setPreview(file)}>
+                  <img src={href} alt={file.name} className="galleryImg" />
+                </button>
+              ) : (
+                <button className="attachmentFileCard" onClick={() => setPreview(file)}>
+                  <FileText size={18} />
+                  <span>{file.name}</span>
+                  <span className="muted small">{isPdf ? 'PDF' : 'Файл'}</span>
+                </button>
+              )}
+              <div className="row gap8 wrap mt8">
+                <button className="secondaryBtn tinyBtn" onClick={() => setPreview(file)}><Eye size={14} /> Открыть</button>
+                <a href={href} target="_blank" rel="noreferrer" className="ghostBtn tinyBtn">Скачать</a>
+                {onRemove && <button className="iconGhost danger" title="Убрать вложение" aria-label={`Убрать ${file.name}`} onClick={() => onRemove(file)}><Trash2 size={14} /></button>}
+              </div>
             </div>
           );
-        }
-        return <a key={file.id} href={href} target="_blank" rel="noreferrer" className="fileTile">{file.name}</a>;
-      })}
-    </div>
+        })}
+      </div>
+      {preview && <AttachmentPreviewModal file={preview} onClose={() => setPreview(null)} />}
+    </>
   );
+}
+
+function AttachmentPreviewModal({ file, onClose }) {
+  const href = normalizeUrl(file.url || file.previewUrl || file.normalizedUrl);
+  return <Modal title={file.name || 'Вложение'} onClose={onClose} wide>
+    <div className="attachmentFullscreen">
+      {file.kind === 'photo' ? (
+        <img src={href} alt={file.name} className="attachmentFullscreenImage" />
+      ) : (
+        <object data={href} type={file.mimeType || 'application/pdf'} className="reviewViewerPdf">
+          <a href={href} target="_blank" rel="noreferrer" className="fileTile">Открыть файл</a>
+        </object>
+      )}
+      <div className="modalActions">
+        <a href={href} target="_blank" rel="noreferrer" className="secondaryBtn linkButton">Открыть в новой вкладке</a>
+        <button className="primaryBtn" onClick={onClose}>Закрыть</button>
+      </div>
+    </div>
+  </Modal>;
 }
 
 function formatConfidence(value) {
@@ -323,54 +437,106 @@ function formatConfidence(value) {
   return `${Math.round(Number(value) * 100)}%`;
 }
 
-function ReviewFileViewer({ files = [] }) {
-  const [pageIndex, setPageIndex] = useState(0);
-  const [zoom, setZoom] = useState(100);
+function ReviewFileViewer({ files = [], pageIndex = null, onPageChange = null }) {
+  const [innerIndex, setInnerIndex] = useState(0);
   const safeFiles = files.length ? files : [];
-  const selected = safeFiles[Math.min(pageIndex, Math.max(safeFiles.length - 1, 0))] || null;
+  const activeIndex = pageIndex === null ? innerIndex : pageIndex;
+  const setActiveIndex = onPageChange || setInnerIndex;
+  const selected = safeFiles[Math.min(activeIndex, Math.max(safeFiles.length - 1, 0))] || null;
+  const [fullscreen, setFullscreen] = useState(false);
 
   useEffect(() => {
-    setPageIndex(0);
-  }, [safeFiles.length]);
+    if (pageIndex === null) setInnerIndex(0);
+  }, [safeFiles.length, pageIndex]);
 
   if (!selected) return <div className="empty">Нет приложенных файлов.</div>;
   const href = normalizeUrl(selected.previewUrl || selected.normalizedUrl || selected.url);
   return (
-    <div className="stack gap12">
-      <div className="row between wrap gap8">
-        <div className="chipWrap">
-          {safeFiles.map((file, index) => (
-            <button
-              key={file.id || `${file.name}-${index}`}
-              className={cx('chipBtn', index === pageIndex && 'active')}
-              onClick={() => setPageIndex(index)}
-            >
-              {safeFiles.length > 1 ? `Стр. ${index + 1}` : 'Файл'}
-            </button>
-          ))}
+    <>
+      <div className="stack gap12">
+        <div className="row between wrap gap8">
+          <div className="row gap8 alignCenter">
+            <button className="iconGhost" onClick={() => setActiveIndex(Math.max(0, activeIndex - 1))} disabled={activeIndex === 0}>←</button>
+            <span className="muted small">{safeFiles.length > 1 ? `${activeIndex + 1} / ${safeFiles.length}` : '1 / 1'}</span>
+            <button className="iconGhost" onClick={() => setActiveIndex(Math.min(safeFiles.length - 1, activeIndex + 1))} disabled={activeIndex >= safeFiles.length - 1}>→</button>
+          </div>
+          <button className="secondaryBtn tinyBtn" onClick={() => setFullscreen(true)}><Eye size={14} /> Развернуть</button>
         </div>
-        <label className="field compactField">
-          <span>Zoom</span>
-          <select className="input selectSmall" value={zoom} onChange={e => setZoom(Number(e.target.value))}>
-            {[80, 100, 125, 150].map(value => <option key={value} value={value}>{value}%</option>)}
-          </select>
-        </label>
+        <div className="reviewViewerSurface">
+          {selected.kind === 'photo'
+            ? <img src={href} alt={selected.name} className="reviewViewerImage" />
+            : (
+              <object data={href} type={selected.mimeType || 'application/pdf'} className="reviewViewerPdf">
+                <a href={href} target="_blank" rel="noreferrer" className="fileTile">Открыть файл</a>
+              </object>
+            )}
+        </div>
+        <div className="muted small">{selected.originalName || selected.name}</div>
       </div>
-      <div className="reviewViewerSurface">
-        {selected.kind === 'photo'
-          ? <img src={href} alt={selected.name} className="reviewViewerImage" style={{ transform: `scale(${zoom / 100})` }} />
-          : (
-            <object data={href} type={selected.mimeType || 'application/pdf'} className="reviewViewerPdf">
-              <a href={href} target="_blank" rel="noreferrer" className="fileTile">Открыть файл</a>
-            </object>
-          )}
-      </div>
-      <div className="muted small">{selected.originalName || selected.name}</div>
-    </div>
+      {fullscreen && <AttachmentPreviewModal file={selected} onClose={() => setFullscreen(false)} />}
+    </>
   );
 }
 
-function ReviewSummaryCard({ selected, editMode, finalScore, setFinalScore, studentComment, setStudentComment, teacherComment, setTeacherComment, onConfirm, onEnableEdit, onReprocess, onManualReview, busy }) {
+function RecognizedTextCarousel({ pages = [], pageIndex = null, onPageChange = null }) {
+  const [innerIndex, setInnerIndex] = useState(0);
+  const activeIndex = pageIndex === null ? innerIndex : pageIndex;
+  const setActiveIndex = onPageChange || setInnerIndex;
+  const safePages = pages.length ? pages : [{ pageNumber: 1, recognizedText: 'AI еще не собрал распознанный текст.' }];
+  const selected = safePages[Math.min(activeIndex, Math.max(safePages.length - 1, 0))] || safePages[0];
+
+  useEffect(() => {
+    if (pageIndex === null) setInnerIndex(0);
+  }, [safePages.length, pageIndex]);
+
+  return <div className="stack gap12">
+    <div className="row between wrap gap8">
+      <div className="row gap8 alignCenter">
+        <button className="iconGhost" onClick={() => setActiveIndex(Math.max(0, activeIndex - 1))} disabled={activeIndex === 0}>←</button>
+        <span className="muted small">{`Страница ${selected.pageNumber}`}</span>
+        <button className="iconGhost" onClick={() => setActiveIndex(Math.min(safePages.length - 1, activeIndex + 1))} disabled={activeIndex >= safePages.length - 1}>→</button>
+      </div>
+    </div>
+    <pre className="typedText">{selected.recognizedText || 'Текст на этой странице не распознан.'}</pre>
+  </div>;
+}
+
+function EditableTagList({ tags = [], setTags, disabled = false }) {
+  const [editingIndex, setEditingIndex] = useState(null);
+  const [draftValue, setDraftValue] = useState('');
+  const beginEdit = (index) => {
+    setEditingIndex(index);
+    setDraftValue(tags[index] || '');
+  };
+  const saveEdit = () => {
+    if (editingIndex === null) return;
+    const next = [...tags];
+    next[editingIndex] = draftValue.trim();
+    setTags(sanitizeEditableErrorTags(next));
+    setEditingIndex(null);
+    setDraftValue('');
+  };
+  return <div className="chipWrap">
+    {tags.length ? tags.map((tag, index) => editingIndex === index ? (
+      <input
+        key={`${tag}-${index}`}
+        className="input chipInput"
+        value={draftValue}
+        onChange={e => setDraftValue(e.target.value)}
+        onBlur={saveEdit}
+        onKeyDown={e => { if (e.key === 'Enter') saveEdit(); }}
+        autoFocus
+      />
+    ) : (
+      <span key={`${tag}-${index}`} className="editableTag" onDoubleClick={() => !disabled && beginEdit(index)}>
+        <span>{tag}</span>
+        {!disabled && <button className="tagRemove" onClick={() => setTags(tags.filter((_, currentIndex) => currentIndex !== index))}>×</button>}
+      </span>
+    )) : <span className="muted small">Теги ошибок появятся после распознавания.</span>}
+  </div>;
+}
+
+function ReviewSummaryCard({ selected, editMode, finalScore, setFinalScore, studentComment, setStudentComment, errorTags, setErrorTags, onConfirm, onEnableEdit, onReprocess, busy }) {
   const analysis = selected.analysisDraft || {};
   const warnings = [...new Set([...(selected.reviewWarnings || []), ...(analysis.warnings || [])].filter(Boolean))];
   return (
@@ -382,6 +548,12 @@ function ReviewSummaryCard({ selected, editMode, finalScore, setFinalScore, stud
         {selected.needsHumanReview && <span className="pill warn">Нужна ручная проверка</span>}
       </div>
       {!!warnings.length && <div className="stack gap8">{warnings.map((warning, index) => <div key={`${warning}-${index}`} className="banner subtle">{warning}</div>)}</div>}
+      <div>
+        <div className="sectionLabel">Типы ошибок</div>
+        <div className="mt8">
+          <EditableTagList tags={errorTags} setTags={setErrorTags} disabled={!editMode || busy} />
+        </div>
+      </div>
       <label className="field">
         <span>Предварительный балл</span>
         <input className="input" type="number" value={finalScore} disabled={!editMode || busy} onChange={e => setFinalScore(Number(e.target.value))} />
@@ -390,28 +562,22 @@ function ReviewSummaryCard({ selected, editMode, finalScore, setFinalScore, stud
         <span>Комментарий ученику</span>
         <textarea className="input textarea" value={studentComment} disabled={!editMode || busy} onChange={e => setStudentComment(e.target.value)} />
       </label>
-      <label className="field">
-        <span>Комментарий преподавателю</span>
-        <textarea className="input textarea" value={teacherComment} disabled={!editMode || busy} onChange={e => setTeacherComment(e.target.value)} />
-      </label>
       <details className="advancedDisclosure">
-        <summary>Расширенный разбор</summary>
+        <summary>Расширенный обзор</summary>
         <div className="stack gap12 mt12">
-          <div className="cardInner">
-            <div className="sectionLabel">Извлеченное условие</div>
-            <div className="mt8">{analysis.extractedTask || 'Пока не выделено.'}</div>
-          </div>
-          <div className="cardInner">
-            <div className="sectionLabel">Эталон / верификация</div>
-            <div className="mt8">{analysis.canonicalSolution || 'Пока не сформировано.'}</div>
-          </div>
+          {(analysis.detectedMistakes || selected.aiErrors || []).length ? (analysis.detectedMistakes || selected.aiErrors || []).map((issue, index) => (
+            <div key={`${issue.label || issue.title}-${index}`} className="errorCard">
+              <div className="cardTitle">{issue.label || issue.title || 'Замечание'}</div>
+              <div className="muted small mt6">{issue.description || 'Подробности будут добавлены после повторной генерации.'}</div>
+              <div className="muted small mt8">Где смотреть: {issue.locationHint || 'В соответствующем фрагменте решения'}</div>
+            </div>
+          )) : <div className="empty">Подробные карточки замечаний пока не сформированы.</div>}
         </div>
       </details>
       <div className="modalActions alignStart">
         <button className="primaryBtn" disabled={busy || !studentComment.trim()} onClick={onConfirm}>Подтвердить</button>
-        <button className="secondaryBtn" disabled={busy} onClick={onEnableEdit}>{editMode ? 'Режим редактирования включен' : 'Исправить'}</button>
+        <button className="secondaryBtn" disabled={busy} onClick={onEnableEdit}>Исправить</button>
         <button className="ghostBtn" disabled={busy} onClick={onReprocess}>Сгенерировать заново</button>
-        <button className="ghostBtn" disabled={busy} onClick={onManualReview}>Пометить как требует ручной проверки</button>
       </div>
     </div>
   );
@@ -458,12 +624,82 @@ export default function App() {
     <>
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/invite/:token" element={<InviteLinkPage session={session} reload={reload} notify={setToast} />} />
         <Route path="/login" element={session ? <Navigate to={session.role === 'teacher' ? (session.accessMode === 'limited' ? '/teacher/grading?tab=batch' : '/teacher') : '/student'} replace /> : <LoginPage onAuth={setServerSession} notify={setToast} />} />
         <Route path="/*" element={session ? <Shell session={session} db={db} reload={reload} logout={logout} notify={setToast} updateSession={updateSession} /> : <Navigate to="/login" replace />} />
       </Routes>
       {toast && <Toast {...toast} />}
     </>
   );
+}
+
+function InviteLinkPage({ session, reload, notify }) {
+  const { token } = useParams();
+  const navigate = useNavigate();
+  const [inviteInfo, setInviteInfo] = useState(null);
+  const [error, setError] = useState('');
+  const [binding, setBinding] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    setPendingInviteToken(token);
+    api.resolveTeacherInviteToken(token)
+      .then(setInviteInfo)
+      .catch(err => setError(err.message));
+  }, [token]);
+
+  useEffect(() => {
+    if (!token || !session?.userId || session.role !== 'student') return;
+    let active = true;
+    (async () => {
+      try {
+        setBinding(true);
+        await api.acceptTeacherInviteToken({ token, studentId: session.userId });
+        clearPendingInviteToken();
+        if (!active) return;
+        await reload(session);
+        notify({ type: 'success', text: 'Преподаватель успешно подключен.' });
+        navigate('/student/tutors', { replace: true });
+      } catch (err) {
+        if (!active) return;
+        setError(err.message);
+      } finally {
+        if (active) setBinding(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [token, session?.userId, session?.role, reload, notify, navigate]);
+
+  if (session && session.role !== 'student') {
+    return <div className="screen center"><Card title="Ссылка приглашения"><div className="empty">Эта ссылка предназначена для аккаунта ученика.</div></Card></div>;
+  }
+
+  return <div className="loginScreen authSplitRefined">
+    <section className="hero authShowcase">
+      <div className="heroBadge"><Sparkles size={15} /> Приглашение</div>
+      <h1>Подключение к преподавателю</h1>
+      <p>После входа в аккаунт ученик автоматически привяжется к преподавателю по этой ссылке.</p>
+    </section>
+    <section className="loginCard authPanel">
+      <div className="authTitle">Ссылка приглашения</div>
+      {error ? <div className="banner subtle dangerBanner mt16">{error}</div> : (
+        <div className="stack gap12 mt16">
+          <div className="cardInner">
+            <div className="cardTitle">{inviteInfo?.teacher?.name || 'Проверяем приглашение...'}</div>
+            <div className="muted mt8">{inviteInfo?.teacher?.email || 'Сейчас получим данные преподавателя'}</div>
+          </div>
+          {!session ? (
+            <div className="row gap8 wrap">
+              <button className="primaryBtn" onClick={() => navigate(`/login?mode=login&inviteToken=${encodeURIComponent(token || '')}`)}>Войти как ученик</button>
+              <button className="secondaryBtn" onClick={() => navigate(`/login?mode=register&inviteToken=${encodeURIComponent(token || '')}`)}>Создать аккаунт ученика</button>
+            </div>
+          ) : <div className="muted">{binding ? 'Подключаем преподавателя...' : 'Ожидаем завершения привязки...'}</div>}
+        </div>
+      )}
+    </section>
+  </div>;
 }
 
 function Shell({ session, db, reload, logout, notify, updateSession }) {
@@ -495,7 +731,6 @@ function Shell({ session, db, reload, logout, notify, updateSession }) {
     { path: '/student', label: 'Главная', icon: LayoutDashboard },
     { path: '/student/assignments', label: 'Мои задания', icon: BookOpen },
     { path: '/student/tutors', label: 'Репетиторы', icon: Search, badge: studentPendingInvites || null },
-    { path: '/student/profile', label: 'Профиль', icon: Users },
   ];
   const navItems = session.role === 'teacher' ? teacherItems : studentItems;
   const onboardingItems = onboardingVariants[session.role] || [];
@@ -532,20 +767,20 @@ function Shell({ session, db, reload, logout, notify, updateSession }) {
             const blocked = isTeacherLimited && session.role === 'teacher' && !['/teacher/grading', '/teacher/pricing'].includes(item.path);
             const Icon = item.icon;
             return (
-              <button key={item.path} className={cx('navItem', active && 'active', blocked && 'blocked')} onClick={() => onNav(item)}>
+              <button key={item.path} className={cx('navItem', active && 'active', blocked && 'blocked')} onClick={() => onNav(item)} data-tour={`nav-${item.path}`}>
                 <Icon size={18} /><span>{item.label}</span>{item.badge ? <span className="navBadge">{item.badge}</span> : null}{blocked && <Lock size={13} />}
               </button>
             );
           })}
         </nav>
         <div className="sidebarFooter stickyFooter">
-          <div className="userCard stableUserCard">
+          <button className="userCard stableUserCard profileEntryButton" data-tour="profile-entry" onClick={() => navigate(session.role === 'teacher' ? '/teacher/settings' : '/student/profile')}>
             <div className="avatar">{session.role === 'teacher' ? 'ЕП' : 'АС'}</div>
             <div>
               <div className="userName">{session.userName}</div>
               <div className="userMeta">{isTeacherLimited ? 'Free-режим после trial' : session.role === 'teacher' ? 'Преподаватель' : 'Ученик'}</div>
             </div>
-          </div>
+          </button>
           <button className="ghostBtn wide" onClick={logout}><LogOut size={16} /> Выйти</button>
         </div>
       </aside>
@@ -573,36 +808,26 @@ function Shell({ session, db, reload, logout, notify, updateSession }) {
         </main>
       </div>
       {teaser && <Modal title={teaser.title} onClose={() => setTeaser(null)}><p>{teaser.text}</p><div className="modalActions"><button className="secondaryBtn" onClick={() => setTeaser(null)}>Понятно</button><button className="primaryBtn" onClick={() => { setTeaser(null); navigate('/teacher/pricing'); }}>Перейти к тарифам</button></div></Modal>}
-      {!session.onboardingCompleted && !!onboardingItems.length && <Modal title="Первые шаги" onClose={() => {}}>
-        <div className="stack gap16">
-          <div className="chipWrap">
-            {onboardingItems.map((item, index) => <span key={item.title} className={cx('chip', index === onboardingStep && 'chipInherited')}>{index + 1}. {item.title}</span>)}
-          </div>
-          <div className="cardInner">
-            <div className="cardTitle">{onboardingItems[onboardingStep]?.title}</div>
-            <div className="muted mt8">{onboardingItems[onboardingStep]?.text}</div>
-          </div>
-          <div className="modalActions">
-            <button className="secondaryBtn" onClick={() => setOnboardingStep(step => Math.max(0, step - 1))} disabled={onboardingStep === 0}>Назад</button>
-            <button className="ghostBtn" onClick={() => navigate(onboardingItems[onboardingStep]?.path)}>{onboardingItems[onboardingStep]?.cta}</button>
-            {onboardingStep < onboardingItems.length - 1 ? (
-              <button className="primaryBtn" onClick={() => setOnboardingStep(step => Math.min(onboardingItems.length - 1, step + 1))}>Далее</button>
-            ) : (
-              <button className="primaryBtn" onClick={finishOnboarding} disabled={savingOnboarding}>Завершить</button>
-            )}
-          </div>
-        </div>
-      </Modal>}
+      {!session.onboardingCompleted && !!onboardingItems.length && <SpotlightOnboarding
+        items={onboardingItems}
+        step={onboardingStep}
+        setStep={setOnboardingStep}
+        onNavigate={path => navigate(path)}
+        onComplete={finishOnboarding}
+        busy={savingOnboarding}
+      />}
     </div>
   );
 }
 
 function LoginPage({ onAuth, notify }) {
+  const navigate = useNavigate();
   const [role, setRole] = useState('teacher');
   // Determine the initial mode based on the current URL's query params.
   // When `?mode=register` is present, default to the registration screen.
   const [searchParams] = useSearchParams();
   const initialModeParam = searchParams.get('mode');
+  const inviteToken = searchParams.get('inviteToken') || getPendingInviteToken();
   const [mode, setMode] = useState(() => initialModeParam === 'register' ? 'register' : 'login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -612,11 +837,31 @@ function LoginPage({ onAuth, notify }) {
   const [working, setWorking] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
 
+  useEffect(() => {
+    if (inviteToken) setPendingInviteToken(inviteToken);
+  }, [inviteToken]);
+
+  const finalizeAuth = async (payload) => {
+    if (payload.session.role === 'student' && inviteToken) {
+      try {
+        await api.acceptTeacherInviteToken({ token: inviteToken, studentId: payload.session.userId });
+        clearPendingInviteToken();
+        notify({ type: 'success', text: 'Преподаватель автоматически подключен по приглашению.' });
+      } catch (error) {
+        clearPendingInviteToken();
+        notify({ type: 'error', text: error.message });
+      }
+    }
+    onAuth(payload.session);
+    if (payload.session.role === 'student' && inviteToken) navigate('/student/tutors');
+  };
+
   const doLogin = async () => {
     setWorking(true);
     try {
+      if (!isValidEmailInput(email)) throw new Error('Укажите корректный email.');
       const payload = await api.login({ email, role, password });
-      onAuth(payload.session);
+      await finalizeAuth(payload);
     } catch (e) {
       notify({ type: 'error', text: e.message });
     } finally { setWorking(false); }
@@ -625,6 +870,9 @@ function LoginPage({ onAuth, notify }) {
   const doRegister = async () => {
     setWorking(true);
     try {
+      if (!isValidEmailInput(reg.email)) throw new Error('Укажите корректный email.');
+      if (!isValidPhoneInput(reg.phone)) throw new Error('Укажите корректный телефон.');
+      if (role === 'student' && reg.parentEmail && !isValidEmailInput(reg.parentEmail)) throw new Error('Укажите корректный Email родителя.');
       const result = await api.register({
         role,
         firstName: reg.firstName,
@@ -649,7 +897,7 @@ function LoginPage({ onAuth, notify }) {
     try {
       await api.verifySms({ email: pendingSms.email, role: pendingSms.role, code: smsCode });
       const payload = await api.login({ email: pendingSms.email, role: pendingSms.role, password: pendingSms.password });
-      onAuth(payload.session);
+      await finalizeAuth(payload);
     } catch (e) {
       notify({ type: 'error', text: e.message });
     } finally { setWorking(false); }
@@ -697,7 +945,7 @@ function LoginPage({ onAuth, notify }) {
               <label className="field"><span>Имя</span><input className="input" value={reg.firstName} onChange={e=>setReg(v=>({...v,firstName:e.target.value}))} placeholder="Имя" /></label>
               <label className="field"><span>Фамилия</span><input className="input" value={reg.lastName} onChange={e=>setReg(v=>({...v,lastName:e.target.value}))} placeholder="Фамилия" /></label>
               <label className="field"><span>Email</span><input className="input" value={reg.email} onChange={e=>setReg(v=>({...v,email:e.target.value}))} placeholder="Email" /></label>
-              <label className="field"><span>Телефон</span><input className="input" value={reg.phone} onChange={e=>setReg(v=>({...v,phone:e.target.value}))} placeholder="Телефон" /></label>
+              <label className="field"><span>Телефон</span><input className="input" value={reg.phone} onChange={e=>setReg(v=>({...v,phone:normalizePhoneForDisplay(e.target.value)}))} placeholder="+7 (999) 123-45-67" /></label>
               <label className="field"><span>Пароль</span><input className="input" type="password" value={reg.password} onChange={e=>setReg(v=>({...v,password:e.target.value}))} placeholder="Пароль" /></label>
               {role === 'student' && <label className="field"><span>Имя родителя</span><input className="input" value={reg.parentName} onChange={e=>setReg(v=>({...v,parentName:e.target.value}))} placeholder="Опционально" /></label>}
               {role === 'student' && <label className="field"><span>Email родителя (необязательно)</span><input className="input" type="email" value={reg.parentEmail} onChange={e=>setReg(v=>({...v,parentEmail:e.target.value}))} placeholder="parent@example.com" /></label>}
@@ -808,10 +1056,10 @@ function TeacherDashboard({ db, session, navigate }) {
       </div>
 
       <div className="grid kpiGrid fourNoOverdue">
-        <KPI title="Активные ученики" value={activeStudents.length} onClick={() => navigate('/teacher/students')} />
-        <KPI title="Группы" value={activeGroups.length} onClick={() => navigate('/teacher/groups')} />
-        <KPI title="Ждут проверки" value={pendingWorks.length} onClick={() => navigate('/teacher/grading')} />
-        {widgets.totalStudents && <KPI title="Всего учеников" value={teacherHistoricalStudentsCount(db, teacherId)} />}
+        <KPI title="Активные ученики" value={activeStudents.length} onClick={() => navigate('/teacher/students')} borderTone="green" />
+        <KPI title="Группы" value={activeGroups.length} onClick={() => navigate('/teacher/groups')} borderTone="green" />
+        <KPI title="Ждут проверки" value={pendingWorks.length} onClick={() => navigate('/teacher/grading')} borderTone={pendingWorks.length ? 'red' : 'green'} />
+        {widgets.totalStudents && <KPI title="Всего учеников" value={teacherHistoricalStudentsCount(db, teacherId)} borderTone="gold" />}
       </div>
 
       {isNewTeacher && (
@@ -843,7 +1091,7 @@ function TeacherDashboard({ db, session, navigate }) {
 
       <Card title="Ученики из зоны риска" subtitle="Список формируется автоматически, когда по ученикам появляются первые работы.">
         <div className="stack gap12">
-          {riskStudents.length ? riskStudents.map(item => <div key={item.id} className="riskRow"><div><div>{item.name}</div><div className="muted small">{item.factors.join(' · ')}</div></div><span className={cx('pill', item.riskScore >= 3 ? 'danger' : 'warn')}>Риск {item.riskScore}</span></div>) : <div className="empty">Недостаточно данных.</div>}
+          {riskStudents.length ? riskStudents.map(item => <div key={item.id} className="riskRow"><div><div>{item.name}</div><div className="muted small">{item.factors.join(' · ')}</div></div></div>) : <div className="empty">Недостаточно данных.</div>}
         </div>
       </Card>
 
@@ -914,7 +1162,7 @@ function TeacherStudentsPage({ db, reload, navigate, notify, session }) {
           <button className="primaryBtn accentPrimaryBtn" onClick={async () => {
             try {
               const invite = await api.createTeacherInvite({ teacherId, direction: 'teacher_to_student' });
-              setInviteLink(`${window.location.origin}/student/tutors?invite=${invite.token}`);
+              setInviteLink(`${window.location.origin}/invite/${invite.token}`);
               notify({ type: 'success', text: 'Ссылка-приглашение создана.' });
             } catch (e) {
               notify({ type: 'error', text: e.message });
@@ -1032,7 +1280,7 @@ function TeacherStudentsPage({ db, reload, navigate, notify, session }) {
 
         <div>
           {selected ? (
-            <Card title={selected.name} subtitle={selected.email || 'Email не указан'} actions={<div className="row gap8 wrap"><button className="iconGhost" onClick={() => setEditing(selected)}><Pencil size={16} /></button><button className="secondaryBtn dangerOutline" onClick={() => setDetachingStudent(selected)}>Удалить аккаунт</button></div>}>
+            <Card title={selected.name} subtitle={selected.email || 'Email не указан'} actions={<div className="row gap8 wrap"><button className="iconGhost" onClick={() => setEditing(selected)}><Pencil size={16} /></button><button className="iconGhost danger" title="Удалить аккаунт" aria-label="Удалить аккаунт" onClick={() => setDetachingStudent(selected)}><Trash2 size={16} /></button></div>}>
               <div className="grid detailGrid betterDetails refinedInfoGrid">
                 <InfoBox label="Email родителя" value={selected.parentEmail || '—'} secondary={selected.parentName || 'Имя родителя не указано'} />
                 <InfoBox label="Score" value={String(db.computed.studentScores[selected.id] || 0)} />
@@ -1051,7 +1299,7 @@ function TeacherStudentsPage({ db, reload, navigate, notify, session }) {
       </div>
 
       {showAdd && <StudentModal mode="create" db={db} notify={notify} onClose={() => setShowAdd(false)} onSave={async(payload) => { try { await api.createStudent({ ...payload, teacherId }); await reload(); setShowAdd(false); notify({ type: 'success', text: 'Виртуальный ученик добавлен.' }); } catch (e) { notify({ type: 'error', text: e.message }); } }} />}
-      {editing && <StudentModal mode="edit" db={db} student={editing} notify={notify} onClose={() => setEditing(null)} onSave={async(payload) => { try { await api.updateStudent(editing.id, { ...payload, teacherId }); await reload(); setEditing(null); notify({ type: 'success', text: 'Изменения ученика сохранены.' }); } catch (e) { notify({ type: 'error', text: e.message }); } }} />}
+      {editing && <StudentModal mode="edit" db={db} student={editing} notify={notify} onClose={() => setEditing(null)} onSave={async(payload) => { try { await api.updateTeacherStudentOverlay(teacherId, editing.id, payload); await reload(); setEditing(null); notify({ type: 'success', text: 'Изменения ученика сохранены.' }); } catch (e) { notify({ type: 'error', text: e.message }); } }} />}
       {detachingStudent && <Modal title="Удалить аккаунт" onClose={() => setDetachingStudent(null)}>
         <div className="stack gap16">
           <p className="muted">Мы удалим только связь между вами и учеником. Аккаунт ученика останется в системе, а повторное подключение будет возможно позже.</p>
@@ -1143,7 +1391,7 @@ function StudentModal({ mode, db, student, onClose, onSave, notify }) {
       parentName: isCreate ? '' : form.parentName,
       parentEmail: form.parentEmail,
       level: isCreate ? '' : form.level,
-      lessonSlots: isCreate ? [] : slots.map(slot => ({ ...slot, durationHours: Number(slot.durationHours || 0), durationMinutes: Number(slot.durationMinutes || 0) })),
+      lessonSlots: slots.map(slot => ({ ...slot, durationHours: Number(slot.durationHours || 0), durationMinutes: Number(slot.durationMinutes || 0) })),
     });
   };
 
@@ -1157,24 +1405,22 @@ function StudentModal({ mode, db, student, onClose, onSave, notify }) {
       {!isCreate && <label className="field"><span>Имя родителя</span><input className="input" value={form.parentName} onChange={e=>setForm(v=>({...v,parentName:e.target.value}))} placeholder="Опционально" /></label>}
       {!isCreate && <label className="field"><span>Уровень</span><input className="input" value={form.level} onChange={e=>setForm(v=>({...v,level:e.target.value}))} /></label>}
     </div>
-    {!isCreate && <>
-      <div className="sectionLabel mt20">Слоты занятий (необязательно)</div>
-      {!showSlotEditor && <button className="secondaryBtn mt12" onClick={()=>setShowSlotEditor(true)}><Plus size={16} /> Добавить слот</button>}
-      {showSlotEditor && <div className="slotHintCard mt12">
-        <div className="slotHintLabel">День недели</div>
-        <div className="slotHintLabel">Время начала (HH:MM)</div>
-        <div className="slotHintLabel">Часы</div>
-        <div className="slotHintLabel">Минуты</div>
-        <div></div>
-        <select className="input selectSmall" value={slotDraft.day} onChange={e=>setSlotDraft(v=>({...v,day:e.target.value}))}>{['ПН','ВТ','СР','ЧТ','ПТ','СБ','ВС'].map(day=><option key={day}>{day}</option>)}</select>
-        <input className="input selectSmall" type="time" value={slotDraft.time} onChange={e=>setSlotDraft(v=>({...v,time:e.target.value}))} />
-        <input className="input selectSmall" type="number" min="0" value={slotDraft.durationHours} onChange={e=>setSlotDraft(v=>({...v,durationHours:e.target.value}))} placeholder="0" />
-        <input className="input selectSmall" type="number" min="0" max="59" value={slotDraft.durationMinutes} onChange={e=>setSlotDraft(v=>({...v,durationMinutes:e.target.value}))} placeholder="0" />
-        <div className="row gap8"><button className="secondaryBtn" onClick={addSlot}>Добавить слот</button><button className="ghostBtn" onClick={()=>{setShowSlotEditor(false); setSlotError('');}}>Скрыть</button></div>
-      </div>}
-    </>}
+    <div className="sectionLabel mt20">Слоты занятий (необязательно)</div>
+    {!showSlotEditor && <button className="secondaryBtn mt12" onClick={()=>setShowSlotEditor(true)}><Plus size={16} /> Добавить слот</button>}
+    {showSlotEditor && <div className="slotHintCard mt12">
+      <div className="slotHintLabel">День недели</div>
+      <div className="slotHintLabel">Время начала (HH:MM)</div>
+      <div className="slotHintLabel">Часы</div>
+      <div className="slotHintLabel">Минуты</div>
+      <div></div>
+      <select className="input selectSmall" value={slotDraft.day} onChange={e=>setSlotDraft(v=>({...v,day:e.target.value}))}>{['ПН','ВТ','СР','ЧТ','ПТ','СБ','ВС'].map(day=><option key={day}>{day}</option>)}</select>
+      <input className="input selectSmall" type="time" value={slotDraft.time} onChange={e=>setSlotDraft(v=>({...v,time:e.target.value}))} />
+      <input className="input selectSmall" type="number" min="0" value={slotDraft.durationHours} onChange={e=>setSlotDraft(v=>({...v,durationHours:e.target.value}))} placeholder="0" />
+      <input className="input selectSmall" type="number" min="0" max="59" value={slotDraft.durationMinutes} onChange={e=>setSlotDraft(v=>({...v,durationMinutes:e.target.value}))} placeholder="0" />
+      <div className="row gap8"><button className="secondaryBtn" onClick={addSlot}>Добавить слот</button><button className="ghostBtn" onClick={()=>{setShowSlotEditor(false); setSlotError('');}}>Скрыть</button></div>
+    </div>}
     {slotError && <div className="pill danger mt12">{slotError}</div>}
-    {!isCreate && !!slots.length && <div className="stack gap8 mt16">{slots.map(slot => <div key={slot.id} className={cx('listRow', (hasLocalDuplicate(slot, slot.id) || hasExternalConflict(slot)) && 'conflictRow')}><span>{slot.day} {slot.time} · {slot.durationHours || 0} ч {slot.durationMinutes || 0} мин</span><button className="iconGhost" onClick={()=>setSlots(prev=>prev.filter(s=>s.id!==slot.id))}><Trash2 size={14}/></button></div>)}</div>}
+    {!!slots.length && <div className="stack gap8 mt16">{slots.map(slot => <div key={slot.id} className={cx('listRow', (hasLocalDuplicate(slot, slot.id) || hasExternalConflict(slot)) && 'conflictRow')}><span>{slot.day} {slot.time} · {slot.durationHours || 0} ч {slot.durationMinutes || 0} мин</span><button className="iconGhost" onClick={()=>setSlots(prev=>prev.filter(s=>s.id!==slot.id))}><Trash2 size={14}/></button></div>)}</div>}
     {isCreate && <div className="muted small mt16">В будущем вы сможете объединить с аккаунтом реального ученика.</div>}
     <div className="modalActions"><button className="primaryBtn" onClick={submit}>{isCreate ? 'Сохранить виртуального ученика' : 'Сохранить ученика'}</button></div>
   </Modal>;
@@ -1194,7 +1440,7 @@ function TeacherGroupsPage({ db, reload, navigate, notify, session }) {
         <Card key={group.id} title={group.name} subtitle={group.subject} actions={<div className="row gap8"><button className="iconGhost" onClick={()=>setEditing(group)}><Pencil size={16}/></button><button className="iconGhost danger" onClick={async()=>{await api.archiveGroup(group.id); await reload(); notify({type:'success',text:'Группа удалена из активных процессов.'});}}><Trash2 size={16}/></button></div>}>
           <div className="grid smallGrid betterGroupStats polishedGroupStats">
             <InfoBox label="Средний Score" value={String(db.computed.groupScores[group.id] || 0)} />
-            <InfoBox label="Темы риска" value={(group.riskTopics || []).join(', ') || '—'} />
+            <InfoBox label="Темы риска" value={buildNormalizedGroupRiskTopics(db, group.id, teacherId).join(', ') || '—'} />
           </div>
           {!!group.lessonSlots?.length && <><div className="sectionLabel mt20">Слоты группы</div><div className="chipWrap mt8">{group.lessonSlots.map(slot => <span key={slot.id} className="chip">{slot.day} {slot.time} · {slot.durationHours || 0} ч {slot.durationMinutes || 0} мин</span>)}</div></>}
           <div className="sectionLabel mt20">Состав</div>
@@ -1314,9 +1560,9 @@ function TeacherAssignmentsPage({ db, reload, notify, session }) {
     <div className="row gap12 wrap alignCenter">
       <div className="toolbar grow"><Search size={16} /><input className="toolbarInput" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Поиск по названию задания" /></div>
       <label className="field compactField"><span>Предмет</span><select className="input selectSmall" value={subject} onChange={e=>setSubject(e.target.value)}><option value="all">Все предметы</option>{SUBJECT_OPTIONS.map(item => <option key={item} value={item}>{item}</option>)}</select></label>
-      <label className="field compactField"><span>Статус</span><select className="input selectSmall" value={status} onChange={e=>setStatus(e.target.value)}><option value="all">Все статусы</option>{['Активно','Завершено','Черновик'].map(item => <option key={item} value={item}>{item}</option>)}</select></label>
+      <label className="field compactField"><span>Статус</span><select className="input selectSmall" value={status} onChange={e=>setStatus(e.target.value)}><option value="all">Все статусы</option>{['Активно','Прорешено','Черновик'].map(item => <option key={item} value={item}>{item}</option>)}</select></label>
     </div>
-    <div className="stack gap12">{filtered.map(item => { const recipient = recipientLabel(db, item); return <button key={item.id} className="assignmentCard polished" onClick={()=>setEditing(item)}><div className="row between wrap gap16"><div><div className="cardTitle">{item.title}</div><div className="muted small mt6">{item.subject} · Получатель: {recipient}</div><div className="muted small mt6">{item.description}</div></div><div className="stack gap8 rightAlign"><span className={pillClass[item.status]}>{item.status}</span>{item.deadline && <span className="muted small">{item.deadline}</span>}</div></div></button>; })}</div>
+    <div className="stack gap12">{filtered.map(item => { const recipient = recipientLabel(db, item); return <button key={item.id} className="assignmentCard polished" onClick={()=>setEditing(item)}><div className="row between wrap gap16"><div><div className="cardTitle">{item.title}</div><div className="muted small mt6">{item.subject} · Получатель: {recipient}</div><div className="muted small mt6">{item.description}</div></div><div className="stack gap8 rightAlign"><span className={pillClass[item.status]}>{item.status}</span>{item.deadline && <span className="muted small">{formatDeadline(item.deadline)}</span>}</div></div></button>; })}</div>
     {!filtered.length && <div className="empty">Пока нет заданий. Создайте первое задание для ученика или группы.</div>}
     {showCreate && <AssignmentModal mode="create" db={db} notify={notify} teacherId={teacherId} onClose={()=>setShowCreate(false)} onSave={async(payload, draftAction)=>{ try { await api.createAssignment(payload); await reload(); setShowCreate(false); notify({type:'success',text: draftAction === 'publish' ? 'Задание опубликовано.' : 'Черновик сохранен.'}); } catch (e) { notify({type:'error',text:e.message}); } }} />}
     {editing && <AssignmentModal mode="edit" db={db} assignment={editing} notify={notify} teacherId={teacherId} onClose={()=>setEditing(null)} onSave={async(payload, draftAction)=>{ try { if (draftAction === 'publish') { await api.publishDraft(editing.id, payload); notify({type:'success',text:'Черновик опубликован.'}); } else if (draftAction === 'delete') { await api.deleteAssignment(editing.id); notify({type:'success',text:'Черновик удален.'}); } else { await api.updateAssignment(editing.id, payload); notify({type:'success',text:'Карточка задания сохранена.'}); } await reload(); setEditing(null); } catch (e) { notify({type:'error',text:e.message}); } }} />}
@@ -1326,23 +1572,20 @@ function TeacherAssignmentsPage({ db, reload, notify, session }) {
 function AssignmentModal({ mode, db, assignment, onClose, onSave, notify, teacherId }) {
   const availableStudents = teacherOwnedStudents(db, teacherId);
   const availableGroups = teacherOwnedGroups(db, teacherId);
+  const readOnly = mode === 'edit' && assignment?.status !== 'Черновик';
   const [form, setForm] = useState(() => ({
     title: assignment?.title || '',
     subject: assignment?.subject || 'Математика',
     description: assignment?.description || '',
-    rubric: assignment?.rubric || assignment?.gradingCriteria || '',
-    gradingCriteria: assignment?.gradingCriteria || assignment?.rubric || '',
-    expectedAnswer: assignment?.expectedAnswer || '',
-    scoringScale: assignment?.scoringScale || assignment?.maxScore || 100,
-    toneOfVoiceForFeedback: assignment?.toneOfVoiceForFeedback || 'доброжелательный и понятный ученику',
     recipientType: assignment?.recipientType || 'student',
     recipientId: assignment?.recipientId || availableStudents[0]?.id || availableGroups[0]?.id || null,
     recipientIds: assignment?.recipientIds || [],
     deadline: assignment?.deadline || '',
-    maxScore: assignment?.maxScore || 100,
     status: assignment?.status || 'Черновик',
+    links: assignment?.links || [],
     attachments: assignment?.attachments || [],
   }));
+  const [linkDraft, setLinkDraft] = useState('');
 
   const uploadMore = async(files) => {
     const uploaded = await api.upload(files);
@@ -1355,39 +1598,42 @@ function AssignmentModal({ mode, db, assignment, onClose, onSave, notify, teache
     status: nextStatus,
     recipientId: form.recipientType === 'students' ? null : form.recipientId,
     recipientIds: form.recipientType === 'students' ? [...new Set(form.recipientIds)] : [],
+    links: form.links,
   });
   const publishDraft = () => onSave(buildPayload('Активно'), 'publish');
   const saveCard = () => onSave(buildPayload(form.status === 'Черновик' ? 'Черновик' : form.status), 'save');
 
-  return <Modal title={mode === 'create' ? 'Создать задание' : form.status === 'Черновик' ? 'Редактировать черновик' : 'Редактировать задание'} onClose={onClose} wide>
+  return <Modal title={mode === 'create' ? 'Создать задание' : form.status === 'Черновик' ? 'Редактировать черновик' : 'Карточка задания'} onClose={onClose} wide>
     <div className="grid twoCol">
-      <label className="field"><span>Название</span><input className="input" value={form.title} onChange={e=>setForm(v=>({...v,title:e.target.value}))} /></label>
-      <label className="field"><span>Предмет</span><select className="input" value={form.subject} onChange={e=>setForm(v=>({...v,subject:e.target.value}))}>{['Математика','Физика','Химия'].map(s=><option key={s}>{s}</option>)}</select></label>
-      <label className="field full"><span>Описание</span><textarea className="input textarea" value={form.description} onChange={e=>setForm(v=>({...v,description:e.target.value}))} /></label>
-      <label className="field full"><span>Критерии / rubric для AI</span><textarea className="input textarea" value={form.gradingCriteria} onChange={e=>setForm(v=>({...v, gradingCriteria:e.target.value, rubric:e.target.value}))} placeholder="Например: 2 балла за верный метод, 2 балла за вычисления, 1 балл за ответ" /></label>
-      <label className="field full"><span>Эталонный ответ (необязательно)</span><textarea className="input textarea" value={form.expectedAnswer} onChange={e=>setForm(v=>({...v, expectedAnswer:e.target.value}))} placeholder="Можно оставить пустым, если AI должен восстановить решение по условию" /></label>
+      <label className="field"><span>Название</span><input className="input" value={form.title} onChange={e=>setForm(v=>({...v,title:e.target.value}))} disabled={readOnly} /></label>
+      <label className="field"><span>Предмет</span><select className="input" value={form.subject} onChange={e=>setForm(v=>({...v,subject:e.target.value}))} disabled={readOnly}>{['Математика','Физика','Химия'].map(s=><option key={s}>{s}</option>)}</select></label>
+      <label className="field full"><span>Задание</span><textarea className="input textarea" value={form.description} onChange={e=>setForm(v=>({...v,description:e.target.value}))} disabled={readOnly} placeholder="Напечатайте задание или укажите задание, которое нужно сделать по прикрепленной ссылке" /></label>
+      <div className="field full">
+        <span>Ссылка на задание</span>
+        {!readOnly && <div className="row gap8 mt8"><input className="input grow" value={linkDraft} onChange={e => setLinkDraft(e.target.value)} placeholder="https://..." /><button className="secondaryBtn" onClick={() => { if (!linkDraft.trim()) return; setForm(v => ({ ...v, links: [...v.links, linkDraft.trim()] })); setLinkDraft(''); }}>Добавить ссылку</button></div>}
+        <div className="stack gap8 mt12">
+          {form.links.length ? form.links.map(link => <div key={link} className="listRow"><a href={link} target="_blank" rel="noreferrer" className="linkButton">{link}</a>{!readOnly && <button className="iconGhost danger" onClick={() => setForm(v => ({ ...v, links: v.links.filter(item => item !== link) }))}><Trash2 size={14} /></button>}</div>) : <div className="muted small">Ссылки пока не добавлены.</div>}
+        </div>
+      </div>
       <label className="field"><span>Получатель</span><div className="stack gap10">
         <div className="segmented mini">
-          <button className={cx(form.recipientType === 'student' && 'active')} onClick={() => setForm(v => ({ ...v, recipientType: 'student', recipientId: availableStudents[0]?.id || null }))}>Один ученик</button>
-          <button className={cx(form.recipientType === 'students' && 'active')} onClick={() => setForm(v => ({ ...v, recipientType: 'students', recipientIds: v.recipientIds.length ? v.recipientIds : availableStudents.slice(0, 1).map(item => item.id), recipientId: null }))}>Несколько учеников</button>
-          <button className={cx(form.recipientType === 'group' && 'active')} onClick={() => setForm(v => ({ ...v, recipientType: 'group', recipientId: availableGroups[0]?.id || null, recipientIds: [] }))}>Группа</button>
+          <button className={cx(form.recipientType === 'student' && 'active')} onClick={() => !readOnly && setForm(v => ({ ...v, recipientType: 'student', recipientId: availableStudents[0]?.id || null }))}>Один ученик</button>
+          <button className={cx(form.recipientType === 'students' && 'active')} onClick={() => !readOnly && setForm(v => ({ ...v, recipientType: 'students', recipientIds: v.recipientIds.length ? v.recipientIds : availableStudents.slice(0, 1).map(item => item.id), recipientId: null }))}>Несколько учеников</button>
+          <button className={cx(form.recipientType === 'group' && 'active')} onClick={() => !readOnly && setForm(v => ({ ...v, recipientType: 'group', recipientId: availableGroups[0]?.id || null, recipientIds: [] }))}>Группа</button>
         </div>
-        {form.recipientType === 'student' && <select className="input" value={form.recipientId || ''} onChange={e => setForm(v => ({ ...v, recipientId: e.target.value }))}>{availableStudents.map(student => <option key={student.id} value={student.id}>{student.name}</option>)}</select>}
-        {form.recipientType === 'students' && <div className="checkboxGrid">{availableStudents.length ? availableStudents.map(student => <label key={student.id} className="checkRow"><input type="checkbox" checked={form.recipientIds.includes(student.id)} onChange={e => setForm(v => ({ ...v, recipientIds: e.target.checked ? [...v.recipientIds, student.id] : v.recipientIds.filter(id => id !== student.id) }))} /><span>{student.name}</span></label>) : <div className="empty">Сначала добавьте учеников.</div>}</div>}
-        {form.recipientType === 'group' && <select className="input" value={form.recipientId || ''} onChange={e => setForm(v => ({ ...v, recipientId: e.target.value }))}>{availableGroups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}</select>}
+        {form.recipientType === 'student' && <select className="input" value={form.recipientId || ''} onChange={e => setForm(v => ({ ...v, recipientId: e.target.value }))} disabled={readOnly}>{availableStudents.map(student => <option key={student.id} value={student.id}>{student.name}</option>)}</select>}
+        {form.recipientType === 'students' && <div className="checkboxGrid">{availableStudents.length ? availableStudents.map(student => <label key={student.id} className="checkRow"><input type="checkbox" checked={form.recipientIds.includes(student.id)} onChange={e => setForm(v => ({ ...v, recipientIds: e.target.checked ? [...v.recipientIds, student.id] : v.recipientIds.filter(id => id !== student.id) }))} disabled={readOnly} /><span>{student.name}</span></label>) : <div className="empty">Сначала добавьте учеников.</div>}</div>}
+        {form.recipientType === 'group' && <select className="input" value={form.recipientId || ''} onChange={e => setForm(v => ({ ...v, recipientId: e.target.value }))} disabled={readOnly}>{availableGroups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}</select>}
       </div></label>
-      <label className="field"><span>Дедлайн</span><input className="input" type="datetime-local" value={form.deadline} onChange={e=>setForm(v=>({...v,deadline:e.target.value}))} /></label>
-      <label className="field"><span>Максимальный балл</span><input className="input" type="number" value={form.maxScore} onChange={e=>setForm(v=>({...v,maxScore:Number(e.target.value)}))} /></label>
-      <label className="field"><span>Шкала оценивания</span><select className="input" value={form.scoringScale} onChange={e=>setForm(v=>({...v, scoringScale:Number(e.target.value)}))}>{[5,10,100].map(scale => <option key={scale} value={scale}>{scale}-балльная</option>)}</select></label>
-      <label className="field"><span>Тон комментария ученику</span><input className="input" value={form.toneOfVoiceForFeedback} onChange={e=>setForm(v=>({...v, toneOfVoiceForFeedback:e.target.value}))} placeholder="доброжелательный и понятный ученику" /></label>
+      <div className="field"><span>Дедлайн</span><div className="mt8"><DateOnlyPicker value={form.deadline} onChange={value=>setForm(v=>({...v,deadline:value}))} disabled={readOnly} /></div></div>
     </div>
     <div className="sectionLabel mt20">Вложения</div>
-    <label className="uploadZone small"><input type="file" multiple onChange={async e=>{const files=Array.from(e.target.files||[]); if(files.length) await uploadMore(files); e.target.value='';}} /><UploadCloud size={20} /> Добавить несколько фото и/или файлов</label>
-    {!!form.attachments?.length && <div className="mt16"><AttachmentGallery files={form.attachments} compact /></div>}
+    {!readOnly && <label className="uploadZone small"><input type="file" multiple onChange={async e=>{const files=Array.from(e.target.files||[]); if(files.length) await uploadMore(files); e.target.value='';}} /><UploadCloud size={20} /> Добавить несколько фото и/или файлов</label>}
+    {!!form.attachments?.length && <div className="mt16"><AttachmentGallery files={form.attachments} compact onRemove={readOnly ? null : (file => setForm(v => ({ ...v, attachments: v.attachments.filter(item => item.id !== file.id) })))} /></div>}
     <div className="modalActions">
-      <button className="secondaryBtn" onClick={saveCard}>{mode === 'create' || form.status === 'Черновик' ? 'Сохранить черновик' : 'Сохранить изменения'}</button>
-      {form.status === 'Черновик' && <button className="ghostBtn" onClick={()=>onSave({}, 'delete')}><Trash2 size={16}/> Удалить черновик</button>}
-      {(mode === 'create' || form.status === 'Черновик') && <button className="primaryBtn" onClick={publishDraft}>Опубликовать</button>}
+      {readOnly ? <button className="secondaryBtn" onClick={onClose}>Закрыть</button> : <button className="secondaryBtn" onClick={saveCard}>{mode === 'create' || form.status === 'Черновик' ? 'Сохранить черновик' : 'Сохранить изменения'}</button>}
+      {mode === 'edit' && form.status === 'Черновик' && <button className="ghostBtn" onClick={()=>onSave({}, 'delete')}><Trash2 size={16}/> Удалить черновик</button>}
+      {!readOnly && (mode === 'create' || form.status === 'Черновик') && <button className="primaryBtn" onClick={publishDraft}>Опубликовать</button>}
     </div>
   </Modal>;
 }
@@ -1410,16 +1656,26 @@ function QueueReview({ db, reload, notify, pendingWorks, selectedStudentId, teac
   const [selected, setSelected] = useState(null);
   const [finalScore, setFinalScore] = useState(0);
   const [studentComment, setStudentComment] = useState('');
-  const [teacherComment, setTeacherComment] = useState('');
+  const [errorTags, setErrorTags] = useState([]);
   const [editMode, setEditMode] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [pageIndex, setPageIndex] = useState(0);
 
   useEffect(() => {
     if (!selected) return;
     setFinalScore(selected.finalScore ?? selected.suggestedScore ?? 0);
     setStudentComment(selected.finalFeedback?.studentComment || selected.analysisDraft?.studentCommentDraft || selected.aiComment || '');
-    setTeacherComment(selected.finalFeedback?.teacherComment || selected.analysisDraft?.teacherCommentDraft || selected.teacherCommentDraft || '');
+    setErrorTags(formatTeacherVisibleTags(
+      selected.finalFeedback?.errorTags
+      || selected.teacherReview?.finalErrorTags
+      || selected.analysisDraft?.mistakeTags
+      || selected.finalErrorTags
+      || selected.normalizedErrorCategories
+      || [],
+      selected.analysisDraft?.normalizedErrorCategories || [],
+    ));
     setEditMode(selected.processingStatus === 'failed' || selected.processingStatus === 'needs_human_review');
+    setPageIndex(0);
   }, [selected]);
 
   useEffect(() => {
@@ -1435,28 +1691,18 @@ function QueueReview({ db, reload, notify, pendingWorks, selectedStudentId, teac
   }, [pendingWorks, reload]);
 
   if (selected) {
-    const recognizedText = selected.recognitionPages?.length
-      ? selected.recognitionPages.map(page => `Страница ${page.pageNumber}\n${page.recognizedText || ''}`).join('\n\n')
-      : selected.ocrText;
-    const mistakes = selected.analysisDraft?.detectedMistakes || selected.aiErrors || [];
+    const recognizedPages = selected.recognitionPages?.length ? selected.recognitionPages : [{ pageNumber: 1, recognizedText: selected.ocrText || 'AI еще не собрал распознанный текст.' }];
     const sourceFiles = selected.submissionAssets?.length ? selected.submissionAssets : selected.files || [];
 
     return <div className="stack gap24">
       <button className="secondaryBtn fit" onClick={()=>setSelected(null)}>← Назад к очереди</button>
       <div className="grid reviewGrid aiReviewGrid">
         <Card title="Оригинал и страницы">
-          <ReviewFileViewer files={sourceFiles} />
+          <ReviewFileViewer files={sourceFiles} pageIndex={pageIndex} onPageChange={setPageIndex} />
         </Card>
-        <Card title="Распознавание и найденные ошибки">
+        <Card title="Распознанный текст">
           <div className="stack gap12">
-            <div className="cardInner">
-              <div className="sectionLabel">Извлеченное условие</div>
-              <div className="mt8">{selected.analysisDraft?.extractedTask || 'AI еще не выделил условие.'}</div>
-            </div>
-            <pre className="typedText">{recognizedText || 'AI еще не собрал распознанный текст.'}</pre>
-            <div className="stack gap12">
-              {mistakes.length ? mistakes.map((err, idx) => <div key={idx} className="errorCard"><div className="row gap8 wrap">{(err.types||[]).map(type => <span key={type} className="pill warn">{type}</span>)}{err.severity && <span className="pill info">{err.severity}</span>}</div><div className="cardTitle mt8">{err.label}</div><div className="muted small mt6">{err.description}</div>{err.locationHint && <div className="muted small mt6">Где смотреть: {err.locationHint}</div>}</div>) : <div className="empty">Ошибки пока не выделены или решение корректно.</div>}
-            </div>
+            <RecognizedTextCarousel pages={recognizedPages} pageIndex={pageIndex} onPageChange={setPageIndex} />
           </div>
         </Card>
         <Card title="Черновик AI и подтверждение">
@@ -1467,8 +1713,8 @@ function QueueReview({ db, reload, notify, pendingWorks, selectedStudentId, teac
             setFinalScore={setFinalScore}
             studentComment={studentComment}
             setStudentComment={setStudentComment}
-            teacherComment={teacherComment}
-            setTeacherComment={setTeacherComment}
+            errorTags={errorTags}
+            setErrorTags={setErrorTags}
             busy={busy}
             onEnableEdit={() => setEditMode(true)}
             onReprocess={async () => {
@@ -1484,23 +1730,10 @@ function QueueReview({ db, reload, notify, pendingWorks, selectedStudentId, teac
                 setBusy(false);
               }
             }}
-            onManualReview={async () => {
-              try {
-                setBusy(true);
-                await api.markWorkManualReview(selected.id, { actorId: teacherId });
-                await reload();
-                notify({ type: 'success', text: 'Работа помечена как требующая ручной проверки.' });
-                setSelected(prev => prev ? ({ ...prev, processingStatus: 'needs_human_review', needsHumanReview: true }) : prev);
-              } catch (error) {
-                notify({ type: 'error', text: error.message });
-              } finally {
-                setBusy(false);
-              }
-            }}
             onConfirm={async () => {
               try {
                 setBusy(true);
-                await api.confirmWork(selected.id, { finalScore, aiComment: studentComment, teacherComment, teacherId });
+                await api.confirmWork(selected.id, { finalScore, aiComment: studentComment, teacherId, errorTags });
                 await reload();
                 setSelected(null);
                 notify({ type: 'success', text: 'Результат подтвержден и опубликован ученику.' });
@@ -1541,39 +1774,48 @@ function BatchReview({ db, reload, session, notify }) {
   const isLimited = session.role === 'teacher' && session.accessMode === 'limited';
   const [scale, setScale] = useState('100');
   const [files, setFiles] = useState([]);
+  const [assignmentText, setAssignmentText] = useState('');
+  const [assignmentLinks, setAssignmentLinks] = useState([]);
+  const [linkDraft, setLinkDraft] = useState('');
+  const [classGroupLabel, setClassGroupLabel] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const teacherSessions = (db.batchSessions || []).filter(item => item.teacherId === session.userId);
   const [sessionId, setSessionId] = useState(teacherSessions?.[0]?.id || null);
+  const [sessionState, setSessionState] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selectedResult, setSelectedResult] = useState(null);
-  const current = teacherSessions.find(s => s.id === sessionId) || null;
-  const activeSession = teacherSessions.find(s => s.id === sessionId) || current;
-  const progress = activeSession?.results?.length
-    ? {
-      total: activeSession.results.length,
-      ready: activeSession.results.filter(result => ['draft_ready', 'needs_human_review', 'approved'].includes(result.status)).length,
-      failed: activeSession.results.filter(result => result.status === 'failed').length,
-    }
-    : { total: 0, ready: 0, failed: 0 };
+  const activeSession = sessionState || teacherSessions.find(s => s.id === sessionId) || null;
 
   const startBatchReview = async () => {
     if (!files.length) return notify({ type:'error', text:'Добавь файлы перед началом пакетной проверки.' });
     setLoading(true);
     try {
-      const created = await api.createBatchSession(files, scale, session.userId);
+      const created = await api.createBatchSession(files, scale, session.userId, { assignmentText, assignmentLinks, classGroupLabel });
       setSessionId(created.id);
-      await api.analyzeBatch(created.id);
-      await reload();
+      setSessionState(created);
+      const analyzed = await api.analyzeBatch(created.id);
+      setSessionState(analyzed);
       setFiles([]);
       notify({ type:'success', text:'Файлы загружены и поставлены в AI-очередь.' });
     } finally { setLoading(false); }
   };
 
   useEffect(() => {
+    if (!sessionId) return undefined;
     if (!activeSession?.results?.some(result => ['queued', 'processing'].includes(result.status))) return undefined;
-    const timer = setInterval(() => reload(), 4000);
+    const timer = setInterval(async () => {
+      try {
+        const fresh = await api.getBatchSession(sessionId);
+        setSessionState(previous => {
+          if (!previous) return fresh;
+          return previous.results === fresh.results ? previous : fresh;
+        });
+      } catch (error) {
+        notify({ type: 'error', text: error.message });
+      }
+    }, 3500);
     return () => clearInterval(timer);
-  }, [activeSession?.id, activeSession?.results, reload]);
+  }, [sessionId, activeSession?.results, notify]);
 
   useEffect(() => {
     if (!selectedResult || !activeSession?.results) return;
@@ -1581,7 +1823,6 @@ function BatchReview({ db, reload, session, notify }) {
     if (fresh && fresh !== selectedResult) setSelectedResult(fresh);
   }, [activeSession?.results, selectedResult]);
 
-  const nextNeedsApproval = activeSession?.results?.find(result => ['draft_ready', 'needs_human_review'].includes(result.status)) || null;
   const onDropFiles = (incoming) => {
     setFiles(prev => [...prev, ...incoming.filter(file => !prev.some(existing => existing.name === file.name && existing.size === file.size))]);
   };
@@ -1591,6 +1832,9 @@ function BatchReview({ db, reload, session, notify }) {
     <div className="grid batchSplit">
       <Card title="Исходники для проверки">
         <div className="stack gap12">
+          <label className="field"><span>Задание</span><textarea className="input textarea" value={assignmentText} onChange={e => setAssignmentText(e.target.value)} placeholder="Напечатайте задание или уточните, что нужно сделать по приложенным материалам" /></label>
+          <label className="field"><span>Класс/Группа</span><input className="input" value={classGroupLabel} onChange={e => setClassGroupLabel(e.target.value)} placeholder="Например, 8А или Подготовка к ОГЭ" /></label>
+          <div className="field"><span>Ссылка на задание</span><div className="row gap8 mt8"><input className="input grow" value={linkDraft} onChange={e => setLinkDraft(e.target.value)} placeholder="https://..." /><button className="secondaryBtn" onClick={() => { if (!linkDraft.trim()) return; setAssignmentLinks(prev => [...prev, linkDraft.trim()]); setLinkDraft(''); }}>Добавить ссылку</button></div>{assignmentLinks.length ? <div className="stack gap8 mt12">{assignmentLinks.map(link => <div key={link} className="listRow"><a href={link} className="linkButton" target="_blank" rel="noreferrer">{link}</a><button className="iconGhost danger" onClick={() => setAssignmentLinks(prev => prev.filter(item => item !== link))}><Trash2 size={14} /></button></div>)}</div> : null}</div>
           <label
             className={cx('uploadZone', dragActive && 'uploadZoneActive')}
             onDragOver={e => { e.preventDefault(); setDragActive(true); }}
@@ -1606,22 +1850,18 @@ function BatchReview({ db, reload, session, notify }) {
             <div>Добавить несколько фото и/или файлов</div>
             <div className="muted small">Можно перетащить файлы прямо в эту область</div>
           </label>
-          <div className="batchFileList">{files.length ? files.map(file => <div key={file.name+file.size} className="listRow compact"><div className="stack"><span>{file.name}</span><span className="muted small">{loading ? 'в обработке' : 'ожидает загрузки'}</span></div></div>) : <div className="empty">Файлы еще не добавлены.</div>}</div>
-          {activeSession?.results?.length ? <div className="batchProgressCard"><div className="sectionLabel">Прогресс</div><div className="row between wrap gap8 mt8"><strong>{progress.ready}/{progress.total}</strong><span className="muted small">готово к просмотру</span></div>{progress.failed > 0 && <div className="muted small mt8">Ошибок AI: {progress.failed}</div>}</div> : null}
+          <div className="batchFileList">{files.length ? files.map(file => <div key={file.name+file.size} className="listRow compact"><div className="stack"><span>{file.name}</span><span className="muted small">{loading ? 'в обработке' : 'ожидает загрузки'}</span></div><button className="iconGhost danger" onClick={() => setFiles(prev => prev.filter(item => !(item.name === file.name && item.size === file.size)))}><Trash2 size={14} /></button></div>) : <div className="empty">Файлы еще не добавлены.</div>}</div>
           <div className="row gap8 wrap">
             <button className="primaryBtn" onClick={startBatchReview} disabled={loading || !files.length}>Начать обработку</button>
-            {nextNeedsApproval && <button className="secondaryBtn" onClick={() => setSelectedResult(nextNeedsApproval)}>Открыть следующий требующий подтверждения</button>}
-            {activeSession?.results?.some(result => result.status === 'failed') && <button className="ghostBtn" onClick={async () => { try { await api.retryFailedBatch(activeSession.id); await reload(); notify({ type:'success', text:'Ошибочные файлы снова поставлены в очередь.' }); } catch (error) { notify({ type:'error', text:error.message }); } }}>Retry failed</button>}
-            {activeSession?.results?.length ? <a className="secondaryBtn linkButton" href={api.exportCsvUrl(activeSession.id)} target="_blank" rel="noreferrer"><FileSpreadsheet size={16}/> CSV</a> : null}
-            {activeSession?.results?.length ? <a className="secondaryBtn linkButton" href={api.exportPdfUrl(activeSession.id)} target="_blank" rel="noreferrer"><FileText size={16}/> PDF</a> : null}
+            {activeSession?.results?.some(result => result.status === 'failed') && <button className="ghostBtn" onClick={async () => { try { await api.retryFailedBatch(activeSession.id); notify({ type:'success', text:'Ошибочные файлы снова поставлены в очередь.' }); } catch (error) { notify({ type:'error', text:error.message }); } }}>Повторить ошибочные</button>}
           </div>
         </div>
       </Card>
       <Card title="Результаты пакетной обработки">
-        {!activeSession || !activeSession.results?.length ? <div className="empty">Таблица пуста. Сначала добавь файлы и нажми «Начать обработку».</div> : <div className="tableScroll compactTableWrap"><table className="dataTable compactTable"><thead><tr><th>Файл</th><th>Статус</th><th>Ошибки</th><th>Балл</th><th>OCR / AI</th></tr></thead><tbody>{activeSession.results.map(result => <tr key={result.id} onClick={()=>setSelectedResult(result)}><td>{result.name}</td><td><span className={pillClass[result.status || 'uploaded']}>{displayAiStatus(result.status)}</span></td><td><div className="chipWrap">{(result.errorTypes||[]).slice(0,3).map(type => <span key={type} className="chip">{type}</span>)}</div></td><td>{result.score ?? '—'}</td><td><span className="muted small">{formatConfidence(result.recognitionConfidence)} / {formatConfidence(result.aiConfidence)}</span></td></tr>)}</tbody></table></div>}
+        {!activeSession || !activeSession.results?.length ? <div className="empty">Таблица пуста. Сначала добавь файлы и нажми «Начать обработку».</div> : <><div className="tableScroll compactTableWrap"><table className="dataTable compactTable"><thead><tr><th>Ученик</th><th>Статус</th><th>Ошибки</th><th>Балл</th></tr></thead><tbody>{activeSession.results.map(result => <tr key={result.id} onClick={()=>setSelectedResult(result)}><td><InlineEditableCell value={result.name} onSave={async (name) => { const saved = await api.updateBatchResult(activeSession.id, result.id, { name }); setSessionState(current => ({ ...current, results: current.results.map(item => item.id === result.id ? { ...item, ...saved } : item) })); }} /></td><td><span className={pillClass[result.status || 'uploaded']}>{displayAiStatus(result.status)}</span></td><td><div className="chipWrap">{(result.errorTypes||[]).slice(0,3).map(type => <span key={type} className="chip">{type}</span>)}</div></td><td>{result.score ?? '—'}</td></tr>)}</tbody></table></div><div className="modalActions"><button className="primaryBtn" onClick={async () => { try { await api.saveBatchSession(activeSession.id, { teacherId: session.userId }); notify({ type: 'success', text: 'Результаты пакетной проверки сохранены.' }); } catch (error) { notify({ type: 'error', text: error.message }); } }}>Сохранить</button></div></>}
       </Card>
     </div>
-    {selectedResult && <BatchResultModal result={selectedResult} sessionId={activeSession.id} onClose={()=>setSelectedResult(null)} onSave={async(payload)=>{await api.updateBatchResult(activeSession.id, selectedResult.id, payload); await reload(); setSelectedResult(null); notify({type:'success',text:'Результат пакетной проверки обновлен.'});}} />}
+    {selectedResult && <BatchResultModal result={selectedResult} sessionId={activeSession.id} onClose={()=>setSelectedResult(null)} onSave={async(payload)=>{const updated = await api.updateBatchResult(activeSession.id, selectedResult.id, payload); setSessionState(current => ({ ...current, results: current.results.map(item => item.id === selectedResult.id ? { ...item, ...updated } : item) })); setSelectedResult(null); notify({type:'success',text:'Результат пакетной проверки обновлен.'});}} />}
   </div>;
 }
 
@@ -1629,29 +1869,33 @@ function BatchReview({ db, reload, session, notify }) {
 function BatchResultModal({ result, onClose, onSave }) {
   const [score, setScore] = useState(result.score ?? 0);
   const [aiComment, setAiComment] = useState(result.aiComment || '');
+  const [errorTags, setErrorTags] = useState(formatTeacherVisibleTags(result.errorTypes || result.normalizedErrorCategories || []));
+  const [pageIndex, setPageIndex] = useState(0);
   const files = result.submissionAssets?.length ? result.submissionAssets : (result.file ? [result.file] : result.sourceUrl ? [{ id: result.id, url: result.sourceUrl, kind: 'photo', name: result.name }] : []);
-  const recognizedText = result.recognitionPages?.length
-    ? result.recognitionPages.map(page => `Страница ${page.pageNumber}\n${page.recognizedText || ''}`).join('\n\n')
-    : result.typedText;
+  const recognizedPages = result.recognitionPages?.length ? result.recognitionPages : [{ pageNumber: 1, recognizedText: result.typedText || 'AI еще не закончил распознавание.' }];
   return <Modal title={result.name} onClose={onClose} wide>
     <div className="grid reviewGrid aiReviewGrid">
-      <Card title="Исходник">
-        <ReviewFileViewer files={files} />
+      <Card title="Оригинал и страницы">
+        <ReviewFileViewer files={files} pageIndex={pageIndex} onPageChange={setPageIndex} />
       </Card>
-      <Card title="Распознанный текст и ошибки">
-        <pre className="typedText">{recognizedText || 'AI еще не закончил распознавание.'}</pre>
-        <div className="chipWrap mt12">{(result.errorTypes||[]).map(type => <span key={type} className="pill warn">{type}</span>)}</div>
-        {result.errorDescription && <p className="muted mt12">{result.errorDescription}</p>}
+      <Card title="Распознанный текст">
+        <RecognizedTextCarousel pages={recognizedPages} pageIndex={pageIndex} onPageChange={setPageIndex} />
       </Card>
       <Card title="Черновик результата">
         <div className="row gap8 wrap">
           <span className={pillClass[result.status || 'uploaded']}>{displayAiStatus(result.status)}</span>
-          <span className="pill info">OCR {formatConfidence(result.recognitionConfidence)}</span>
-          <span className="pill info">AI {formatConfidence(result.aiConfidence)}</span>
         </div>
+        <div className="sectionLabel mt16">Типы ошибок</div>
+        <div className="mt8"><EditableTagList tags={errorTags} setTags={setErrorTags} /></div>
         <label className="field mt16"><span>Комментарий AI</span><textarea className="input textarea" value={aiComment} onChange={e=>setAiComment(e.target.value)} /></label>
         <label className="field mt16"><span>Итоговый балл</span><input className="input" type="number" value={score} onChange={e=>setScore(Number(e.target.value))} /></label>
-        <div className="modalActions"><button className="secondaryBtn" onClick={onClose}>Отмена</button><button className="primaryBtn" onClick={()=>onSave({ score, aiComment })}>Сохранить</button></div>
+        <details className="advancedDisclosure">
+          <summary>Расширенный обзор</summary>
+          <div className="stack gap12 mt12">
+            {result.errorDescription ? <div className="errorCard"><div className="cardTitle">Краткий обзор замечаний</div><div className="muted small mt6">{result.errorDescription}</div><div className="muted small mt8">Где смотреть: По соответствующим страницам распознанного текста и оригинала</div></div> : <div className="empty">Подробный обзор появится после обработки.</div>}
+          </div>
+        </details>
+        <div className="modalActions"><button className="secondaryBtn" onClick={onClose}>Отмена</button><button className="primaryBtn" onClick={()=>onSave({ score, aiComment, errorTypes: errorTags })}>Сохранить</button></div>
       </Card>
     </div>
   </Modal>;
@@ -1696,7 +1940,7 @@ function TeacherAnalyticsPage({ db, session }) {
     </div>
     <Card title="Ученики из зоны риска" subtitle="Риск учитывает оценки, пропуски и просроченные задания в рамках вашего контура преподавателя.">
       <div className="stack gap12">
-        {riskStudents.length ? riskStudents.map(item => <div key={item.id} className="riskRow"><div><div>{item.name}</div><div className="muted small">{item.factors.join(' · ')}</div></div><span className={cx('pill', item.riskScore >= 3 ? 'danger' : 'warn')}>Риск {item.riskScore}</span></div>) : <div className="empty">Недостаточно данных</div>}
+        {riskStudents.length ? riskStudents.map(item => <div key={item.id} className="riskRow"><div><div>{item.name}</div><div className="muted small">{item.factors.join(' · ')}</div></div></div>) : <div className="empty">Недостаточно данных</div>}
       </div>
     </Card>
     {drawerMetric && <Drawer title={drawerMetric.label} onClose={()=>setDrawerMetric(null)}>
@@ -1711,12 +1955,19 @@ function TeacherReportsPage({ db, reload, notify, session }) {
   const teacherId = session.userId;
   const teacherStudents = teacherOwnedStudents(db, teacherId);
   const teacherGroups = teacherOwnedGroups(db, teacherId);
+  const reportTemplates = db.meta?.reportTemplates || [
+    { id: 'concise', label: 'Краткое резюме' },
+    { id: 'progress', label: 'Фокус на прогрессе' },
+    { id: 'recommendations', label: 'Фокус на рекомендациях' },
+  ];
   const [targetType, setTargetType] = useState('student');
   const [targetId, setTargetId] = useState(teacherStudents[0]?.id || '');
   const [frequency, setFrequency] = useState('Еженедельно');
   const [previewStudentId, setPreviewStudentId] = useState(teacherStudents[0]?.id || '');
   const [periodFrom, setPeriodFrom] = useState(() => new Date(Date.now() - 6 * 864e5).toISOString().slice(0, 10));
   const [periodTo, setPeriodTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [template, setTemplate] = useState(reportTemplates[0]?.id || 'concise');
+  const [previewHtml, setPreviewHtml] = useState('');
   const autoEligibleStudents = targetType === 'student'
     ? [teacherStudents.find(student => student.id === targetId)].filter(Boolean).filter(student => student.parentEmail)
     : (teacherGroups.find(group => group.id === targetId)?.studentIds || []).map(id => teacherStudents.find(student => student.id === id)).filter(Boolean).filter(student => student.parentEmail);
@@ -1732,8 +1983,9 @@ function TeacherReportsPage({ db, reload, notify, session }) {
         <label className="field"><span>Объект</span><div className="segmented mini"><button className={cx(targetType==='student'&&'active')} onClick={()=>{setTargetType('student'); setTargetId(teacherStudents[0]?.id||'');}}>Ученик</button><button className={cx(targetType==='group'&&'active')} onClick={()=>{setTargetType('group'); setTargetId(teacherGroups[0]?.id||'');}}>Группа</button></div></label>
         <label className="field mt16"><span>Кому</span><select className="input" value={targetId} onChange={e=>setTargetId(e.target.value)}>{targetType==='student' ? teacherStudents.map(s=><option key={s.id} value={s.id}>{s.name}</option>) : teacherGroups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></label>
         <label className="field mt16"><span>Режим отправки</span><select className="input" value={frequency} onChange={e=>setFrequency(e.target.value)}><option>Еженедельно</option><option>Ежемесячно</option></select></label>
+        <label className="field mt16"><span>Шаблон</span><select className="input" value={template} onChange={e=>setTemplate(e.target.value)}>{reportTemplates.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
         {savingDisabled && <div className="pill warn mt16">{targetType === 'student' ? 'Автоотправка недоступна, пока у выбранного ученика не заполнен Email родителя.' : 'В выбранной группе пока нет учеников с заполненным Email родителя.'}</div>}
-        <button className="primaryBtn mt20" disabled={savingDisabled} onClick={async()=>{try { await api.saveReportConfig({ targetType, targetId, frequency, teacherId }); await reload(); notify({type:'success',text:'Настройки автоотправки сохранены.'}); } catch (e) { notify({ type:'error', text:e.message }); }}}>Сохранить</button>
+        <button className="primaryBtn mt20" disabled={savingDisabled} onClick={async()=>{try { await api.saveReportConfig({ targetType, targetId, frequency, teacherId, template }); await reload(); notify({type:'success',text:'Настройки автоотправки сохранены.'}); } catch (e) { notify({ type:'error', text:e.message }); }}}>Сохранить</button>
       </Card>
       <Card title="Превью email">
         <div className="grid twoCol">
@@ -1744,13 +1996,17 @@ function TeacherReportsPage({ db, reload, notify, session }) {
           <div className="mailTitle">Тема: Отчет по ученику · {new Date().toLocaleDateString('ru-RU')}</div>
           <div className="mailRecipients">Получатель: {previewRecipient}</div>
           <div className="mailRecipients">Период: {formatDateOnly(periodFrom)} - {formatDateOnly(periodTo)}</div>
-          <ul className="mailList"><li>Имя ученика</li><li>Частые типы ошибок</li><li>Гистограмма оценок</li></ul>
+          <ul className="mailList"><li>Имя ученика</li><li>Частые типы ошибок</li><li>Гистограмма оценок</li><li>Динамика по темам</li><li>Рекомендации, на что обратить внимание</li></ul>
         </div>
         {sendingDisabled && <div className="pill warn mt16">Отправка недоступна, пока у выбранного ученика не заполнен Email родителя.</div>}
-        <button className="primaryBtn mt20" disabled={sendingDisabled} onClick={async()=>{try { const result = await api.sendReport({ targetType: 'student', targetId: previewStudentId, teacherId, periodFrom, periodTo }); await reload(); notify({type:'success',text: result.deliveries?.[0]?.url ? 'PDF-отчет сформирован и добавлен в журнал отправок.' : 'Отчет отправлен.'}); } catch (e) { notify({ type:'error', text:e.message }); }}}>Отправить отчет</button>
+        <div className="row gap8 wrap mt20">
+          <button className="secondaryBtn" disabled={sendingDisabled} onClick={async()=>{try { const result = await api.previewReport({ targetType: 'student', targetId: previewStudentId, teacherId, periodFrom, periodTo, template }); setPreviewHtml(result.html || ''); } catch (e) { notify({ type:'error', text:e.message }); }}}>Посмотреть отчет</button>
+          <button className="primaryBtn" disabled={sendingDisabled} onClick={async()=>{try { const result = await api.sendReport({ targetType: 'student', targetId: previewStudentId, teacherId, periodFrom, periodTo, template }); await reload(); notify({type:'success',text: result.deliveries?.[0]?.url ? 'PDF-отчет сформирован и добавлен в журнал отправок.' : 'Отчет отправлен.'}); } catch (e) { notify({ type:'error', text:e.message }); }}}>Отправить отчет</button>
+        </div>
       </Card>
     </div>
     <Card title="Журнал отправок"><div className="stack gap10">{(db.reportLogs || []).filter(log => log.teacherId === teacherId).length ? (db.reportLogs || []).filter(log => log.teacherId === teacherId).slice(0,8).map(log => <div key={log.id} className="listRow"><div><div>{log.targetLabel}</div><div className="muted small">{new Date(log.createdAt).toLocaleString('ru-RU')} · {log.mode} · {log.periodLabel || 'Период не указан'}</div></div><div className="row gap8 wrap">{log.deliveries?.[0]?.url && <a className="secondaryBtn linkButton" href={log.deliveries[0].url} target="_blank" rel="noreferrer"><FileText size={16} /> PDF</a>}<div className="muted small">{log.recipients.length} получателей</div></div></div>) : <div className="empty">Отправок пока не было.</div>}</div></Card>
+    {previewHtml && <Modal title="Превью отчета" onClose={() => setPreviewHtml('')} wide><div className="reportPreviewFrame" dangerouslySetInnerHTML={{ __html: previewHtml }} /></Modal>}
   </div>;
 }
 
@@ -1885,6 +2141,7 @@ function StudentAssignmentDetail({ assignment, work, onClose, onUpload, readonly
     <div className="stack gap16">
       <div className="muted">{assignment.description}</div>
       <div className="cardInner">Дедлайн сдачи: {formatDeadline(assignment.deadline)}</div>
+      {!!assignment.links?.length && <div className="stack gap8"><div className="sectionLabel">Ссылки на задание</div>{assignment.links.map(link => <a key={link} href={link} target="_blank" rel="noreferrer" className="linkButton">{link}</a>)}</div>}
       {assignment.attachments?.length > 0 && <AttachmentGallery files={assignment.attachments} />}
       {work && <>
         <div className="cardInner">Решение уже отправлено преподавателю. Повторная дозагрузка файлов для этой работы недоступна.</div>
@@ -1892,7 +2149,7 @@ function StudentAssignmentDetail({ assignment, work, onClose, onUpload, readonly
         {!!work.files?.length && <AttachmentGallery files={work.files} compact />}
         {work.finalFeedback && <div className="cardInner"><div className="sectionLabel">Подтвержденный результат</div><div className="mt8"><strong>Балл:</strong> {work.finalFeedback.finalScore}</div><div className="mt8">{work.finalFeedback.studentComment || 'Комментарий появится после подтверждения преподавателем.'}</div>{work.finalFeedback.recommendations?.length ? <div className="chipWrap mt12">{work.finalFeedback.recommendations.map(item => <span key={item} className="chip">{item}</span>)}</div> : null}</div>}
       </>}
-      {!readonly && !work && <><label className="uploadZone small"><input type="file" multiple onChange={e=>setFiles(prev=>[...prev, ...Array.from(e.target.files||[]).filter(file => !prev.some(existing => existing.name === file.name && existing.size === file.size))])} /> <UploadCloud size={20} /> Добавить несколько фото/файлов</label>{files.length>0 && <div className="attachList">{files.map(file => <span key={file.name+file.size} className="attachChip">{file.name}</span>)}</div>}<div className="modalActions"><button className="secondaryBtn" onClick={onClose}>Закрыть</button><button className="primaryBtn" onClick={()=>onUpload(files)} disabled={!files.length}>Загрузить</button></div></>}
+      {!readonly && !work && <><label className="uploadZone small"><input type="file" multiple onChange={e=>setFiles(prev=>[...prev, ...Array.from(e.target.files||[]).filter(file => !prev.some(existing => existing.name === file.name && existing.size === file.size))])} /> <UploadCloud size={20} /> Добавить несколько фото/файлов</label>{files.length>0 && <div className="attachList">{files.map(file => <span key={file.name+file.size} className="attachChip">{file.name}<button className="tagRemove" onClick={() => setFiles(prev => prev.filter(item => !(item.name === file.name && item.size === file.size)))}>×</button></span>)}</div>}<div className="modalActions"><button className="secondaryBtn" onClick={onClose}>Закрыть</button><button className="primaryBtn" onClick={()=>onUpload(files)} disabled={!files.length}>Загрузить</button></div></>}
       {readonly && <div className="modalActions"><button className="secondaryBtn" onClick={onClose}>Закрыть</button></div>}
       {!readonly && work && <div className="modalActions"><button className="secondaryBtn" onClick={onClose}>Закрыть</button></div>}
     </div>
@@ -2075,9 +2332,9 @@ function StudentProfilePage({ db, session, reload, notify }) {
 }
 
 
-function KPI({ title, value, onClick }) {
+function KPI({ title, value, onClick, borderTone = 'blue' }) {
   const Comp = onClick ? 'button' : 'div';
-  return <Comp className={cx('kpiCard', onClick && 'clickable')} onClick={onClick}><div className="kpiTitle">{title}</div><div className="kpiValue">{value}</div></Comp>;
+  return <Comp className={cx('kpiCard', onClick && 'clickable', `kpiBorder-${borderTone}`)} onClick={onClick}><div className="kpiTitle">{title}</div><div className="kpiValue">{value}</div></Comp>;
 }
 function Card({ title, subtitle, children, actions }) { return <section className="card"><div className="row between wrap gap12"><div><h3 className="cardHeader">{title}</h3>{subtitle && <div className="muted small">{subtitle}</div>}</div>{actions}</div><div className="mt16">{children}</div></section>; }
 function Modal({ title, children, onClose, wide=false }) { return <div className="overlay" onClick={onClose}><div className={cx('modal', wide && 'wide')} onClick={e=>e.stopPropagation()}><div className="modalHead"><div className="modalTitle">{title}</div><button className="iconBtn" onClick={onClose}><X size={16}/></button></div>{children}</div></div>; }
@@ -2092,16 +2349,85 @@ function FilterRow({ filters, setFilters, db, includeAllTime=false, teacherId=nu
   return <div className="filterRow"><select className="input selectSmall" value={filters.subject} onChange={e=>setFilters(v=>({...v,subject:e.target.value}))}><option value="all">Все предметы</option>{SUBJECT_OPTIONS.map(s=><option key={s}>{s}</option>)}</select><select className="input selectSmall" value={filters.studentId} onChange={e=>setFilters(v=>({...v,studentId:e.target.value}))}><option value="all">Все ученики</option>{students.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select><select className="input selectSmall" value={filters.groupId} onChange={e=>setFilters(v=>({...v,groupId:e.target.value}))}><option value="all">Все группы</option>{groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select><select className="input selectSmall" value={filters.period} onChange={e=>setFilters(v=>({...v,period:e.target.value}))}>{periods.map(p=><option key={p.value} value={p.value}>{p.label}</option>)}</select></div>;
 }
 function InfoBox({ label, value, secondary }) { const textValue = String(value ?? ''); const compact = textValue.length > 16 || /[A-Za-zА-Яа-я]/.test(textValue); return <div className="infoBox refinedInfoBox"><div className="infoLabel">{label}</div><div className={cx('infoValue', compact && 'infoValueCompact')}>{value}</div>{secondary && <div className="muted small">{secondary}</div>}</div>; }
+function InlineEditableCell({ value, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  if (editing) {
+    return <input className="input inlineCellInput" value={draft} onClick={e => e.stopPropagation()} onChange={e => setDraft(e.target.value)} onBlur={async () => { await onSave(draft.trim() || value); setEditing(false); }} onKeyDown={async e => { if (e.key === 'Enter') { await onSave(draft.trim() || value); setEditing(false); } }} autoFocus />;
+  }
+  return <button className="inlineCellButton" onClick={e => e.stopPropagation()} onDoubleClick={e => { e.stopPropagation(); setEditing(true); }}>{value}</button>;
+}
+function SpotlightOnboarding({ items = [], step = 0, setStep, onNavigate, onComplete, busy }) {
+  const [rect, setRect] = useState(null);
+  const current = items[step] || null;
+
+  useEffect(() => {
+    const updateRect = () => {
+      if (!current?.target) return setRect(null);
+      const element = document.querySelector(current.target);
+      if (!element) return setRect(null);
+      const nextRect = element.getBoundingClientRect();
+      setRect(nextRect);
+    };
+    updateRect();
+    window.addEventListener('resize', updateRect);
+    window.addEventListener('scroll', updateRect, true);
+    return () => {
+      window.removeEventListener('resize', updateRect);
+      window.removeEventListener('scroll', updateRect, true);
+    };
+  }, [current?.target, step]);
+
+  if (!current) return null;
+  const tooltipStyle = rect ? {
+    top: Math.min(window.innerHeight - 220, rect.bottom + 18),
+    left: Math.min(window.innerWidth - 360, Math.max(24, rect.left)),
+  } : { top: '18%', left: '50%', transform: 'translateX(-50%)' };
+  const spotlightStyle = rect ? {
+    top: rect.top - 8,
+    left: rect.left - 8,
+    width: rect.width + 16,
+    height: rect.height + 16,
+  } : null;
+
+  return <div className="spotlightOverlay">
+    {spotlightStyle && <div className="spotlightTarget" style={spotlightStyle} />}
+    <div className="spotlightTooltip" style={tooltipStyle}>
+      <div className="chipWrap">
+        {items.map((item, index) => <span key={item.title} className={cx('chip', index === step && 'chipInherited')}>{index + 1}</span>)}
+      </div>
+      <div className="cardTitle mt12">{current.title}</div>
+      <div className="muted mt8">{current.text}</div>
+      <div className="modalActions">
+        <button className="secondaryBtn" onClick={() => setStep(value => Math.max(0, value - 1))} disabled={step === 0}>Назад</button>
+        <button className="ghostBtn" onClick={() => onNavigate(current.path)}>{current.cta}</button>
+        {step < items.length - 1 ? (
+          <button className="primaryBtn" onClick={() => setStep(value => Math.min(items.length - 1, value + 1))}>Далее</button>
+        ) : (
+          <button className="primaryBtn" onClick={onComplete} disabled={busy}>Завершить</button>
+        )}
+      </div>
+      <button className="linkButton alignStart mt8" onClick={onComplete}>Больше не показывать</button>
+    </div>
+  </div>;
+}
+function DateOnlyPicker({ value, onChange, placeholder = 'ДД.ММ.ГГГГ', disabled = false }) {
+  const inputRef = useRef(null);
+  const displayValue = value ? formatDeadline(value) : placeholder;
+  return <div className={cx('dateOnlyField', disabled && 'disabled')} onClick={() => !disabled && (inputRef.current?.showPicker?.() || inputRef.current?.focus())} role="button" tabIndex={disabled ? -1 : 0} onKeyDown={e => { if (!disabled && (e.key === 'Enter' || e.key === ' ')) inputRef.current?.showPicker?.() || inputRef.current?.focus(); }}>
+    <span>{displayValue}</span>
+    <input ref={inputRef} className="dateOnlyInput" type="date" value={value ? new Date(value).toISOString().slice(0, 10) : ''} onChange={e => onChange(e.target.value)} disabled={disabled} />
+  </div>;
+}
 function ChartBar({ data, horizontal=false }) {
   if (!data?.length) return <div className="empty">Недостаточно данных для построения диаграммы.</div>;
   return <ResponsiveContainer width="100%" height={280}>{horizontal ? <BarChart data={data} layout="vertical" margin={{ left: 12, right: 12 }}><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" /><YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 12 }} /><Tooltip /><Bar dataKey="value" fill="#2563eb" radius={[0,8,8,0]} /></BarChart> : <BarChart data={data}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-12} textAnchor="end" height={60} /><YAxis /><Tooltip /><Bar dataKey="value" fill="#2563eb" radius={[8,8,0,0]} /></BarChart>}</ResponsiveContainer>;
 }
 function DeadlineBadge({ assignment, hasWork }) {
   if (hasWork) return null;
-  if (!assignment.deadline) return null;
-  const hours = (new Date(assignment.deadline).getTime() - Date.now()) / 36e5;
-  const cls = hours < 0 ? 'danger' : hours < 24 ? 'warn' : 'success';
-  return <span className={cx('pill', cls)}><Clock3 size={12} /> {hours < 0 ? 'Дедлайн прошел' : hours < 24 ? 'Меньше дня' : 'Время есть'}</span>;
+  const badge = deadlineBadgeState(assignment.deadline);
+  return <span className={cx('pill', badge.className)}><Clock3 size={12} /> {badge.text}</span>;
 }
 
 function effectiveStudentSlots(db, student) {
@@ -2128,21 +2454,41 @@ function assignmentsForStudent(db, studentId) {
 function buildErrorEvents(db, teacherId=null) { return buildErrorEventsFiltered(db, { subject:'all', period:'all', studentId:'all', groupId:'all' }, teacherId); }
 function buildErrorEventsFiltered(db, filters, teacherId=null) {
   const works = teacherId ? teacherOwnedWorks(db, teacherId) : db.works;
-  return works.flatMap(work => {
+  const workEvents = works.flatMap(work => {
     const assignment = db.assignments.find(a => a.id === work.assignmentId);
     const student = db.students.find(s => s.id === work.studentId);
     const group = db.groups.find(g => g.studentIds.includes(work.studentId) && (!teacherId || g.teacherId === teacherId));
-    return (work.aiErrors || []).flatMap(err => (err.types || []).map(type => ({
+    const rawTypes = [
+      ...(work.normalizedErrorCategories || []),
+      ...(work.finalErrorTags || []),
+      ...(work.aiErrors || []).flatMap(err => [err.normalizedCategory, ...(err.types || []), err.label]),
+    ];
+    return rawTypes.map(type => ({
       workId: work.id,
-      name: err.label,
-      type,
-      description: err.description,
+      name: normalizeErrorCategory(type),
+      type: normalizeErrorCategory(type),
+      normalizedCategory: normalizeErrorCategory(type),
+      description: type,
       subject: assignment?.subject || 'Математика',
       studentId: student?.id || '',
       groupId: group?.id || '',
       date: work.submittedAt,
+    }));
+  });
+  const batchEvents = (db.savedBatchResults || [])
+    .filter(item => !teacherId || item.teacherId === teacherId)
+    .flatMap(item => (item.normalizedErrorCategories || []).map(category => ({
+      workId: item.id,
+      name: normalizeErrorCategory(category),
+      type: normalizeErrorCategory(category),
+      normalizedCategory: normalizeErrorCategory(category),
+      description: category,
+      subject: 'Пакетная проверка',
+      studentId: 'all',
+      groupId: 'all',
+      date: item.savedAt,
     })));
-  }).filter(event => matchFilters(event, filters));
+  return [...workEvents, ...batchEvents].filter(event => matchFilters(event, filters));
 }
 function matchFilters(event, filters) {
   const period = PERIODS.find(p => p.value === filters.period) || PERIODS[PERIODS.length-1];
@@ -2152,7 +2498,7 @@ function matchFilters(event, filters) {
 function aggregateErrors(events, filters, byType) {
   const source = events.filter(e => matchFilters(e, filters));
   const counts = source.reduce((acc, event) => {
-    const key = byType ? event.type : event.name;
+    const key = byType ? event.type : event.normalizedCategory || event.name;
     acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
