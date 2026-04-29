@@ -1303,6 +1303,7 @@
 }
 
 .plHeroText,
+.plHeroLead,
 .plSectionHead p,
 .plTrustMain p,
 .plFinalCard p,
@@ -1320,6 +1321,32 @@
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 32px;
+}
+
+.plHeroChecklist {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+  max-width: 42rem;
+}
+
+.plHeroChecklistItem {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--pl-ink);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.plHeroChecklistDot {
+  width: 9px;
+  height: 9px;
+  margin-top: 7px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  background: linear-gradient(135deg, var(--pl-accent), #22c55e);
+  box-shadow: 0 0 0 5px rgba(124, 58, 237, 0.08);
 }
 
 .plHeroMetrics {

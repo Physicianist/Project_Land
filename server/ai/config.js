@@ -26,6 +26,7 @@ export function loadAiConfig(env = process.env) {
     flags: {
       ENABLE_OPENAI_RECOGNITION: enableOpenAiRecognition,
       ENABLE_MATHPIX: parseBoolean(env.ENABLE_MATHPIX, false),
+      ENABLE_HUGGINGFACE_OCR: parseBoolean(env.ENABLE_HUGGINGFACE_OCR, false),
       ENABLE_BATCH_AI_GRADING: parseBoolean(env.ENABLE_BATCH_AI_GRADING, true),
       ENABLE_ADVANCED_FORMULA_RECOGNITION: parseBoolean(env.ENABLE_ADVANCED_FORMULA_RECOGNITION, false),
       ENABLE_TEACHER_REVIEW_REQUIRED: parseBoolean(env.ENABLE_TEACHER_REVIEW_REQUIRED, true),
@@ -43,6 +44,12 @@ export function loadAiConfig(env = process.env) {
       apiKey: String(env.MATHPIX_API_KEY || '').trim(),
       appId: String(env.MATHPIX_APP_ID || '').trim(),
       baseUrl: String(env.MATHPIX_BASE_URL || 'https://api.mathpix.com/v3').trim(),
+    },
+    huggingface: {
+      apiKey: String(env.HUGGINGFACE_API_KEY || '').trim(),
+      baseUrl: String(env.HUGGINGFACE_BASE_URL || 'https://api-inference.huggingface.co/models').trim(),
+      ocrModel: String(env.HUGGINGFACE_OCR_MODEL || 'microsoft/trocr-base-handwritten').trim(),
+      timeoutMs: toPositive(env.HUGGINGFACE_TIMEOUT_MS, 60_000),
     },
     limits: {
       maxUploadMb: toPositive(env.AI_MAX_UPLOAD_MB, 15),
@@ -68,6 +75,9 @@ export function loadAiConfig(env = process.env) {
   if (config.flags.ENABLE_MATHPIX && (!config.mathpix.apiKey || !config.mathpix.appId)) {
     errors.push('ENABLE_MATHPIX=true requires MATHPIX_APP_ID and MATHPIX_API_KEY.');
   }
+  if (config.flags.ENABLE_HUGGINGFACE_OCR && !config.huggingface.apiKey) {
+    errors.push('ENABLE_HUGGINGFACE_OCR=true requires HUGGINGFACE_API_KEY for stable OCR fallback.');
+  }
   if (config.limits.maxBatchFiles > 50) {
     errors.push('AI_MAX_BATCH_FILES must be 50 or less for this deployment profile.');
   }
@@ -90,6 +100,7 @@ export function featureFlagsPayload(config) {
   return {
     ENABLE_OPENAI_RECOGNITION: config.flags.ENABLE_OPENAI_RECOGNITION,
     ENABLE_MATHPIX: config.flags.ENABLE_MATHPIX,
+    ENABLE_HUGGINGFACE_OCR: config.flags.ENABLE_HUGGINGFACE_OCR,
     ENABLE_BATCH_AI_GRADING: config.flags.ENABLE_BATCH_AI_GRADING,
     ENABLE_ADVANCED_FORMULA_RECOGNITION: config.flags.ENABLE_ADVANCED_FORMULA_RECOGNITION,
     ENABLE_TEACHER_REVIEW_REQUIRED: config.flags.ENABLE_TEACHER_REVIEW_REQUIRED,

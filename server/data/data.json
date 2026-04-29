@@ -496,6 +496,37 @@
       "deadline": "2026-04-22T15:00",
       "maxScore": 2,
       "links": []
+    },
+    {
+      "id": "a103",
+      "createdAt": "2026-04-29",
+      "attachments": [
+        {
+          "id": "1777465727102-0-Ð°Ð¿Ð²Ð¿Ð².jpg",
+          "name": "Ð°Ð¿Ð²Ð¿Ð².jpg",
+          "originalName": "Ð°Ð¿Ð²Ð¿Ð².jpg",
+          "storageName": "1777465727090-ae2e4e3a4f49-2-2.jpg",
+          "url": "http://127.0.0.1:4000/uploads/1777465727090-ae2e4e3a4f49-2-2.jpg",
+          "previewUrl": "http://127.0.0.1:4000/uploads/1777465727090-ae2e4e3a4f49-2-2.jpg",
+          "normalizedUrl": "http://127.0.0.1:4000/uploads/1777465727090-ae2e4e3a4f49-2-2.jpg",
+          "kind": "photo",
+          "mimeType": "image/jpeg",
+          "sizeBytes": 202112,
+          "sha256": "f94d686bb86afc0362c5ec5dc14fa3e62735fe2386d0b171e7401ff23f0ec20d",
+          "pageCount": 1
+        }
+      ],
+      "teacherId": "t2",
+      "status": "Прорешено",
+      "title": "",
+      "subject": "Математика",
+      "description": "Найти площадь равнобедренного треугольника. Известно что a = 10, alpha (угол) = 30 градусам",
+      "recipientType": "student",
+      "recipientId": "s101",
+      "recipientIds": [],
+      "deadline": "",
+      "links": [],
+      "maxScore": 100
     }
   ],
   "works": [
@@ -759,6 +790,111 @@
         "Логическая ошибка в решении",
         "Вычислительная ошибка"
       ]
+    },
+    {
+      "id": "w102",
+      "submittedAt": "2026-04-29",
+      "status": "Проверено",
+      "aiComment": "В №1 формула площади записана неверно. Если a — равные стороны, а α — угол между ними, то S = (1/2)·a^2·sinα, и при a=10, α=30° получается S=25. Также в твоих вычислениях: 2·10^2·sin30° = 100, не 150.",
+      "aiErrors": [
+        {
+          "types": [
+            "Ошибка в формуле",
+            "Вычислительная ошибка",
+            "Несоответствие условию"
+          ],
+          "label": "Ошибка в формуле",
+          "description": "Для площади треугольника с двумя сторонами a и a и углом между ними α должна быть формула S = (1/2)·a^2·sinα, а не S = 2·a^2·sinα.",
+          "locationHint": "№1: строка «S = 2·a^2·sinα»",
+          "severity": "high",
+          "isRecognitionUncertain": false,
+          "normalizedCategory": "Ошибка в формуле"
+        },
+        {
+          "types": [
+            "Ошибка в формуле",
+            "Вычислительная ошибка",
+            "Несоответствие условию"
+          ],
+          "label": "Вычислительная ошибка",
+          "description": "Даже при подстановке в записанную учеником формулу: 2·10^2·sin30° = 2·100·0.5 = 100, а не 150.",
+          "locationHint": "№1: переход «2·10^2·sin30 = 150»",
+          "severity": "medium",
+          "isRecognitionUncertain": false,
+          "normalizedCategory": "Ошибка в формуле"
+        },
+        {
+          "types": [
+            "Ошибка в формуле",
+            "Вычислительная ошибка",
+            "Несоответствие условию"
+          ],
+          "label": "Несоответствие условию",
+          "description": "Условие неоднозначно: не указано, что именно означает a (основание или равная сторона) и какой именно угол α (при основании или при вершине). От этого зависит эталонный ответ (например, 25 или 25√3).",
+          "locationHint": "№1: постановка и использование данных a и α",
+          "severity": "medium",
+          "isRecognitionUncertain": true,
+          "normalizedCategory": "Несоответствие условию"
+        }
+      ],
+      "suggestedScore": 20,
+      "finalScore": 20,
+      "teacherId": "t2",
+      "assignmentId": "a103",
+      "studentId": "s101",
+      "files": [
+        {
+          "id": "1777465783109-0-Ð°Ð¿Ð²Ð¿Ð².jpg",
+          "name": "Ð°Ð¿Ð²Ð¿Ð².jpg",
+          "originalName": "Ð°Ð¿Ð²Ð¿Ð².jpg",
+          "storageName": "1777465783101-44b26101c0f3-2-2.jpg",
+          "url": "http://127.0.0.1:4000/uploads/1777465783101-44b26101c0f3-2-2.jpg",
+          "previewUrl": "http://127.0.0.1:4000/uploads/1777465783101-44b26101c0f3-2-2.jpg",
+          "normalizedUrl": "http://127.0.0.1:4000/uploads/1777465783101-44b26101c0f3-2-2.jpg",
+          "kind": "photo",
+          "mimeType": "image/jpeg",
+          "sizeBytes": 202112,
+          "sha256": "f94d686bb86afc0362c5ec5dc14fa3e62735fe2386d0b171e7401ff23f0ec20d",
+          "pageCount": 1
+        }
+      ],
+      "ocrText": "№1\nКайнал\n\n№1.\nЗадание: Найти S равнобедр. △, известно a = 10, α = 30°\n\nРешение:\n\n[рисунок смотри на оригинале слева]\n\nS = 2·a^2·sinα = 2·10^2·sin30 = 150\n\nОтвет: 150\n\n№2.\n\nЗадание: Найти a бруска если известно m, g, μ, α\n\nРешение:\n\n[рисунок смотри на оригинале слева]\n\nmg sinα − μN = ma\nN = mg cosα\n=> a = g sinα − g cosα·μ\n\nОтвет: a = g sinα − g cosα·μ",
+      "submissionId": "sub-w102",
+      "processingStatus": "approved",
+      "processingRevision": 1,
+      "aiProcessingError": null,
+      "lastJobId": "rjob-116d790595daf01e6e41d341",
+      "processingStartedAt": "2026-04-29T12:29:43.161Z",
+      "processingFinishedAt": "2026-04-29T12:30:25.714Z",
+      "teacherCommentDraft": "№1: Ученик применил неверную формулу S = 2 a^2 sinα (должно быть 1/2 a^2 sinα для площади по двум сторонам и углу между ними). Дополнительно арифметика: 2·100·0.5 = 100, а не 150. Есть неоднозначность условия (что такое a и какой угол α), но при любом стандартном толковании 150 не выходит (варианты: 25 или 25√3≈43.3). \n№2 (если учитывать): вывод a = g(sinα − μ cosα) корректен при выбранном направлении движения вниз по наклонной; OCR по этой части с умеренной уверенностью, но формулы выглядят стандартно и согласованы.",
+      "studentCommentDraft": "В №1 формула площади записана неверно. Если a — равные стороны, а α — угол между ними, то S = (1/2)·a^2·sinα, и при a=10, α=30° получается S=25. Также в твоих вычислениях: 2·10^2·sin30° = 100, не 150.",
+      "reviewWarnings": [
+        "Оценка и эталон для №1 зависят от трактовки: α может быть при основании или при вершине, а a — равная сторона или основание. Я привёл оба стандартных варианта, но стоит сверить с оригинальной формулировкой/рисунком.",
+        "В работе есть №2 по физике; если проверяется только математика, её нужно исключить из оценивания."
+      ],
+      "recommendations": [
+        "Уточнять в решении, какой угол дан (при вершине или при основании) и что обозначает a (равная сторона или основание).",
+        "Для площади треугольника держать опорную формулу: S = (1/2)ab·sinγ (γ — угол между сторонами a и b).",
+        "После подстановки значений делать быструю проверку порядка: sin30°=0.5, поэтому результат не может увеличиться в 1.5 раза относительно 2·10^2."
+      ],
+      "aiConfidence": 0.78,
+      "recognitionConfidence": 0.84,
+      "needsHumanReview": true,
+      "analysisDraftId": "ad-sub-w102",
+      "aiProvider": "openai",
+      "teacherComment": "№1: Ученик применил неверную формулу S = 2 a^2 sinα (должно быть 1/2 a^2 sinα для площади по двум сторонам и углу между ними). Дополнительно арифметика: 2·100·0.5 = 100, а не 150. Есть неоднозначность условия (что такое a и какой угол α), но при любом стандартном толковании 150 не выходит (варианты: 25 или 25√3≈43.3). \n№2 (если учитывать): вывод a = g(sinα − μ cosα) корректен при выбранном направлении движения вниз по наклонной; OCR по этой части с умеренной уверенностью, но формулы выглядят стандартно и согласованы.",
+      "approvedAt": "2026-04-29T12:31:01.835Z",
+      "wasEditedAfterAI": false,
+      "finalErrorTags": [
+        "Ошибка в формуле",
+        "Вычислительная ошибка",
+        "Несоответствие условию"
+      ],
+      "normalizedErrorCategories": [
+        "Ошибка в формуле",
+        "Вычислительная ошибка",
+        "Несоответствие условию"
+      ]
     }
   ],
   "reportConfigs": [
@@ -769,7 +905,7 @@
       "frequency": "Еженедельно",
       "period": "7",
       "saved": true,
-      "nextRun": "2026-04-24T00:45:00.024Z",
+      "nextRun": "2026-05-06T12:28:00.032Z",
       "teacherId": "t1"
     },
     {
@@ -784,6 +920,103 @@
     }
   ],
   "reportLogs": [
+    {
+      "id": "log-1777465680190-rc1",
+      "createdAt": "2026-04-29T12:28:00.190Z",
+      "targetLabel": "Алексей Смирнов",
+      "recipients": [
+        {
+          "contact": "smirnov.parent@mail.ru",
+          "name": "Наталья Смирнова",
+          "studentId": "s1"
+        }
+      ],
+      "deliveries": [
+        {
+          "studentId": "s1",
+          "contact": "smirnov.parent@mail.ru",
+          "name": "Алексей Смирнов",
+          "fileName": "parent-report-s1-1777465680038.pdf",
+          "url": "http://127.0.0.1:4000/uploads/parent-report-s1-1777465680038.pdf",
+          "htmlBody": "<!doctype html>\n  <html lang=\"ru\">\n    <head>\n      <meta charset=\"utf-8\" />\n      <title>Отчет по ученику</title>\n      <style>\n        body { font-family: Arial, sans-serif; background: #f3f4f6; color: #111827; margin: 0; padding: 24px; }\n        .card { max-width: 860px; margin: 0 auto; background: white; border-radius: 20px; padding: 28px; box-shadow: 0 16px 48px rgba(15, 23, 42, 0.08); }\n        .eyebrow { color: #7c3aed; font-weight: 700; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }\n        h1 { margin: 8px 0 6px; font-size: 28px; }\n        .meta { color: #6b7280; margin-bottom: 24px; }\n        h2 { margin-top: 28px; font-size: 18px; }\n        ul { padding-left: 20px; }\n        .chart { margin-top: 12px; }\n        .section-note { color: #4b5563; line-height: 1.55; }\n      </style>\n    </head>\n    <body>\n      <div class=\"card\">\n        <div class=\"eyebrow\">ПроверьAI · Отчет родителю</div>\n        <h1>Алексей Смирнов</h1>\n        <div class=\"meta\">Период: 23.04.2026 - 29.04.2026 · Преподаватель: Елена Викторовна Петрова</div>\n        <div class=\"section-note\">Краткая сводка по ученику за выбранный период.</div>\n\n        <h2>Частые типы ошибок</h2>\n        <ul><li>Недостаточно данных</li></ul>\n\n        <h2>Гистограмма оценок</h2>\n        <div class=\"chart\">\n    <svg width=\"540\" height=\"160\" viewBox=\"0 0 540 160\" xmlns=\"http://www.w3.org/2000/svg\">\n      <rect width=\"540\" height=\"160\" rx=\"16\" fill=\"#f8fafc\" />\n      \n          <rect x=\"24\" y=\"120\" width=\"109\" height=\"0\" rx=\"12\" fill=\"#7c3aed\" />\n          <text x=\"78.5\" y=\"138\" text-anchor=\"middle\" font-size=\"12\" fill=\"#1f2937\">0–49</text>\n          <text x=\"78.5\" y=\"112\" text-anchor=\"middle\" font-size=\"12\" fill=\"#111827\">0</text>\n        \n          <rect x=\"149\" y=\"120\" width=\"109\" height=\"0\" rx=\"12\" fill=\"#7c3aed\" />\n          <text x=\"203.5\" y=\"138\" text-anchor=\"middle\" font-size=\"12\" fill=\"#1f2937\">50–69</text>\n          <text x=\"203.5\" y=\"112\" text-anchor=\"middle\" font-size=\"12\" fill=\"#111827\">0</text>\n        \n          <rect x=\"274\" y=\"120\" width=\"109\" height=\"0\" rx=\"12\" fill=\"#7c3aed\" />\n          <text x=\"328.5\" y=\"138\" text-anchor=\"middle\" font-size=\"12\" fill=\"#1f2937\">70–84</text>\n          <text x=\"328.5\" y=\"112\" text-anchor=\"middle\" font-size=\"12\" fill=\"#111827\">0</text>\n        \n          <rect x=\"399\" y=\"120\" width=\"109\" height=\"0\" rx=\"12\" fill=\"#7c3aed\" />\n          <text x=\"453.5\" y=\"138\" text-anchor=\"middle\" font-size=\"12\" fill=\"#1f2937\">85–100</text>\n          <text x=\"453.5\" y=\"112\" text-anchor=\"middle\" font-size=\"12\" fill=\"#111827\">0</text>\n        \n    </svg>\n  </div>\n\n        <h2>Динамика по темам</h2>\n        <div class=\"chart\">\n    <svg width=\"540\" height=\"180\" viewBox=\"0 0 540 180\" xmlns=\"http://www.w3.org/2000/svg\">\n      <rect width=\"540\" height=\"180\" rx=\"16\" fill=\"#f8fafc\" />\n      \n          <text x=\"26\" y=\"32\" font-size=\"13\" fill=\"#111827\">Нет данных</text>\n          <rect x=\"26\" y=\"42\" width=\"360\" height=\"12\" rx=\"6\" fill=\"#e2e8f0\" />\n          <rect x=\"26\" y=\"42\" width=\"0\" height=\"12\" rx=\"6\" fill=\"#0f766e\" />\n          <text x=\"400\" y=\"52\" font-size=\"12\" fill=\"#374151\">0</text>\n        \n    </svg>\n  </div>\n\n        <h2>Рекомендации, на что обратить внимание</h2>\n        <ul><li>Недостаточно данных</li></ul>\n      </div>\n    </body>\n  </html>",
+          "report": {
+            "template": "concise",
+            "studentId": "s1",
+            "studentName": "Алексей Смирнов",
+            "teacherName": "Елена Викторовна Петрова",
+            "parentEmail": "smirnov.parent@mail.ru",
+            "periodLabel": "23.04.2026 - 29.04.2026",
+            "frequentErrors": [],
+            "gradesHistogram": [
+              {
+                "label": "0–49",
+                "value": 0
+              },
+              {
+                "label": "50–69",
+                "value": 0
+              },
+              {
+                "label": "70–84",
+                "value": 0
+              },
+              {
+                "label": "85–100",
+                "value": 0
+              }
+            ],
+            "topicDynamics": [],
+            "recommendations": []
+          }
+        }
+      ],
+      "htmlBodies": [
+        {
+          "studentId": "s1",
+          "html": "<!doctype html>\n  <html lang=\"ru\">\n    <head>\n      <meta charset=\"utf-8\" />\n      <title>Отчет по ученику</title>\n      <style>\n        body { font-family: Arial, sans-serif; background: #f3f4f6; color: #111827; margin: 0; padding: 24px; }\n        .card { max-width: 860px; margin: 0 auto; background: white; border-radius: 20px; padding: 28px; box-shadow: 0 16px 48px rgba(15, 23, 42, 0.08); }\n        .eyebrow { color: #7c3aed; font-weight: 700; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }\n        h1 { margin: 8px 0 6px; font-size: 28px; }\n        .meta { color: #6b7280; margin-bottom: 24px; }\n        h2 { margin-top: 28px; font-size: 18px; }\n        ul { padding-left: 20px; }\n        .chart { margin-top: 12px; }\n        .section-note { color: #4b5563; line-height: 1.55; }\n      </style>\n    </head>\n    <body>\n      <div class=\"card\">\n        <div class=\"eyebrow\">ПроверьAI · Отчет родителю</div>\n        <h1>Алексей Смирнов</h1>\n        <div class=\"meta\">Период: 23.04.2026 - 29.04.2026 · Преподаватель: Елена Викторовна Петрова</div>\n        <div class=\"section-note\">Краткая сводка по ученику за выбранный период.</div>\n\n        <h2>Частые типы ошибок</h2>\n        <ul><li>Недостаточно данных</li></ul>\n\n        <h2>Гистограмма оценок</h2>\n        <div class=\"chart\">\n    <svg width=\"540\" height=\"160\" viewBox=\"0 0 540 160\" xmlns=\"http://www.w3.org/2000/svg\">\n      <rect width=\"540\" height=\"160\" rx=\"16\" fill=\"#f8fafc\" />\n      \n          <rect x=\"24\" y=\"120\" width=\"109\" height=\"0\" rx=\"12\" fill=\"#7c3aed\" />\n          <text x=\"78.5\" y=\"138\" text-anchor=\"middle\" font-size=\"12\" fill=\"#1f2937\">0–49</text>\n          <text x=\"78.5\" y=\"112\" text-anchor=\"middle\" font-size=\"12\" fill=\"#111827\">0</text>\n        \n          <rect x=\"149\" y=\"120\" width=\"109\" height=\"0\" rx=\"12\" fill=\"#7c3aed\" />\n          <text x=\"203.5\" y=\"138\" text-anchor=\"middle\" font-size=\"12\" fill=\"#1f2937\">50–69</text>\n          <text x=\"203.5\" y=\"112\" text-anchor=\"middle\" font-size=\"12\" fill=\"#111827\">0</text>\n        \n          <rect x=\"274\" y=\"120\" width=\"109\" height=\"0\" rx=\"12\" fill=\"#7c3aed\" />\n          <text x=\"328.5\" y=\"138\" text-anchor=\"middle\" font-size=\"12\" fill=\"#1f2937\">70–84</text>\n          <text x=\"328.5\" y=\"112\" text-anchor=\"middle\" font-size=\"12\" fill=\"#111827\">0</text>\n        \n          <rect x=\"399\" y=\"120\" width=\"109\" height=\"0\" rx=\"12\" fill=\"#7c3aed\" />\n          <text x=\"453.5\" y=\"138\" text-anchor=\"middle\" font-size=\"12\" fill=\"#1f2937\">85–100</text>\n          <text x=\"453.5\" y=\"112\" text-anchor=\"middle\" font-size=\"12\" fill=\"#111827\">0</text>\n        \n    </svg>\n  </div>\n\n        <h2>Динамика по темам</h2>\n        <div class=\"chart\">\n    <svg width=\"540\" height=\"180\" viewBox=\"0 0 540 180\" xmlns=\"http://www.w3.org/2000/svg\">\n      <rect width=\"540\" height=\"180\" rx=\"16\" fill=\"#f8fafc\" />\n      \n          <text x=\"26\" y=\"32\" font-size=\"13\" fill=\"#111827\">Нет данных</text>\n          <rect x=\"26\" y=\"42\" width=\"360\" height=\"12\" rx=\"6\" fill=\"#e2e8f0\" />\n          <rect x=\"26\" y=\"42\" width=\"0\" height=\"12\" rx=\"6\" fill=\"#0f766e\" />\n          <text x=\"400\" y=\"52\" font-size=\"12\" fill=\"#374151\">0</text>\n        \n    </svg>\n  </div>\n\n        <h2>Рекомендации, на что обратить внимание</h2>\n        <ul><li>Недостаточно данных</li></ul>\n      </div>\n    </body>\n  </html>"
+        }
+      ],
+      "fields": [
+        "Имя ученика",
+        "Частые типы ошибок",
+        "Гистограмма оценок",
+        "Динамика по темам",
+        "Рекомендации, на что обратить внимание"
+      ],
+      "payload": {
+        "template": "concise",
+        "studentId": "s1",
+        "studentName": "Алексей Смирнов",
+        "teacherName": "Елена Викторовна Петрова",
+        "parentEmail": "smirnov.parent@mail.ru",
+        "periodLabel": "23.04.2026 - 29.04.2026",
+        "frequentErrors": [],
+        "gradesHistogram": [
+          {
+            "label": "0–49",
+            "value": 0
+          },
+          {
+            "label": "50–69",
+            "value": 0
+          },
+          {
+            "label": "70–84",
+            "value": 0
+          },
+          {
+            "label": "85–100",
+            "value": 0
+          }
+        ],
+        "topicDynamics": [],
+        "recommendations": []
+      },
+      "periodLabel": "23.04.2026 - 29.04.2026",
+      "mode": "scheduled",
+      "template": "concise",
+      "teacherId": "t1"
+    },
     {
       "id": "log-1776611139127",
       "createdAt": "2026-04-19T15:05:39.127Z",
@@ -831,8 +1064,8 @@
   "counters": {
     "student": 101,
     "group": 100,
-    "assignment": 102,
-    "work": 101,
+    "assignment": 103,
+    "work": 102,
     "batch": 100,
     "report": 100,
     "teacher": 2
@@ -1047,12 +1280,27 @@
       "assignmentId": "a102",
       "teacherId": "t2",
       "studentId": "s101",
-      "status": "needs_human_review",
+      "status": "approved",
       "processingRevision": 1,
       "processingStartedAt": "2026-04-21T10:22:31.296Z",
       "processingFinishedAt": "2026-04-21T10:23:09.707Z",
       "createdAt": "2026-04-21",
       "lastJobId": "rjob-779e7c737f91c7f97489497b"
+    },
+    {
+      "id": "sub-w102",
+      "workId": "w102",
+      "sourceType": "assignment_work",
+      "sourceRefId": "w102",
+      "assignmentId": "a103",
+      "teacherId": "t2",
+      "studentId": "s101",
+      "status": "needs_human_review",
+      "processingRevision": 1,
+      "processingStartedAt": "2026-04-29T12:29:43.161Z",
+      "processingFinishedAt": "2026-04-29T12:30:25.714Z",
+      "createdAt": "2026-04-29",
+      "lastJobId": "rjob-116d790595daf01e6e41d341"
     }
   ],
   "submissionAssets": [
@@ -1160,9 +1408,41 @@
       "originalName": "Ð¡Ð½Ð¸Ð¼Ð¾Ðº ÑÐºÑÐ°Ð½Ð°Â â 2026-04-21 Ð²Â 12.44.05.png",
       "storageName": "1776764649405-cc4202ac7e8c-1-2-1-4-3-4-o-N-oN-1-2-A-a-2026-04-21-2A-12.44.05.png",
       "kind": "photo"
+    },
+    {
+      "id": "sa-sub-w102-1",
+      "submissionId": "sub-w102",
+      "type": "image",
+      "originalUrl": "http://127.0.0.1:4000/uploads/1777465783101-44b26101c0f3-2-2.jpg",
+      "normalizedUrl": "http://127.0.0.1:4000/uploads/1777465783101-44b26101c0f3-2-2.jpg",
+      "previewUrl": "http://127.0.0.1:4000/uploads/1777465783101-44b26101c0f3-2-2.jpg",
+      "pageCount": 1,
+      "sha256": "f94d686bb86afc0362c5ec5dc14fa3e62735fe2386d0b171e7401ff23f0ec20d",
+      "mimeType": "image/jpeg",
+      "sizeBytes": 202112,
+      "originalName": "Ð°Ð¿Ð²Ð¿Ð².jpg",
+      "storageName": "1777465783101-44b26101c0f3-2-2.jpg",
+      "kind": "photo"
     }
   ],
   "recognitionJobs": [
+    {
+      "id": "rjob-116d790595daf01e6e41d341",
+      "submissionId": "sub-w102",
+      "teacherId": "t2",
+      "status": "completed",
+      "attempts": 1,
+      "createdAt": "2026-04-29T12:29:43.130Z",
+      "processingRevision": 1,
+      "idempotencyKey": "116d790595daf01e6e41d341473e1af5bc5c0f109f0854411226b128d7521695",
+      "nextAttemptAt": "2026-04-29T12:29:43.130Z",
+      "lastError": null,
+      "sourceType": "assignment_work",
+      "sourceRefId": "w102",
+      "startedAt": "2026-04-29T12:29:43.161Z",
+      "completedAt": "2026-04-29T12:30:25.714Z",
+      "provider": "openai"
+    },
     {
       "id": "rjob-779e7c737f91c7f97489497b",
       "submissionId": "sub-w101",
@@ -1276,6 +1556,175 @@
         "warnings": [
           "Часть текста условия сокращена и не до конца разборчива (\"равнобедр.\", символ угла/α).",
           "В правой части есть зачёркнутый набросок в круге; надпись внутри не читается."
+        ]
+      }
+    },
+    {
+      "id": "sa-sub-w102-1-page-1",
+      "submissionAssetId": "sa-sub-w102-1",
+      "pageNumber": 1,
+      "recognizedText": "№1\nКайнал\n\n№1.\nЗадание: Найти S равнобедр. △, известно a = 10, α = 30°\n\nРешение:\n\n[рисунок смотри на оригинале слева]\n\nS = 2·a^2·sinα = 2·10^2·sin30 = 150\n\nОтвет: 150\n\n№2.\n\nЗадание: Найти a бруска если известно m, g, μ, α\n\nРешение:\n\n[рисунок смотри на оригинале слева]\n\nmg sinα − μN = ma\nN = mg cosα\n=> a = g sinα − g cosα·μ\n\nОтвет: a = g sinα − g cosα·μ",
+      "recognizedLatex": "S = 2\\cdot a^2\\cdot \\sin\\alpha = 2\\cdot 10^2\\cdot \\sin 30 = 150\n150\nmg\\sin\\alpha-\\mu N=ma\\\\N=mg\\cos\\alpha\\\\\\Rightarrow a=g\\sin\\alpha-g\\cos\\alpha\\cdot\\mu\na=g\\sin\\alpha-g\\cos\\alpha\\cdot\\mu",
+      "detectionBlocks": [
+        {
+          "type": "annotation",
+          "text": "№1\nКайнал",
+          "latex": null,
+          "confidence": 0.63
+        },
+        {
+          "type": "task",
+          "text": "№1.\nЗадание: Найти S равнобедр. △, известно a = 10, α = 30°",
+          "latex": null,
+          "confidence": 0.86
+        },
+        {
+          "type": "solution",
+          "text": "Решение:",
+          "latex": null,
+          "confidence": 0.93
+        },
+        {
+          "type": "diagram",
+          "text": "[рисунок смотри на оригинале слева]",
+          "latex": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "solution",
+          "text": "S = 2·a^2·sinα = 2·10^2·sin30 = 150",
+          "latex": "S = 2\\cdot a^2\\cdot \\sin\\alpha = 2\\cdot 10^2\\cdot \\sin 30 = 150",
+          "confidence": 0.88
+        },
+        {
+          "type": "answer",
+          "text": "Ответ: 150",
+          "latex": "150",
+          "confidence": 0.9
+        },
+        {
+          "type": "annotation",
+          "text": "№2.",
+          "latex": null,
+          "confidence": 0.9
+        },
+        {
+          "type": "task",
+          "text": "Задание: Найти a бруска если известно m, g, μ, α",
+          "latex": null,
+          "confidence": 0.68
+        },
+        {
+          "type": "solution",
+          "text": "Решение:",
+          "latex": null,
+          "confidence": 0.9
+        },
+        {
+          "type": "diagram",
+          "text": "[рисунок смотри на оригинале слева]",
+          "latex": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "solution",
+          "text": "mg sinα − μN = ma\nN = mg cosα\n=> a = g sinα − g cosα·μ",
+          "latex": "mg\\sin\\alpha-\\mu N=ma\\\\N=mg\\cos\\alpha\\\\\\Rightarrow a=g\\sin\\alpha-g\\cos\\alpha\\cdot\\mu",
+          "confidence": 0.78
+        },
+        {
+          "type": "answer",
+          "text": "Ответ: a = g sinα − g cosα·μ",
+          "latex": "a=g\\sin\\alpha-g\\cos\\alpha\\cdot\\mu",
+          "confidence": 0.82
+        }
+      ],
+      "recognitionConfidence": 0.84,
+      "provider": "openai",
+      "rawStructuredOutput": {
+        "pages": [
+          {
+            "pageNumber": 1,
+            "detectedBlocks": [
+              {
+                "type": "annotation",
+                "text": "№1\nКайнал",
+                "latex": null,
+                "confidence": 0.63
+              },
+              {
+                "type": "task",
+                "text": "№1.\nЗадание: Найти S равнобедр. △, известно a = 10, α = 30°",
+                "latex": null,
+                "confidence": 0.86
+              },
+              {
+                "type": "solution",
+                "text": "Решение:",
+                "latex": null,
+                "confidence": 0.93
+              },
+              {
+                "type": "diagram",
+                "text": "[рисунок смотри на оригинале слева]",
+                "latex": null,
+                "confidence": 0.95
+              },
+              {
+                "type": "solution",
+                "text": "S = 2·a^2·sinα = 2·10^2·sin30 = 150",
+                "latex": "S = 2\\cdot a^2\\cdot \\sin\\alpha = 2\\cdot 10^2\\cdot \\sin 30 = 150",
+                "confidence": 0.88
+              },
+              {
+                "type": "answer",
+                "text": "Ответ: 150",
+                "latex": "150",
+                "confidence": 0.9
+              },
+              {
+                "type": "annotation",
+                "text": "№2.",
+                "latex": null,
+                "confidence": 0.9
+              },
+              {
+                "type": "task",
+                "text": "Задание: Найти a бруска если известно m, g, μ, α",
+                "latex": null,
+                "confidence": 0.68
+              },
+              {
+                "type": "solution",
+                "text": "Решение:",
+                "latex": null,
+                "confidence": 0.9
+              },
+              {
+                "type": "diagram",
+                "text": "[рисунок смотри на оригинале слева]",
+                "latex": null,
+                "confidence": 0.95
+              },
+              {
+                "type": "solution",
+                "text": "mg sinα − μN = ma\nN = mg cosα\n=> a = g sinα − g cosα·μ",
+                "latex": "mg\\sin\\alpha-\\mu N=ma\\\\N=mg\\cos\\alpha\\\\\\Rightarrow a=g\\sin\\alpha-g\\cos\\alpha\\cdot\\mu",
+                "confidence": 0.78
+              },
+              {
+                "type": "answer",
+                "text": "Ответ: a = g sinα − g cosα·μ",
+                "latex": "a=g\\sin\\alpha-g\\cos\\alpha\\cdot\\mu",
+                "confidence": 0.82
+              }
+            ]
+          }
+        ],
+        "globalConfidence": 0.84,
+        "warnings": [
+          "Фамилия/имя вверху страницы распознано неуверенно (возможно другое написание).",
+          "Текст условия №2 распознан частично; некоторые обозначения/слова могут быть неточны (видно: m, g, μ, α)."
         ]
       }
     }
@@ -1544,6 +1993,126 @@
         "Логическая ошибка в решении",
         "Вычислительная ошибка"
       ]
+    },
+    {
+      "id": "ad-sub-w102",
+      "submissionId": "sub-w102",
+      "extractedTask": "Задача №1 (математика): Найти площадь равнобедренного треугольника, если дано a = 10 и угол α = 30° (неясно: α — верш. угол между равными сторонами или угол при основании; a — равная сторона или основание). Также на листе есть №2 (похоже, физика про брусок на наклонной плоскости), но она не относится к заявленному контексту.",
+      "extractedStudentSolution": "№1: Ученик записал формулу S = 2·a^2·sinα, подставил a=10, α=30° и получил 150; ответ: 150.\n№2: Записал уравнение вдоль наклонной: mg sinα − μN = ma, N = mg cosα, вывел a = g sinα − g cosα·μ.",
+      "studentSolutionSummary": "№1: Ученик записал формулу S = 2·a^2·sinα, подставил a=10, α=30° и получил 150; ответ: 150.\n№2: Записал уравнение вдоль наклонной: mg sinα − μN = ma, N = mg cosα, вывел a = g sinα − g cosα·μ.",
+      "canonicalSolution": "№1 (как обычно понимают в задачах про равнобедренный треугольник):\nЕсли a — длина равных сторон, а α — угол между ними (вершинный), то площадь\nS = (1/2)·a^2·sinα.\nПодставим: S = (1/2)·10^2·sin30° = (1/2)·100·(1/2) = 25.\n\nЕсли же α = 30° — угол при основании (а равные стороны всё равно равны a=10), тогда вершинный угол равен 180° − 2α = 120°, и\nS = (1/2)·a^2·sin120° = (1/2)·100·(√3/2) = 25√3 ≈ 43.3.\n\nВ любом стандартном прочтении данных ответ 150 не получается.\n\n№2 (если всё же проверять): для движения вниз по наклонной с трением a = g(\\sinα − μ\\cosα). Это совпадает с записанным учеником видом a = g sinα − g cosα·μ (при выбранном направлении вдоль наклонной).",
+      "detectedMistakes": [
+        {
+          "types": [
+            "Ошибка в формуле",
+            "Вычислительная ошибка",
+            "Несоответствие условию"
+          ],
+          "label": "Ошибка в формуле",
+          "description": "Для площади треугольника с двумя сторонами a и a и углом между ними α должна быть формула S = (1/2)·a^2·sinα, а не S = 2·a^2·sinα.",
+          "locationHint": "№1: строка «S = 2·a^2·sinα»",
+          "severity": "high",
+          "isRecognitionUncertain": false,
+          "normalizedCategory": "Ошибка в формуле"
+        },
+        {
+          "types": [
+            "Ошибка в формуле",
+            "Вычислительная ошибка",
+            "Несоответствие условию"
+          ],
+          "label": "Вычислительная ошибка",
+          "description": "Даже при подстановке в записанную учеником формулу: 2·10^2·sin30° = 2·100·0.5 = 100, а не 150.",
+          "locationHint": "№1: переход «2·10^2·sin30 = 150»",
+          "severity": "medium",
+          "isRecognitionUncertain": false,
+          "normalizedCategory": "Ошибка в формуле"
+        },
+        {
+          "types": [
+            "Ошибка в формуле",
+            "Вычислительная ошибка",
+            "Несоответствие условию"
+          ],
+          "label": "Несоответствие условию",
+          "description": "Условие неоднозначно: не указано, что именно означает a (основание или равная сторона) и какой именно угол α (при основании или при вершине). От этого зависит эталонный ответ (например, 25 или 25√3).",
+          "locationHint": "№1: постановка и использование данных a и α",
+          "severity": "medium",
+          "isRecognitionUncertain": true,
+          "normalizedCategory": "Несоответствие условию"
+        }
+      ],
+      "teacherCommentDraft": "№1: Ученик применил неверную формулу S = 2 a^2 sinα (должно быть 1/2 a^2 sinα для площади по двум сторонам и углу между ними). Дополнительно арифметика: 2·100·0.5 = 100, а не 150. Есть неоднозначность условия (что такое a и какой угол α), но при любом стандартном толковании 150 не выходит (варианты: 25 или 25√3≈43.3). \n№2 (если учитывать): вывод a = g(sinα − μ cosα) корректен при выбранном направлении движения вниз по наклонной; OCR по этой части с умеренной уверенностью, но формулы выглядят стандартно и согласованы.",
+      "studentCommentDraft": "В №1 формула площади записана неверно. Если a — равные стороны, а α — угол между ними, то S = (1/2)·a^2·sinα, и при a=10, α=30° получается S=25. Также в твоих вычислениях: 2·10^2·sin30° = 100, не 150.",
+      "suggestedScore": 20,
+      "confidence": 0.78,
+      "needsHumanReview": true,
+      "rawModelOutput": {
+        "extractedTask": "Задача №1 (математика): Найти площадь равнобедренного треугольника, если дано a = 10 и угол α = 30° (неясно: α — верш. угол между равными сторонами или угол при основании; a — равная сторона или основание). Также на листе есть №2 (похоже, физика про брусок на наклонной плоскости), но она не относится к заявленному контексту.",
+        "studentSolutionSummary": "№1: Ученик записал формулу S = 2·a^2·sinα, подставил a=10, α=30° и получил 150; ответ: 150.\n№2: Записал уравнение вдоль наклонной: mg sinα − μN = ma, N = mg cosα, вывел a = g sinα − g cosα·μ.",
+        "canonicalSolution": "№1 (как обычно понимают в задачах про равнобедренный треугольник):\nЕсли a — длина равных сторон, а α — угол между ними (вершинный), то площадь\nS = (1/2)·a^2·sinα.\nПодставим: S = (1/2)·10^2·sin30° = (1/2)·100·(1/2) = 25.\n\nЕсли же α = 30° — угол при основании (а равные стороны всё равно равны a=10), тогда вершинный угол равен 180° − 2α = 120°, и\nS = (1/2)·a^2·sin120° = (1/2)·100·(√3/2) = 25√3 ≈ 43.3.\n\nВ любом стандартном прочтении данных ответ 150 не получается.\n\n№2 (если всё же проверять): для движения вниз по наклонной с трением a = g(\\sinα − μ\\cosα). Это совпадает с записанным учеником видом a = g sinα − g cosα·μ (при выбранном направлении вдоль наклонной).",
+        "mistakes": [
+          {
+            "title": "Ошибка в формуле",
+            "description": "Для площади треугольника с двумя сторонами a и a и углом между ними α должна быть формула S = (1/2)·a^2·sinα, а не S = 2·a^2·sinα.",
+            "severity": "high",
+            "locationHint": "№1: строка «S = 2·a^2·sinα»",
+            "isRecognitionUncertain": false
+          },
+          {
+            "title": "Вычислительная ошибка",
+            "description": "Даже при подстановке в записанную учеником формулу: 2·10^2·sin30° = 2·100·0.5 = 100, а не 150.",
+            "severity": "medium",
+            "locationHint": "№1: переход «2·10^2·sin30 = 150»",
+            "isRecognitionUncertain": false
+          },
+          {
+            "title": "Несоответствие условию",
+            "description": "Условие неоднозначно: не указано, что именно означает a (основание или равная сторона) и какой именно угол α (при основании или при вершине). От этого зависит эталонный ответ (например, 25 или 25√3).",
+            "severity": "medium",
+            "locationHint": "№1: постановка и использование данных a и α",
+            "isRecognitionUncertain": true
+          }
+        ],
+        "mistakeTags": [
+          "Ошибка в формуле",
+          "Вычислительная ошибка",
+          "Несоответствие условию"
+        ],
+        "suggestedScore": 20,
+        "studentCommentDraft": "В №1 формула площади записана неверно. Если a — равные стороны, а α — угол между ними, то S = (1/2)·a^2·sinα, и при a=10, α=30° получается S=25. Также в твоих вычислениях: 2·10^2·sin30° = 100, не 150.",
+        "teacherCommentDraft": "№1: Ученик применил неверную формулу S = 2 a^2 sinα (должно быть 1/2 a^2 sinα для площади по двум сторонам и углу между ними). Дополнительно арифметика: 2·100·0.5 = 100, а не 150. Есть неоднозначность условия (что такое a и какой угол α), но при любом стандартном толковании 150 не выходит (варианты: 25 или 25√3≈43.3). \n№2 (если учитывать): вывод a = g(sinα − μ cosα) корректен при выбранном направлении движения вниз по наклонной; OCR по этой части с умеренной уверенностью, но формулы выглядят стандартно и согласованы.",
+        "recommendations": [
+          "Уточнять в решении, какой угол дан (при вершине или при основании) и что обозначает a (равная сторона или основание).",
+          "Для площади треугольника держать опорную формулу: S = (1/2)ab·sinγ (γ — угол между сторонами a и b).",
+          "После подстановки значений делать быструю проверку порядка: sin30°=0.5, поэтому результат не может увеличиться в 1.5 раза относительно 2·10^2."
+        ],
+        "confidence": 0.78,
+        "needsHumanReview": true,
+        "warnings": [
+          "Оценка и эталон для №1 зависят от трактовки: α может быть при основании или при вершине, а a — равная сторона или основание. Я привёл оба стандартных варианта, но стоит сверить с оригинальной формулировкой/рисунком.",
+          "В работе есть №2 по физике; если проверяется только математика, её нужно исключить из оценивания."
+        ]
+      },
+      "mistakeTags": [
+        "Ошибка в формуле",
+        "Вычислительная ошибка",
+        "Несоответствие условию"
+      ],
+      "recommendations": [
+        "Уточнять в решении, какой угол дан (при вершине или при основании) и что обозначает a (равная сторона или основание).",
+        "Для площади треугольника держать опорную формулу: S = (1/2)ab·sinγ (γ — угол между сторонами a и b).",
+        "После подстановки значений делать быструю проверку порядка: sin30°=0.5, поэтому результат не может увеличиться в 1.5 раза относительно 2·10^2."
+      ],
+      "warnings": [
+        "Оценка и эталон для №1 зависят от трактовки: α может быть при основании или при вершине, а a — равная сторона или основание. Я привёл оба стандартных варианта, но стоит сверить с оригинальной формулировкой/рисунком.",
+        "В работе есть №2 по физике; если проверяется только математика, её нужно исключить из оценивания."
+      ],
+      "normalizedErrorCategories": [
+        "Ошибка в формуле",
+        "Вычислительная ошибка",
+        "Несоответствие условию"
+      ]
     }
   ],
   "teacherReviews": [
@@ -1592,6 +2161,25 @@
         "Ошибка в формуле",
         "Логическая ошибка в решении",
         "Вычислительная ошибка"
+      ]
+    },
+    {
+      "id": "tr-sub-w102",
+      "submissionId": "sub-w102",
+      "editedStudentComment": "В №1 формула площади записана неверно. Если a — равные стороны, а α — угол между ними, то S = (1/2)·a^2·sinα, и при a=10, α=30° получается S=25. Также в твоих вычислениях: 2·10^2·sin30° = 100, не 150.",
+      "editedTeacherComment": "№1: Ученик применил неверную формулу S = 2 a^2 sinα (должно быть 1/2 a^2 sinα для площади по двум сторонам и углу между ними). Дополнительно арифметика: 2·100·0.5 = 100, а не 150. Есть неоднозначность условия (что такое a и какой угол α), но при любом стандартном толковании 150 не выходит (варианты: 25 или 25√3≈43.3). \n№2 (если учитывать): вывод a = g(sinα − μ cosα) корректен при выбранном направлении движения вниз по наклонной; OCR по этой части с умеренной уверенностью, но формулы выглядят стандартно и согласованы.",
+      "finalScore": 20,
+      "teacherApprovedAt": "2026-04-29T12:31:01.835Z",
+      "wasEditedAfterAI": false,
+      "finalErrorTags": [
+        "Ошибка в формуле",
+        "Вычислительная ошибка",
+        "Несоответствие условию"
+      ],
+      "normalizedErrorCategories": [
+        "Ошибка в формуле",
+        "Вычислительная ошибка",
+        "Несоответствие условию"
       ]
     }
   ],
@@ -1654,10 +2242,121 @@
         "Логическая ошибка в решении",
         "Вычислительная ошибка"
       ]
+    },
+    {
+      "id": "ff-sub-w102",
+      "submissionId": "sub-w102",
+      "studentId": "s101",
+      "teacherId": "t2",
+      "finalScore": 20,
+      "studentComment": "В №1 формула площади записана неверно. Если a — равные стороны, а α — угол между ними, то S = (1/2)·a^2·sinα, и при a=10, α=30° получается S=25. Также в твоих вычислениях: 2·10^2·sin30° = 100, не 150.",
+      "teacherComment": "№1: Ученик применил неверную формулу S = 2 a^2 sinα (должно быть 1/2 a^2 sinα для площади по двум сторонам и углу между ними). Дополнительно арифметика: 2·100·0.5 = 100, а не 150. Есть неоднозначность условия (что такое a и какой угол α), но при любом стандартном толковании 150 не выходит (варианты: 25 или 25√3≈43.3). \n№2 (если учитывать): вывод a = g(sinα − μ cosα) корректен при выбранном направлении движения вниз по наклонной; OCR по этой части с умеренной уверенностью, но формулы выглядят стандартно и согласованы.",
+      "recommendations": [
+        "Уточнять в решении, какой угол дан (при вершине или при основании) и что обозначает a (равная сторона или основание).",
+        "Для площади треугольника держать опорную формулу: S = (1/2)ab·sinγ (γ — угол между сторонами a и b).",
+        "После подстановки значений делать быструю проверку порядка: sin30°=0.5, поэтому результат не может увеличиться в 1.5 раза относительно 2·10^2."
+      ],
+      "publishedAt": "2026-04-29T12:31:01.835Z",
+      "errorTags": [
+        "Ошибка в формуле",
+        "Вычислительная ошибка",
+        "Несоответствие условию"
+      ],
+      "normalizedErrorCategories": [
+        "Ошибка в формуле",
+        "Вычислительная ошибка",
+        "Несоответствие условию"
+      ]
     }
   ],
-  "parentReportSnapshots": [],
+  "parentReportSnapshots": [
+    {
+      "id": "prs-1777465680190-e0a48d",
+      "createdAt": "2026-04-29T12:28:00.190Z",
+      "teacherId": "t1",
+      "targetType": "student",
+      "targetId": "s1",
+      "periodLabel": "23.04.2026 - 29.04.2026",
+      "payload": {
+        "template": "concise",
+        "studentId": "s1",
+        "studentName": "Алексей Смирнов",
+        "teacherName": "Елена Викторовна Петрова",
+        "parentEmail": "smirnov.parent@mail.ru",
+        "periodLabel": "23.04.2026 - 29.04.2026",
+        "frequentErrors": [],
+        "gradesHistogram": [
+          {
+            "label": "0–49",
+            "value": 0
+          },
+          {
+            "label": "50–69",
+            "value": 0
+          },
+          {
+            "label": "70–84",
+            "value": 0
+          },
+          {
+            "label": "85–100",
+            "value": 0
+          }
+        ],
+        "topicDynamics": [],
+        "recommendations": []
+      },
+      "recipients": [
+        {
+          "contact": "smirnov.parent@mail.ru",
+          "name": "Наталья Смирнова",
+          "studentId": "s1"
+        }
+      ],
+      "template": "concise"
+    }
+  ],
   "auditTrail": [
+    {
+      "id": "audit-1777465861835-fa262b",
+      "createdAt": "2026-04-29T12:31:01.835Z",
+      "actorId": "t2",
+      "action": "teacher_review_approved",
+      "entityType": "submission",
+      "entityId": "sub-w102",
+      "meta": {
+        "wasEditedAfterAI": false,
+        "normalizedErrorCategories": [
+          "Ошибка в формуле",
+          "Вычислительная ошибка",
+          "Несоответствие условию"
+        ]
+      }
+    },
+    {
+      "id": "audit-1777465825719-319d43",
+      "createdAt": "2026-04-29T12:30:25.719Z",
+      "actorId": "t2",
+      "action": "ai_job_completed",
+      "entityType": "submission",
+      "entityId": "sub-w102",
+      "meta": {
+        "provider": "openai",
+        "status": "needs_human_review"
+      }
+    },
+    {
+      "id": "audit-1777465783130-712313",
+      "createdAt": "2026-04-29T12:29:43.130Z",
+      "actorId": "t2",
+      "action": "ai_job_enqueued",
+      "entityType": "submission",
+      "entityId": "sub-w102",
+      "meta": {
+        "sourceType": "assignment_work",
+        "processingRevision": 1
+      }
+    },
     {
       "id": "audit-1776962649592-466dad",
       "createdAt": "2026-04-23T16:44:09.592Z",

@@ -539,14 +539,18 @@ function EditableTagList({ tags = [], setTags, disabled = false }) {
 function ReviewSummaryCard({ selected, editMode, finalScore, setFinalScore, studentComment, setStudentComment, errorTags, setErrorTags, onConfirm, onEnableEdit, onReprocess, busy }) {
   const analysis = selected.analysisDraft || {};
   const warnings = [...new Set([...(selected.reviewWarnings || []), ...(analysis.warnings || [])].filter(Boolean))];
+  const reviewHint = selected.needsHumanReview || Number(selected.recognitionConfidence || 0) < 0.72
+    ? 'Проверьте исходник постранично: в работе есть неоднозначные фрагменты, поэтому черновик лучше перепроверить вручную.'
+    : '';
   return (
     <div className="stack gap12">
       <div className="row gap8 wrap">
         <span className={pillClass[selected.processingStatus || 'uploaded']}>{displayAiStatus(selected.processingStatus)}</span>
-        <span className="pill info">OCR {formatConfidence(selected.recognitionConfidence)}</span>
-        <span className="pill info">AI {formatConfidence(selected.aiConfidence)}</span>
+        <span className="pill info">Распознавание: {formatConfidence(selected.recognitionConfidence)}</span>
+        <span className="pill info">Черновик AI: {formatConfidence(selected.aiConfidence)}</span>
         {selected.needsHumanReview && <span className="pill warn">Нужна ручная проверка</span>}
       </div>
+      {reviewHint && <div className="banner subtle">{reviewHint}</div>}
       {!!warnings.length && <div className="stack gap8">{warnings.map((warning, index) => <div key={`${warning}-${index}`} className="banner subtle">{warning}</div>)}</div>}
       <div>
         <div className="sectionLabel">Типы ошибок</div>
@@ -1627,6 +1631,7 @@ function AssignmentModal({ mode, db, assignment, onClose, onSave, notify, teache
       </div></label>
       <div className="field"><span>Дедлайн</span><div className="mt8"><DateOnlyPicker value={form.deadline} onChange={value=>setForm(v=>({...v,deadline:value}))} disabled={readOnly} /></div></div>
     </div>
+    <div className="banner subtle mt16">AI использует текст задания, ссылки и вложения как единый контекст. Чем точнее описано задание, тем стабильнее черновик проверки.</div>
     <div className="sectionLabel mt20">Вложения</div>
     {!readOnly && <label className="uploadZone small"><input type="file" multiple onChange={async e=>{const files=Array.from(e.target.files||[]); if(files.length) await uploadMore(files); e.target.value='';}} /><UploadCloud size={20} /> Добавить несколько фото и/или файлов</label>}
     {!!form.attachments?.length && <div className="mt16"><AttachmentGallery files={form.attachments} compact onRemove={readOnly ? null : (file => setForm(v => ({ ...v, attachments: v.attachments.filter(item => item.id !== file.id) })))} /></div>}
@@ -1785,6 +1790,15 @@ function BatchReview({ db, reload, session, notify }) {
   const [loading, setLoading] = useState(false);
   const [selectedResult, setSelectedResult] = useState(null);
   const activeSession = sessionState || teacherSessions.find(s => s.id === sessionId) || null;
+  const batchFingerprint = (sessionPayload) => JSON.stringify((sessionPayload?.results || []).map(result => ({
+    id: result.id,
+    status: result.status,
+    score: result.score,
+    aiComment: result.aiComment,
+    processingFinishedAt: result.processingFinishedAt,
+    name: result.name,
+    errorTypes: result.errorTypes,
+  })));
 
   const startBatchReview = async () => {
     if (!files.length) return notify({ type:'error', text:'Добавь файлы перед началом пакетной проверки.' });
@@ -1808,7 +1822,7 @@ function BatchReview({ db, reload, session, notify }) {
         const fresh = await api.getBatchSession(sessionId);
         setSessionState(previous => {
           if (!previous) return fresh;
-          return previous.results === fresh.results ? previous : fresh;
+          return batchFingerprint(previous) === batchFingerprint(fresh) ? previous : fresh;
         });
       } catch (error) {
         notify({ type: 'error', text: error.message });
@@ -1835,6 +1849,7 @@ function BatchReview({ db, reload, session, notify }) {
           <label className="field"><span>Задание</span><textarea className="input textarea" value={assignmentText} onChange={e => setAssignmentText(e.target.value)} placeholder="Напечатайте задание или уточните, что нужно сделать по приложенным материалам" /></label>
           <label className="field"><span>Класс/Группа</span><input className="input" value={classGroupLabel} onChange={e => setClassGroupLabel(e.target.value)} placeholder="Например, 8А или Подготовка к ОГЭ" /></label>
           <div className="field"><span>Ссылка на задание</span><div className="row gap8 mt8"><input className="input grow" value={linkDraft} onChange={e => setLinkDraft(e.target.value)} placeholder="https://..." /><button className="secondaryBtn" onClick={() => { if (!linkDraft.trim()) return; setAssignmentLinks(prev => [...prev, linkDraft.trim()]); setLinkDraft(''); }}>Добавить ссылку</button></div>{assignmentLinks.length ? <div className="stack gap8 mt12">{assignmentLinks.map(link => <div key={link} className="listRow"><a href={link} className="linkButton" target="_blank" rel="noreferrer">{link}</a><button className="iconGhost danger" onClick={() => setAssignmentLinks(prev => prev.filter(item => item !== link))}><Trash2 size={14} /></button></div>)}</div> : null}</div>
+          <div className="banner subtle">AI учитывает текст задания, ссылки и все загруженные файлы. Если у одного ученика несколько страниц, загрузите их вместе.</div>
           <label
             className={cx('uploadZone', dragActive && 'uploadZoneActive')}
             onDragOver={e => { e.preventDefault(); setDragActive(true); }}
@@ -1857,8 +1872,8 @@ function BatchReview({ db, reload, session, notify }) {
           </div>
         </div>
       </Card>
-      <Card title="Результаты пакетной обработки">
-        {!activeSession || !activeSession.results?.length ? <div className="empty">Таблица пуста. Сначала добавь файлы и нажми «Начать обработку».</div> : <><div className="tableScroll compactTableWrap"><table className="dataTable compactTable"><thead><tr><th>Ученик</th><th>Статус</th><th>Ошибки</th><th>Балл</th></tr></thead><tbody>{activeSession.results.map(result => <tr key={result.id} onClick={()=>setSelectedResult(result)}><td><InlineEditableCell value={result.name} onSave={async (name) => { const saved = await api.updateBatchResult(activeSession.id, result.id, { name }); setSessionState(current => ({ ...current, results: current.results.map(item => item.id === result.id ? { ...item, ...saved } : item) })); }} /></td><td><span className={pillClass[result.status || 'uploaded']}>{displayAiStatus(result.status)}</span></td><td><div className="chipWrap">{(result.errorTypes||[]).slice(0,3).map(type => <span key={type} className="chip">{type}</span>)}</div></td><td>{result.score ?? '—'}</td></tr>)}</tbody></table></div><div className="modalActions"><button className="primaryBtn" onClick={async () => { try { await api.saveBatchSession(activeSession.id, { teacherId: session.userId }); notify({ type: 'success', text: 'Результаты пакетной проверки сохранены.' }); } catch (error) { notify({ type: 'error', text: error.message }); } }}>Сохранить</button></div></>}
+      <Card title="Результаты пакетной обработки" subtitle="Двойной клик по имени позволяет переименовать строку перед сохранением.">
+        {!activeSession || !activeSession.results?.length ? <div className="empty">Таблица пуста. Сначала добавь файлы и нажми «Начать обработку».</div> : <><div className="tableScroll compactTableWrap"><table className="dataTable compactTable"><thead><tr><th>Ученик</th><th>Статус</th><th>Ошибки</th><th>Балл</th></tr></thead><tbody>{activeSession.results.map(result => <tr key={result.id} onClick={()=>setSelectedResult(result)}><td><div className="stack gap6"><InlineEditableCell value={result.name} onSave={async (name) => { const saved = await api.updateBatchResult(activeSession.id, result.id, { name }); setSessionState(current => ({ ...current, results: current.results.map(item => item.id === result.id ? { ...item, ...saved } : item) })); }} />{result.sourceFiles?.length > 1 && <span className="muted small">{result.sourceFiles.length} файлов в одной работе</span>}</div></td><td><span className={pillClass[result.status || 'uploaded']}>{displayAiStatus(result.status)}</span></td><td><div className="chipWrap">{(result.errorTypes||[]).slice(0,3).map(type => <span key={type} className="chip">{type}</span>)}</div></td><td>{result.score ?? '—'}</td></tr>)}</tbody></table></div><div className="modalActions"><button className="primaryBtn" onClick={async () => { try { await api.saveBatchSession(activeSession.id, { teacherId: session.userId }); notify({ type: 'success', text: 'Результаты пакетной проверки сохранены.' }); } catch (error) { notify({ type: 'error', text: error.message }); } }}>Сохранить</button></div></>}
       </Card>
     </div>
     {selectedResult && <BatchResultModal result={selectedResult} sessionId={activeSession.id} onClose={()=>setSelectedResult(null)} onSave={async(payload)=>{const updated = await api.updateBatchResult(activeSession.id, selectedResult.id, payload); setSessionState(current => ({ ...current, results: current.results.map(item => item.id === selectedResult.id ? { ...item, ...updated } : item) })); setSelectedResult(null); notify({type:'success',text:'Результат пакетной проверки обновлен.'});}} />}
@@ -1871,8 +1886,13 @@ function BatchResultModal({ result, onClose, onSave }) {
   const [aiComment, setAiComment] = useState(result.aiComment || '');
   const [errorTags, setErrorTags] = useState(formatTeacherVisibleTags(result.errorTypes || result.normalizedErrorCategories || []));
   const [pageIndex, setPageIndex] = useState(0);
-  const files = result.submissionAssets?.length ? result.submissionAssets : (result.file ? [result.file] : result.sourceUrl ? [{ id: result.id, url: result.sourceUrl, kind: 'photo', name: result.name }] : []);
+  const files = result.submissionAssets?.length
+    ? result.submissionAssets
+    : (result.sourceFiles?.length
+      ? result.sourceFiles
+      : (result.file ? [result.file] : result.sourceUrl ? [{ id: result.id, url: result.sourceUrl, kind: 'photo', name: result.name }] : []));
   const recognizedPages = result.recognitionPages?.length ? result.recognitionPages : [{ pageNumber: 1, recognizedText: result.typedText || 'AI еще не закончил распознавание.' }];
+  const warnings = [...new Set(result.warnings || [])];
   return <Modal title={result.name} onClose={onClose} wide>
     <div className="grid reviewGrid aiReviewGrid">
       <Card title="Оригинал и страницы">
@@ -1884,7 +1904,9 @@ function BatchResultModal({ result, onClose, onSave }) {
       <Card title="Черновик результата">
         <div className="row gap8 wrap">
           <span className={pillClass[result.status || 'uploaded']}>{displayAiStatus(result.status)}</span>
+          {result.sourceFiles?.length > 1 && <span className="pill info">{result.sourceFiles.length} страниц в работе</span>}
         </div>
+        {!!warnings.length && <div className="stack gap8 mt12">{warnings.map((warning, index) => <div key={`${warning}-${index}`} className="banner subtle">{warning}</div>)}</div>}
         <div className="sectionLabel mt16">Типы ошибок</div>
         <div className="mt8"><EditableTagList tags={errorTags} setTags={setErrorTags} /></div>
         <label className="field mt16"><span>Комментарий AI</span><textarea className="input textarea" value={aiComment} onChange={e=>setAiComment(e.target.value)} /></label>
@@ -2014,7 +2036,7 @@ function TeacherReportsPage({ db, reload, notify, session }) {
 function TeacherPricingPage({ db, session }) {
   const current = session.role === 'teacher' && session.accessMode === 'limited' ? 'Free' : 'Pro Trial';
   const plans = [
-    { name:'Free', price:'0 ₽', features:['Пакетная проверка','Ограниченный лимит обработок','Базовое распознавание','CSV/PDF экспорт','Без полной очереди ручной проверки и расширенной аналитики'] },
+    { name:'Free', price:'0 ₽', features:['Пакетная проверка','Ограниченный лимит обработок','Базовое распознавание','Сохранение результатов пакетной проверки','Без полной очереди ручной проверки и расширенной аналитики'] },
     { name:'Pro Trial', price:'30 дней бесплатно', features:['Полный доступ ко всем функциям','Одиночная и пакетная проверка','Ученики, группы, задания','Редактирование AI-черновиков','Аналитика и отчеты'] },
     { name:'Pro', price:'1 490 ₽/мес', features:['Полный кабинет преподавателя','Ученики, группы, задания','Одиночная и пакетная проверка','Комментарии ученикам','Аналитика и отчеты','Итог всегда подтверждает преподаватель'] }
   ];

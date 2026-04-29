@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 const plans = [
   {
     title: 'Free',
-    subtitle: 'Для старта и batch-only режима',
+    subtitle: 'Для знакомства с сервисом и пакетной проверки',
     price: '0 ₽',
     buttonLabel: 'Начать бесплатно',
     icon: Sparkles,
@@ -13,7 +13,7 @@ const plans = [
       'Пакетная проверка',
       'Ограниченный лимит проверок',
       'Базовое распознавание',
-      'CSV/PDF экспорт',
+      'Сохранение результатов пакетной проверки',
     ],
     disabled: [
       'Очередь ручной проверки',
@@ -165,7 +165,7 @@ export default function TailwindPricingSection() {
                 Тарифы
               </div>
               <h2 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
-                Тарифы для преподавателя без противоречий между лендингом и кабинетом
+                Понятные тарифы без расхождений между лендингом и кабинетом
               </h2>
               <p className="mt-3 max-w-xl text-sm leading-6 text-slate-500 sm:text-base">
                 AI ускоряет распознавание и черновик проверки, но итоговый комментарий и балл

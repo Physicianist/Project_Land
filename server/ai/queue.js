@@ -12,6 +12,7 @@ import {
   storeRecognitionResult,
 } from './pipeline.js';
 import {
+  HuggingFaceRecognitionProvider,
   MathpixRecognitionProvider,
   OpenAIRecognitionProvider,
   RecognitionOrchestrator,
@@ -21,10 +22,14 @@ import {
 export function createRecognitionQueue({ config, readDb, writeDb, uploadsDir }) {
   const openaiProvider = new OpenAIRecognitionProvider({ config, uploadsDir });
   const mathpixProvider = new MathpixRecognitionProvider();
+  const huggingFaceProvider = config.flags.ENABLE_HUGGINGFACE_OCR
+    ? new HuggingFaceRecognitionProvider({ config, uploadsDir })
+    : null;
   const orchestrator = new RecognitionOrchestrator({
     config,
     openaiProvider,
     mathpixProvider,
+    huggingFaceProvider,
   });
   let timer = null;
   let running = false;
@@ -80,6 +85,7 @@ export function createRecognitionQueue({ config, readDb, writeDb, uploadsDir }) 
         throw new Error('Не найдены файлы для AI-обработки.');
       }
 
+      const providersUsed = new Set();
       for (const asset of context.assets) {
         const reused = copyRecognitionPagesFromCache(workingDb, asset);
         if (reused) continue;
@@ -88,6 +94,7 @@ export function createRecognitionQueue({ config, readDb, writeDb, uploadsDir }) 
           assignmentContext: context.assignmentContext,
           hintText: context.hintText,
         });
+        providersUsed.add(recognitionResult.provider);
         storeRecognitionResult(workingDb, asset, recognitionResult, recognitionResult.provider);
       }
 
@@ -110,7 +117,7 @@ export function createRecognitionQueue({ config, readDb, writeDb, uploadsDir }) 
       finalizeSuccessfulJob(workingDb, jobId, {
         recognitionPages,
         analysisDraft,
-        provider: 'openai',
+        provider: providersUsed.size ? Array.from(providersUsed).join('+') : 'cache',
       });
       writeDb(workingDb);
       return true;
@@ -151,4 +158,3 @@ export function createRecognitionQueue({ config, readDb, writeDb, uploadsDir }) 
     drain,
   };
 }
-

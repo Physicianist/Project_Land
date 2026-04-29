@@ -57,11 +57,22 @@ OPENAI_MODEL=gpt-5.2
 OPENAI_RECOGNITION_MODEL=gpt-5.2
 OPENAI_ANALYSIS_MODEL=gpt-5.2
 ENABLE_MATHPIX=false
+ENABLE_HUGGINGFACE_OCR=false
 ENABLE_ADVANCED_FORMULA_RECOGNITION=false
 ```
 
 Mathpix пока подготовлен архитектурно через feature flag, но не включен в обязательный runtime flow.
 Если модель явно не указана, backend теперь по умолчанию берет `gpt-5.2`.
+
+Опциональный OCR fallback для рукописных изображений:
+
+```bash
+ENABLE_HUGGINGFACE_OCR=true
+HUGGINGFACE_API_KEY=hf_...
+HUGGINGFACE_OCR_MODEL=microsoft/trocr-base-handwritten
+```
+
+YOLO в этом проекте не подключался, потому что он лучше подходит для object detection, а не для OCR почерка. Вместо этого добавлен серверный адаптер под Hugging Face OCR fallback, который можно включить без переделки текущего OpenAI flow.
 
 ## Проверка вручную
 
@@ -102,5 +113,8 @@ npm run build
 - добавлен server-side AI pipeline: submission assets, recognition jobs, analysis drafts, teacher review, final feedback;
 - добавлены feature flags для OpenAI / batch AI / teacher-review-required / будущего Mathpix;
 - review UI преподавателя обновлен под human-in-the-loop подтверждение;
+- batch upload теперь умеет группировать несколько страниц одного ученика по имени файлов;
+- AI prompts ужесточены: OCR не описывает рисунки, а помечает их маркером для ручной сверки;
+- добавлен optional Hugging Face OCR fallback для handwriting-heavy изображений;
 - student-side отображает только подтвержденный преподавателем результат;
 - backend хранит данные в `server/data/data.json`.

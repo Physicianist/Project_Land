@@ -4,6 +4,7 @@ import { loadAiConfig } from '../ai/config.js';
 import {
   SubmissionStatuses,
   approveSubmissionReview,
+  createBatchResultsFromUploadedFiles,
   createOrReuseRecognitionJob,
   ensureAiDbDefaults,
   finalizeSuccessfulJob,
@@ -14,6 +15,7 @@ import {
   registerWorkSubmission,
   storeRecognitionResult,
 } from '../ai/pipeline.js';
+import { RecognitionResultNormalizer } from '../ai/providers.js';
 
 function baseDb() {
   return {
@@ -127,4 +129,34 @@ test('submission registration, job dedupe and teacher approval keep final feedba
   assert.ok(approval.work);
   assert.equal(approval.work.status, 'Проверено');
   assert.equal(getFinalFeedback(db, work.submissionId).finalScore, 10);
+});
+
+test('batch upload groups same student pages by filename stem', () => {
+  const results = createBatchResultsFromUploadedFiles({ id: 'b1' }, [
+    { name: 'ivanov_page_1.jpg', originalName: 'ivanov_page_1.jpg', url: 'http://example/1.jpg' },
+    { name: 'ivanov_page_2.jpg', originalName: 'ivanov_page_2.jpg', url: 'http://example/2.jpg' },
+    { name: 'petrova_1.jpg', originalName: 'petrova_1.jpg', url: 'http://example/3.jpg' },
+  ]);
+
+  assert.equal(results.length, 2);
+  assert.equal(results[0].name, 'Ivanov');
+  assert.equal(results[0].sourceFiles.length, 2);
+  assert.equal(results[1].name, 'Petrova');
+});
+
+test('recognition normalizer replaces diagram text with original-side marker', () => {
+  const normalizer = new RecognitionResultNormalizer();
+  const normalized = normalizer.normalize({
+    pages: [{
+      pageNumber: 1,
+      detectedBlocks: [
+        { type: 'solution', text: 'x = 4', latex: null, confidence: 0.9 },
+        { type: 'diagram', text: 'треугольник с высотой', latex: null, confidence: 0.8 },
+      ],
+    }],
+    globalConfidence: 0.82,
+    warnings: [],
+  });
+
+  assert.equal(normalized.pages[0].detectedBlocks[1].text, '[рисунок смотри на оригинале слева]');
 });

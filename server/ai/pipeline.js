@@ -126,6 +126,39 @@ function normalizeAssetRecord(submissionId, file = {}, index = 0) {
   };
 }
 
+function extractPageOrder(label = '') {
+  const stem = String(label || '').replace(/\.[^.]+$/, '').toLowerCase();
+  const match = stem.match(/(?:page|p|стр|лист|img|image|scan|photo|фото)?[\s_-]*(\d{1,3})$/i);
+  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+}
+
+function inferBatchIdentity(label = '') {
+  const stem = String(label || '')
+    .replace(/\.[^.]+$/, '')
+    .normalize('NFKD')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s_-]+/gu, ' ')
+    .replace(/(?:page|p|стр|лист|img|image|scan|photo|фото)[\s_-]*\d{1,3}$/i, '')
+    .replace(/[\s_-]+\d{1,3}$/i, '')
+    .replace(/[\s_-]+/g, ' ')
+    .trim();
+  if (!stem) return null;
+  const genericWords = new Set(['img', 'image', 'scan', 'photo', 'file', 'work', 'page', 'лист', 'стр', 'фото']);
+  const meaningfulWords = stem.split(' ').filter(part => part && !genericWords.has(part) && /[a-zа-яё]/i.test(part));
+  if (!meaningfulWords.length) return null;
+  const key = meaningfulWords.join(' ').trim();
+  return key.length >= 3 ? key : null;
+}
+
+function humanizeBatchIdentity(identity, fallbackLabel) {
+  if (!identity) return fallbackLabel;
+  return identity
+    .split(' ')
+    .map(part => part ? part.charAt(0).toUpperCase() + part.slice(1) : '')
+    .join(' ')
+    .trim();
+}
+
 function upsertById(list, entry) {
   const index = list.findIndex(item => item.id === entry.id);
   if (index === -1) list.push(entry);
@@ -233,7 +266,11 @@ export function ensureAiDbDefaults(db) {
         originalName: result.originalName || `batch-${index + 1}`,
         url: result.sourceUrl || null,
       };
-      upsertById(db.submissionAssets, normalizeAssetRecord(submissionId, sourceFile, 0));
+      const sourceFiles = (result.sourceFiles?.length ? result.sourceFiles : [sourceFile]).filter(Boolean);
+      result.sourceFiles = sourceFiles;
+      sourceFiles.forEach((file, assetIndex) => {
+        upsertById(db.submissionAssets, normalizeAssetRecord(submissionId, file, assetIndex));
+      });
       if ((result.typedText || result.aiComment || (result.errorTypes || []).length) && !db.analysisDrafts.find(item => item.submissionId === submissionId)) {
         db.analysisDrafts.push(buildBatchAnalysisDraft(session, result));
       }
@@ -332,27 +369,50 @@ export function registerWorkSubmission(db, work, assignment = {}) {
 }
 
 export function createBatchResultsFromUploadedFiles(session, uploadedFiles = []) {
-  return uploadedFiles.map((file, index) => ({
-    id: `r${index + 1}`,
-    name: `Ученик ${index + 1}`,
-    originalLabel: file.originalName || file.name || `Файл ${index + 1}`,
-    originalName: file.originalName || file.name || `Файл ${index + 1}`,
-    sourceUrl: file.url,
-    file,
-    score: null,
-    aiComment: '',
-    teacherCommentDraft: '',
-    errorTypes: [],
-    errorDescription: '',
-    typedText: '',
-    submittedAt: new Date().toISOString().slice(0, 10),
-    status: SubmissionStatuses.uploaded,
-    processingRevision: 1,
-    aiConfidence: null,
-    recognitionConfidence: null,
-    warnings: [],
-    needsHumanReview: false,
-  }));
+  const grouped = [];
+  uploadedFiles.forEach((file, index) => {
+    const label = file.originalName || file.name || `Файл ${index + 1}`;
+    const inferredIdentity = inferBatchIdentity(label);
+    const existingGroup = inferredIdentity
+      ? grouped.find(item => item.inferredIdentity === inferredIdentity)
+      : null;
+    if (existingGroup) {
+      existingGroup.sourceFiles.push(file);
+      return;
+    }
+    grouped.push({
+      inferredIdentity,
+      sourceFiles: [file],
+    });
+  });
+
+  return grouped.map((group, index) => {
+    const sourceFiles = [...group.sourceFiles].sort((left, right) => extractPageOrder(left.originalName || left.name) - extractPageOrder(right.originalName || right.name));
+    const primaryFile = sourceFiles[0] || null;
+    return {
+      id: `r${index + 1}`,
+      name: humanizeBatchIdentity(group.inferredIdentity, `Ученик ${index + 1}`),
+      inferredIdentity: group.inferredIdentity,
+      originalLabel: primaryFile?.originalName || primaryFile?.name || `Файл ${index + 1}`,
+      originalName: primaryFile?.originalName || primaryFile?.name || `Файл ${index + 1}`,
+      sourceUrl: primaryFile?.url || null,
+      file: primaryFile,
+      sourceFiles,
+      score: null,
+      aiComment: '',
+      teacherCommentDraft: '',
+      errorTypes: [],
+      errorDescription: '',
+      typedText: '',
+      submittedAt: new Date().toISOString().slice(0, 10),
+      status: SubmissionStatuses.uploaded,
+      processingRevision: 1,
+      aiConfidence: null,
+      recognitionConfidence: null,
+      warnings: [],
+      needsHumanReview: false,
+    };
+  });
 }
 
 function buildAssignmentSignature(assignmentContext = {}) {
@@ -360,6 +420,7 @@ function buildAssignmentSignature(assignmentContext = {}) {
     assignmentContext.subject,
     assignmentContext.title,
     assignmentContext.description,
+    ...(assignmentContext.links || []),
     assignmentContext.rubric,
     assignmentContext.gradingCriteria,
     assignmentContext.expectedAnswer,
@@ -523,13 +584,19 @@ function copyRecognitionFromCachedAsset(db, currentAsset) {
 
 function persistRecognitionForAsset(db, asset, recognitionResult, provider) {
   (recognitionResult.pages || []).forEach((page, index) => {
+    const detectionBlocks = (page.detectedBlocks || []).map(block => ({
+      ...block,
+      text: block.type === 'diagram'
+        ? '[рисунок смотри на оригинале слева]'
+        : String(block.text || '').trim(),
+    }));
     upsertById(db.recognitionPages, {
       id: `${asset.id}-page-${page.pageNumber || index + 1}`,
       submissionAssetId: asset.id,
       pageNumber: Number(page.pageNumber || index + 1),
-      recognizedText: (page.detectedBlocks || []).map(block => block.text).filter(Boolean).join('\n\n'),
-      recognizedLatex: (page.detectedBlocks || []).map(block => block.latex).filter(Boolean).join('\n') || null,
-      detectionBlocks: page.detectedBlocks || [],
+      recognizedText: detectionBlocks.map(block => block.text).filter(Boolean).join('\n\n'),
+      recognizedLatex: detectionBlocks.map(block => block.latex).filter(Boolean).join('\n') || null,
+      detectionBlocks,
       recognitionConfidence: Number(recognitionResult.globalConfidence || 0),
       provider,
       rawStructuredOutput: recognitionResult.rawStructuredOutput || recognitionResult,
