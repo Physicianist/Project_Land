@@ -1,0 +1,2741 @@
+{
+  "teacher": {
+    "id": "t1",
+    "name": "Елена Викторовна Петрова",
+    "email": "teacher@demo.ru",
+    "phone": "+7 999 123-45-67",
+    "avatarUrl": "",
+    "plan": "Trial",
+    "subjects": [
+      "Математика",
+      "Физика",
+      "Химия"
+    ],
+    "notifications": {
+      "Новая работа загружена": true,
+      "Запрос на пересмотр": true,
+      "Дедлайн приближается": true,
+      "Еженедельная сводка": false
+    },
+    "reportPreferences": {
+      "Имя ученика": true,
+      "Частые типы ошибок": true,
+      "Гистограмма оценок": true,
+      "Частота посещаемости": true,
+      "Оценки за период": true,
+      "Динамику успеваемости": true,
+      "Слабые темы": true,
+      "Рекомендации": true,
+      "Просроченные задания": true
+    },
+    "historicalStudentIds": [
+      "s1",
+      "s2",
+      "s3",
+      "s4",
+      "s5",
+      "s6"
+    ]
+  },
+  "accounts": [
+    {
+      "id": "acc-teacher-demo",
+      "role": "teacher",
+      "name": "Елена Викторовна Петрова",
+      "email": "teacher@demo.ru",
+      "phone": "+7 999 123-45-67",
+      "password": "demo12345",
+      "verified": true,
+      "createdAt": "2026-03-20T09:00:00.000Z",
+      "userId": "t1",
+      "onboardingCompleted": true
+    },
+    {
+      "id": "acc-student-demo",
+      "role": "student",
+      "name": "Алексей Смирнов",
+      "email": "student@demo.ru",
+      "phone": "+7 999 555-00-01",
+      "password": "demo12345",
+      "verified": true,
+      "createdAt": "2026-03-20T09:00:00.000Z",
+      "userId": "s1",
+      "onboardingCompleted": true
+    },
+    {
+      "id": "acc-1776616520285",
+      "role": "teacher",
+      "name": "Артём Сокерин",
+      "email": "rambletot@gmail.com",
+      "phone": "89527381099",
+      "password": "12345678",
+      "verified": true,
+      "createdAt": "2026-04-19T16:35:20.285Z",
+      "userId": "t2",
+      "onboardingCompleted": true
+    },
+    {
+      "id": "acc-1776616941456",
+      "role": "student",
+      "name": "Артём Сокерин",
+      "email": "rambletot2@gmail.com",
+      "phone": "+79527381098",
+      "password": "12345678",
+      "verified": true,
+      "createdAt": "2026-04-19T16:42:21.456Z",
+      "userId": "s101",
+      "onboardingCompleted": true
+    },
+    {
+      "id": "acc-1777622000034",
+      "role": "teacher",
+      "name": "Учитель10 -",
+      "email": "учитель10@bk.ru",
+      "phone": "+79827054732",
+      "password": "12345",
+      "verified": true,
+      "createdAt": "2026-05-01T07:53:20.034Z",
+      "userId": "t3",
+      "onboardingCompleted": true
+    },
+    {
+      "id": "acc-1777622161482",
+      "role": "student",
+      "name": "Ученик10 -",
+      "email": "ученик10@bk.ru",
+      "phone": "1234555567",
+      "password": "12345",
+      "verified": true,
+      "createdAt": "2026-05-01T07:56:01.482Z",
+      "userId": "s102",
+      "onboardingCompleted": true
+    },
+    {
+      "id": "acc-1777626678888",
+      "role": "student",
+      "name": "ученик11 -",
+      "email": "ученик11@bk.ru",
+      "phone": "1234567890",
+      "password": "12345",
+      "verified": true,
+      "createdAt": "2026-05-01T09:11:18.888Z",
+      "userId": "s104",
+      "onboardingCompleted": true
+    },
+    {
+      "id": "acc-1777629928362",
+      "role": "teacher",
+      "name": "учитель11 -",
+      "email": "учитель11@bk.ru",
+      "phone": "+79827054732",
+      "password": "12345",
+      "verified": true,
+      "createdAt": "2026-05-01T10:05:28.362Z",
+      "userId": "t4",
+      "onboardingCompleted": false
+    }
+  ],
+  "smsLogs": [
+    {
+      "id": "sms-1777629928362",
+      "email": "учитель11@bk.ru",
+      "role": "teacher",
+      "phone": "+79827054732",
+      "code": "6524",
+      "createdAt": "2026-05-01T10:05:28.362Z",
+      "used": true
+    },
+    {
+      "id": "sms-1777626678888",
+      "email": "ученик11@bk.ru",
+      "role": "student",
+      "phone": "1234567890",
+      "code": "1236",
+      "createdAt": "2026-05-01T09:11:18.888Z",
+      "used": true
+    },
+    {
+      "id": "sms-1777622161482",
+      "email": "ученик10@bk.ru",
+      "role": "student",
+      "phone": "1234555567",
+      "code": "4904",
+      "createdAt": "2026-05-01T07:56:01.482Z",
+      "used": true
+    },
+    {
+      "id": "sms-1777622000034",
+      "email": "учитель10@bk.ru",
+      "role": "teacher",
+      "phone": "+79827054732",
+      "code": "8287",
+      "createdAt": "2026-05-01T07:53:20.034Z",
+      "used": true
+    },
+    {
+      "id": "sms-1776616941456",
+      "email": "rambletot2@gmail.com",
+      "role": "student",
+      "phone": "+79527381098",
+      "code": "1611",
+      "createdAt": "2026-04-19T16:42:21.456Z",
+      "used": true
+    },
+    {
+      "id": "sms-1776616520285",
+      "email": "rambletot@gmail.com",
+      "role": "teacher",
+      "phone": "89527381099",
+      "code": "1110",
+      "createdAt": "2026-04-19T16:35:20.285Z",
+      "used": true
+    }
+  ],
+  "students": [
+    {
+      "id": "s1",
+      "name": "Алексей Смирнов",
+      "email": "student@demo.ru",
+      "parentName": "Наталья Смирнова",
+      "parentEmail": "smirnov.parent@mail.ru",
+      "level": "10 класс",
+      "subjects": [
+        "Математика",
+        "Физика"
+      ],
+      "active": true,
+      "lessonSlots": [
+        {
+          "id": "ls1",
+          "day": "ПН",
+          "time": "10:00",
+          "durationHours": 1,
+          "durationMinutes": 0
+        },
+        {
+          "id": "ls2",
+          "day": "ЧТ",
+          "time": "18:30",
+          "durationHours": 1,
+          "durationMinutes": 30
+        }
+      ],
+      "phone": "+7 999 555-00-01",
+      "teacherId": "t1",
+      "parentContact": "smirnov.parent@mail.ru",
+      "teacherIds": [
+        "t1"
+      ],
+      "virtual": false
+    },
+    {
+      "id": "s2",
+      "name": "Мария Соколова",
+      "email": "sokolova@mail.ru",
+      "parentName": "Ирина Соколова",
+      "parentEmail": "sokolova.parent@mail.ru",
+      "level": "11 класс",
+      "subjects": [
+        "Математика",
+        "Химия"
+      ],
+      "active": true,
+      "lessonSlots": [
+        {
+          "id": "ls3",
+          "day": "ВТ",
+          "time": "12:00",
+          "durationHours": 1,
+          "durationMinutes": 0
+        }
+      ],
+      "phone": "",
+      "teacherId": "t1",
+      "parentContact": "sokolova.parent@mail.ru",
+      "teacherIds": [
+        "t1"
+      ],
+      "virtual": true
+    },
+    {
+      "id": "s3",
+      "name": "Илья Панов",
+      "email": "panov@mail.ru",
+      "parentName": "Сергей Панов",
+      "parentEmail": "panov.parent@mail.ru",
+      "level": "9 класс",
+      "subjects": [
+        "Физика"
+      ],
+      "active": true,
+      "lessonSlots": [
+        {
+          "id": "ls4",
+          "day": "СР",
+          "time": "16:00",
+          "durationHours": 1,
+          "durationMinutes": 0
+        }
+      ],
+      "phone": "",
+      "teacherId": "t1",
+      "parentContact": "panov.parent@mail.ru",
+      "teacherIds": [
+        "t1"
+      ],
+      "virtual": true
+    },
+    {
+      "id": "s4",
+      "name": "Дарья Крылова",
+      "email": "krylova@mail.ru",
+      "parentName": "Ольга Крылова",
+      "parentEmail": "krylova.parent@mail.ru",
+      "level": "10 класс",
+      "subjects": [
+        "Математика"
+      ],
+      "active": true,
+      "lessonSlots": [
+        {
+          "id": "ls5",
+          "day": "ПТ",
+          "time": "17:00",
+          "durationHours": 1,
+          "durationMinutes": 30
+        }
+      ],
+      "phone": "",
+      "teacherId": "t1",
+      "parentContact": "krylova.parent@mail.ru",
+      "teacherIds": [
+        "t1"
+      ],
+      "virtual": true
+    },
+    {
+      "id": "s5",
+      "name": "Максим Орлов",
+      "email": "orlov@mail.ru",
+      "parentName": "Елена Орлова",
+      "parentEmail": "orlov.parent@mail.ru",
+      "level": "11 класс",
+      "subjects": [
+        "Химия"
+      ],
+      "active": true,
+      "lessonSlots": [
+        {
+          "id": "ls6",
+          "day": "СБ",
+          "time": "11:00",
+          "durationHours": 1,
+          "durationMinutes": 30
+        }
+      ],
+      "phone": "",
+      "teacherId": "t1",
+      "parentContact": "orlov.parent@mail.ru",
+      "teacherIds": [
+        "t1"
+      ],
+      "virtual": true
+    },
+    {
+      "id": "s6",
+      "name": "Анна Беляева",
+      "email": "belyaeva@mail.ru",
+      "parentName": "",
+      "parentEmail": "",
+      "level": "1 курс",
+      "subjects": [
+        "Математика",
+        "Физика"
+      ],
+      "active": true,
+      "lessonSlots": [
+        {
+          "id": "ls7",
+          "day": "ПН",
+          "time": "19:00",
+          "durationHours": 1,
+          "durationMinutes": 30
+        }
+      ],
+      "phone": "",
+      "teacherId": "t1",
+      "parentContact": "",
+      "teacherIds": [
+        "t1"
+      ],
+      "virtual": true
+    },
+    {
+      "id": "s101",
+      "name": "Артём Сокерин",
+      "email": "rambletot2@gmail.com",
+      "phone": "+79527381098",
+      "parentName": "",
+      "parentEmail": "",
+      "parentContact": "",
+      "level": "",
+      "subjects": [],
+      "active": true,
+      "lessonSlots": [],
+      "teacherId": "t2",
+      "teacherIds": [
+        "t2"
+      ],
+      "virtual": false
+    },
+    {
+      "id": "s102",
+      "name": "Ученик10 -",
+      "email": "ученик10@bk.ru",
+      "phone": "1234555567",
+      "parentName": "к",
+      "parentEmail": "родитель10@bk.ru",
+      "parentContact": "",
+      "level": "",
+      "subjects": [],
+      "active": true,
+      "virtual": false,
+      "lessonSlots": [],
+      "teacherId": "t3",
+      "teacherIds": [
+        "t3"
+      ]
+    },
+    {
+      "id": "s103",
+      "name": "лох1",
+      "email": "",
+      "phone": "",
+      "parentName": "",
+      "parentContact": "",
+      "parentEmail": "",
+      "level": "",
+      "subjects": [],
+      "active": true,
+      "virtual": true,
+      "lessonSlots": [
+        {
+          "id": "tmp-1777623458073",
+          "day": "ПН",
+          "time": "05:02",
+          "durationHours": 0,
+          "durationMinutes": 2
+        }
+      ],
+      "teacherIds": [],
+      "teacherId": null
+    },
+    {
+      "id": "s104",
+      "name": "ученик11 -",
+      "email": "ученик11@bk.ru",
+      "phone": "1234567890",
+      "parentName": "",
+      "parentEmail": "родитель11@bk.ru",
+      "parentContact": "родитель11@bk.ru",
+      "level": "",
+      "subjects": [],
+      "active": true,
+      "virtual": false,
+      "lessonSlots": [],
+      "teacherId": "t3",
+      "teacherIds": [
+        "t3"
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "id": "g1",
+      "name": "Мини-группа ЕГЭ",
+      "subject": "Математика",
+      "active": true,
+      "studentIds": [
+        "s1",
+        "s2",
+        "s4"
+      ],
+      "riskTopics": [
+        "Цепное правило",
+        "Логарифмические производные"
+      ],
+      "lessonSlots": [],
+      "teacherId": "t1"
+    },
+    {
+      "id": "g2",
+      "name": "Физика 10Б",
+      "subject": "Физика",
+      "active": true,
+      "studentIds": [
+        "s3",
+        "s6"
+      ],
+      "riskTopics": [
+        "Арифметические ошибки",
+        "Динамика"
+      ],
+      "lessonSlots": [],
+      "teacherId": "t1"
+    },
+    {
+      "id": "g3",
+      "name": "Химия ЕГЭ",
+      "subject": "Химия",
+      "active": true,
+      "studentIds": [
+        "s2",
+        "s5"
+      ],
+      "riskTopics": [
+        "Электронный баланс",
+        "Степени окисления"
+      ],
+      "lessonSlots": [],
+      "teacherId": "t1"
+    },
+    {
+      "id": "g101",
+      "active": true,
+      "name": "",
+      "subject": "Математика",
+      "studentIds": [
+        "s102",
+        "s104"
+      ],
+      "lessonSlots": [
+        {
+          "id": "gslot-1777628080376",
+          "day": "ПН",
+          "time": "11:12",
+          "durationHours": 0,
+          "durationMinutes": 30
+        }
+      ],
+      "riskTopics": [],
+      "teacherId": "t3"
+    }
+  ],
+  "assignments": [
+    {
+      "id": "a1",
+      "title": "Производная и исследование функции",
+      "subject": "Математика",
+      "description": "Лист из 8 заданий на производные и исследование функции.",
+      "createdAt": "2026-03-18",
+      "deadline": "2026-04-04T23:00",
+      "maxScore": 40,
+      "recipientType": "group",
+      "recipientId": "g1",
+      "status": "Активно",
+      "attachments": [
+        {
+          "id": "att1",
+          "name": "Фото задания 1",
+          "url": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
+          "kind": "photo"
+        }
+      ],
+      "teacherId": "t1",
+      "recipientIds": [],
+      "links": []
+    },
+    {
+      "id": "a2",
+      "title": "Законы Ньютона и динамика",
+      "subject": "Физика",
+      "description": "Домашняя работа по законам Ньютона и связанным телам.",
+      "createdAt": "2026-03-16",
+      "deadline": "2026-04-02T23:00",
+      "maxScore": 50,
+      "recipientType": "group",
+      "recipientId": "g2",
+      "status": "Активно",
+      "attachments": [
+        {
+          "id": "att2",
+          "name": "Динамика.pdf",
+          "url": "/uploads/sample.pdf",
+          "kind": "file"
+        }
+      ],
+      "teacherId": "t1",
+      "recipientIds": [],
+      "links": []
+    },
+    {
+      "id": "a3",
+      "title": "ОВР и электронный баланс",
+      "subject": "Химия",
+      "description": "Контрольная на ОВР и степени окисления.",
+      "createdAt": "2026-03-10",
+      "deadline": "2026-03-22T23:00",
+      "maxScore": 25,
+      "recipientType": "group",
+      "recipientId": "g3",
+      "status": "Завершено",
+      "attachments": [
+        {
+          "id": "att3",
+          "name": "Фото контрольной",
+          "url": "https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=1200&q=80",
+          "kind": "photo"
+        }
+      ],
+      "teacherId": "t1",
+      "recipientIds": [],
+      "links": []
+    },
+    {
+      "id": "a4",
+      "title": "Интегралы: базовый лист",
+      "subject": "Математика",
+      "description": "Печатный лист с 10 базовыми интегралами.",
+      "createdAt": "2026-03-05",
+      "deadline": "2026-03-20T23:00",
+      "maxScore": 30,
+      "recipientType": "student",
+      "recipientId": "s6",
+      "status": "Завершено",
+      "attachments": [],
+      "teacherId": "t1",
+      "recipientIds": [],
+      "links": []
+    },
+    {
+      "id": "a5",
+      "title": "Контрольная по молекулярной физике",
+      "subject": "Физика",
+      "description": "Пакет задач для школьной контрольной проверки.",
+      "createdAt": "2026-03-25",
+      "deadline": "",
+      "maxScore": 60,
+      "recipientType": "group",
+      "recipientId": null,
+      "status": "Черновик",
+      "attachments": [],
+      "teacherId": "t1",
+      "recipientIds": [],
+      "links": []
+    },
+    {
+      "id": "a101",
+      "createdAt": "2026-04-19",
+      "attachments": [],
+      "teacherId": "t2",
+      "status": "Активно",
+      "title": "hjbjjh",
+      "subject": "Математика",
+      "description": "jhjkhjjhkjh",
+      "recipientType": "student",
+      "recipientId": "s101",
+      "recipientIds": [],
+      "deadline": "2026-07-13T17:00",
+      "maxScore": 100,
+      "links": []
+    },
+    {
+      "id": "a102",
+      "createdAt": "2026-04-21",
+      "attachments": [],
+      "teacherId": "t2",
+      "status": "Активно",
+      "title": "ДЗ Геома",
+      "subject": "Математика",
+      "description": "Найти площадь равнобедренного треугольника. Известно что a = 10, alpha (угол) = 30 градусам",
+      "rubric": "2 балла за верный ответ, 1 балл за частичное решение и правильный ход мыслей без правильного ответа, 0 баллов за неправильный ответ и неверный ход мыслей или пустое решение",
+      "gradingCriteria": "2 балла за верный ответ, 1 балл за частичное решение и правильный ход мыслей без правильного ответа, 0 баллов за неправильный ответ и неверный ход мыслей или пустое решение",
+      "expectedAnswer": "",
+      "scoringScale": 5,
+      "toneOfVoiceForFeedback": "доброжелательный и понятный ученику",
+      "recipientType": "student",
+      "recipientId": "s101",
+      "recipientIds": [],
+      "deadline": "2026-04-22T15:00",
+      "maxScore": 2,
+      "links": []
+    },
+    {
+      "id": "a103",
+      "createdAt": "2026-05-01",
+      "teacherId": "t3",
+      "status": "Активно",
+      "title": "",
+      "subject": "Математика",
+      "description": "Сделать задание по ссылке",
+      "expectedAnswer": "",
+      "recipientType": "student",
+      "recipientId": "s102",
+      "recipientIds": [],
+      "deadlineDisplay": "1212121212",
+      "deadline": "",
+      "attachments": [],
+      "links": [
+        {
+          "id": "lnk-1777623621562",
+          "url": "https://math-ege.sdamgia.ru/test?id=90659886",
+          "label": "https://math-ege.sdamgia.ru/test?id=90659886"
+        }
+      ]
+    },
+    {
+      "id": "a104",
+      "createdAt": "2026-05-01",
+      "teacherId": "t3",
+      "status": "Активно",
+      "title": "Вариант № 90659887",
+      "subject": "Математика",
+      "description": "",
+      "expectedAnswer": "",
+      "recipientType": "student",
+      "recipientId": "s102",
+      "recipientIds": [],
+      "deadlineDisplay": "",
+      "deadline": "",
+      "attachments": [],
+      "links": [
+        {
+          "id": "lnk-1777623783108",
+          "url": "https://math-ege.sdamgia.ru/test?id=90659887",
+          "label": "https://math-ege.sdamgia.ru/test?id=90659887"
+        }
+      ]
+    },
+    {
+      "id": "a105",
+      "createdAt": "2026-05-01",
+      "teacherId": "t3",
+      "status": "Активно",
+      "title": "",
+      "subject": "Математика",
+      "description": "",
+      "expectedAnswer": "",
+      "recipientType": "student",
+      "recipientId": "s102",
+      "recipientIds": [],
+      "deadlineDisplay": "02.05.2026",
+      "deadline": "2026-05-02T23:59:59",
+      "attachments": [
+        {
+          "id": "1777628762446-0-Ð¡Ð½Ð¸Ð¼Ð¾Ðº ÑÐºÑÐ°Ð½Ð° 2026-05-01 2.pdf",
+          "name": "Ð¡Ð½Ð¸Ð¼Ð¾Ðº ÑÐºÑÐ°Ð½Ð° 2026-05-01 2.pdf",
+          "originalName": "Ð¡Ð½Ð¸Ð¼Ð¾Ðº ÑÐºÑÐ°Ð½Ð° 2026-05-01 2.pdf",
+          "storageName": "1777628762442-f10eda8780c0-1-2-1-4-3-4-o-N-oN-1-2-2026-05-01-2.pdf",
+          "url": "http://127.0.0.1:4000/uploads/1777628762442-f10eda8780c0-1-2-1-4-3-4-o-N-oN-1-2-2026-05-01-2.pdf",
+          "previewUrl": "http://127.0.0.1:4000/uploads/1777628762442-f10eda8780c0-1-2-1-4-3-4-o-N-oN-1-2-2026-05-01-2.pdf",
+          "normalizedUrl": "http://127.0.0.1:4000/uploads/1777628762442-f10eda8780c0-1-2-1-4-3-4-o-N-oN-1-2-2026-05-01-2.pdf",
+          "kind": "file",
+          "mimeType": "application/pdf",
+          "sizeBytes": 120005,
+          "sha256": "1be210fd2f3cf41ff935aa1cf6b70fb14e135e49653c5d6163273dbbb02d71a6",
+          "pageCount": 2
+        }
+      ],
+      "links": []
+    }
+  ],
+  "works": [
+    {
+      "id": "w1",
+      "assignmentId": "a1",
+      "studentId": "s1",
+      "submittedAt": "2026-03-28",
+      "ocrText": "1) y = sin(x^2), y' = 2x cos(x^2)...\n5) Интервалы возрастания...",
+      "files": [
+        {
+          "id": "wf1",
+          "name": "s1-page1.jpg",
+          "url": "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=800&q=80",
+          "kind": "photo"
+        },
+        {
+          "id": "wf2",
+          "name": "s1-page2.jpg",
+          "url": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80",
+          "kind": "photo"
+        }
+      ],
+      "aiComment": "Ход решения в целом верный, но есть ошибки в применении цепного правила и анализе знаков производной.",
+      "aiErrors": [
+        {
+          "types": [
+            "Логическая",
+            "Вычислительная"
+          ],
+          "label": "Цепное правило",
+          "description": "Потерян множитель внутренней функции и неверно определены интервалы возрастания."
+        }
+      ],
+      "suggestedScore": 31,
+      "finalScore": 31,
+      "status": "Проверено",
+      "teacherId": "t1",
+      "submissionId": "sub-w1"
+    },
+    {
+      "id": "w2",
+      "assignmentId": "a1",
+      "studentId": "s2",
+      "submittedAt": "2026-03-29",
+      "ocrText": "Производные вычислены, но в задаче 8 потерян множитель 1/2...",
+      "files": [
+        {
+          "id": "wf3",
+          "name": "s2-page1.jpg",
+          "url": "https://images.unsplash.com/photo-1456324504439-367cee3b3c32?auto=format&fit=crop&w=800&q=80",
+          "kind": "photo"
+        }
+      ],
+      "aiComment": "Сильная работа, но последняя задача требует аккуратности.",
+      "aiErrors": [
+        {
+          "types": [
+            "Вычислительная"
+          ],
+          "label": "Потерян коэффициент",
+          "description": "В последнем пункте потерян множитель 1/2."
+        }
+      ],
+      "suggestedScore": 34,
+      "finalScore": 33,
+      "status": "Проверено",
+      "teacherId": "t1",
+      "submissionId": "sub-w2"
+    },
+    {
+      "id": "w3",
+      "assignmentId": "a2",
+      "studentId": "s3",
+      "submittedAt": "2026-03-27",
+      "ocrText": "F=ma, задача на наклонную плоскость, задача на блоки...",
+      "files": [
+        {
+          "id": "wf4",
+          "name": "s3-page1.jpg",
+          "url": "https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=800&q=80",
+          "kind": "photo"
+        }
+      ],
+      "aiComment": "Основной ход решения верный, но есть арифметическая ошибка и неполное оформление ответов.",
+      "aiErrors": [
+        {
+          "types": [
+            "Вычислительная",
+            "Оформление"
+          ],
+          "label": "Арифметика и единицы",
+          "description": "Вычисление ускорения выполнено с ошибкой, в ответе отсутствуют единицы измерения."
+        }
+      ],
+      "suggestedScore": 37,
+      "finalScore": 37,
+      "status": "Ожидает подтверждения",
+      "teacherId": "t1",
+      "submissionId": "sub-w3"
+    },
+    {
+      "id": "w4",
+      "assignmentId": "a2",
+      "studentId": "s6",
+      "submittedAt": "2026-03-27",
+      "ocrText": "Решение задачи 3: a=(m1-m2)g/(m1+m2)...",
+      "files": [
+        {
+          "id": "wf5",
+          "name": "s6-page1.jpg",
+          "url": "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=800&q=80",
+          "kind": "photo"
+        }
+      ],
+      "aiComment": "Ученик просит пересмотр из-за описки в задаче 3.",
+      "aiErrors": [
+        {
+          "types": [
+            "Оформление"
+          ],
+          "label": "Спорная описка",
+          "description": "В задаче 3 вероятна описка, влияющая на итоговую формулу."
+        }
+      ],
+      "suggestedScore": 33,
+      "finalScore": 32,
+      "status": "Ожидает подтверждения",
+      "teacherId": "t1",
+      "submissionId": "sub-w4"
+    },
+    {
+      "id": "w5",
+      "assignmentId": "a3",
+      "studentId": "s5",
+      "submittedAt": "2026-03-20",
+      "ocrText": "ОВР: 2Fe + 3Cl2 = 2FeCl3...",
+      "files": [
+        {
+          "id": "wf6",
+          "name": "s5-page1.jpg",
+          "url": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80",
+          "kind": "photo"
+        }
+      ],
+      "aiComment": "Нужно еще раз пройти электронный баланс.",
+      "aiErrors": [
+        {
+          "types": [
+            "Логическая",
+            "Терминология"
+          ],
+          "label": "Баланс ОВР",
+          "description": "Коэффициенты подобраны без полного электронного баланса, неверно определена степень окисления."
+        }
+      ],
+      "suggestedScore": 16,
+      "finalScore": 15,
+      "status": "Проверено",
+      "teacherId": "t1",
+      "submissionId": "sub-w5"
+    },
+    {
+      "id": "w101",
+      "submittedAt": "2026-04-21",
+      "status": "Ожидает подтверждения",
+      "aiComment": "Ты правильно выбрал идею использовать формулу площади через синус, но в формуле должен быть коэффициент 1/2: S = (1/2)·a^2·sinα. Тогда при a=10 и α=30° получится S = 25 (если α — угол между равными сторонами).",
+      "aiErrors": [
+        {
+          "types": [
+            "формула площади",
+            "треугольники",
+            "тригонометрия"
+          ],
+          "label": "Неверный коэффициент в формуле площади через две стороны и угол между ними",
+          "description": "Для площади по двум сторонам и углу между ними используется S = (1/2)ab·sinγ. При a=b получаем S = (1/2)·a^2·sinα. В работе написано S = 2·a^2·sinα, что завышает ответ в 4 раза.",
+          "locationHint": "Строка с формулой: «S = 2·a^2·sinα …»",
+          "severity": "high",
+          "isRecognitionUncertain": false
+        },
+        {
+          "types": [
+            "формула площади",
+            "треугольники",
+            "тригонометрия"
+          ],
+          "label": "Неверный численный ответ из-за неверной формулы",
+          "description": "При a=10 и sin30°=1/2 правильное значение (если α — угол между равными сторонами) равно 25, а не 150.",
+          "locationHint": "Строка вычислений и «Ответ: 150»",
+          "severity": "high",
+          "isRecognitionUncertain": false
+        },
+        {
+          "types": [
+            "формула площади",
+            "треугольники",
+            "тригонометрия"
+          ],
+          "label": "Возможная неоднозначность: какой именно угол задан (α при вершине или при основании)",
+          "description": "По рисунку угол отмечен у вершины, но текст «∠ = 30°» может быть без уточнения. Если α не является углом между равными сторонами, решение нужно строить иначе. Это влияет на корректность проверки результата.",
+          "locationHint": "Формулировка условия и рисунок с отмеченным углом",
+          "severity": "medium",
+          "isRecognitionUncertain": true
+        }
+      ],
+      "suggestedScore": 1,
+      "finalScore": null,
+      "teacherId": "t2",
+      "assignmentId": "a102",
+      "studentId": "s101",
+      "files": [
+        {
+          "id": "1776764649433-0-Ð¡Ð½Ð¸Ð¼Ð¾Ðº ÑÐºÑÐ°Ð½Ð°Â â 2026-04-21 Ð²Â 12.44.05.png",
+          "name": "Ð¡Ð½Ð¸Ð¼Ð¾Ðº ÑÐºÑÐ°Ð½Ð°Â â 2026-04-21 Ð²Â 12.44.05.png",
+          "originalName": "Ð¡Ð½Ð¸Ð¼Ð¾Ðº ÑÐºÑÐ°Ð½Ð°Â â 2026-04-21 Ð²Â 12.44.05.png",
+          "storageName": "1776764649405-cc4202ac7e8c-1-2-1-4-3-4-o-N-oN-1-2-A-a-2026-04-21-2A-12.44.05.png",
+          "url": "http://127.0.0.1:4000/uploads/1776764649405-cc4202ac7e8c-1-2-1-4-3-4-o-N-oN-1-2-A-a-2026-04-21-2A-12.44.05.png",
+          "previewUrl": "http://127.0.0.1:4000/uploads/1776764649405-cc4202ac7e8c-1-2-1-4-3-4-o-N-oN-1-2-A-a-2026-04-21-2A-12.44.05.png",
+          "normalizedUrl": "http://127.0.0.1:4000/uploads/1776764649405-cc4202ac7e8c-1-2-1-4-3-4-o-N-oN-1-2-A-a-2026-04-21-2A-12.44.05.png",
+          "kind": "photo",
+          "mimeType": "image/png",
+          "sizeBytes": 2029590,
+          "sha256": "88d42357758185e86e2c346b88fd78ee130c8fbead6d7a87fce11c5fa53f383c",
+          "pageCount": 1
+        }
+      ],
+      "ocrText": "№1.\nЗадание: Найти S равнобедр. Δ, известна a = 10, ∠ = 30°\n\nРешение:\n\nРисунок: равнобедренный треугольник, на боковых сторонах подписано «a» и «a», у вершины отмечен угол (похоже, α).\n\nS = 2·a^2·sinα = 2·10^2·sin30 = 150\n\nОтвет: 150\n\nСправа нарисован круг/овал с зачёркиванием; внутри неразборчивые буквы (похоже на «M…»).",
+      "submissionId": "sub-w101",
+      "processingStatus": "needs_human_review",
+      "processingRevision": 1,
+      "aiProcessingError": null,
+      "lastJobId": "rjob-779e7c737f91c7f97489497b",
+      "processingStartedAt": "2026-04-21T10:22:31.296Z",
+      "processingFinishedAt": "2026-04-21T10:23:09.707Z",
+      "teacherCommentDraft": "По распознаванию: ученик считает площадь равнобедр. треугольника с боковыми сторонами a=a=10 и отмеченным углом α=30° у вершины. Применена формула с синусом, но коэффициент ошибочный: вместо S=(1/2)a^2 sinα записано S=2a^2 sinα → завышение в 4 раза, ответ 150 неверный (должно быть 25 при вершинном угле). При этом ход мысли частично верный (выбор тригонометрической формулы и sin30). Рекомендую 1/2 по рубрике. Есть небольшая неоднозначность: в тексте угол не уточнён, но по рисунку — вершинный; при другом понимании угла требовалось бы иное решение.",
+      "studentCommentDraft": "Ты правильно выбрал идею использовать формулу площади через синус, но в формуле должен быть коэффициент 1/2: S = (1/2)·a^2·sinα. Тогда при a=10 и α=30° получится S = 25 (если α — угол между равными сторонами).",
+      "reviewWarnings": [
+        "Угол α в условии может быть не уточнён; корректность эталона зависит от того, является ли α углом между равными сторонами (по рисунку — да)."
+      ],
+      "recommendations": [
+        "Уточнить у ученика/в условии: α — вершинный угол между равными сторонами или угол при основании.",
+        "Если цель — именно вершинный угол, закрепить формулу S = (1/2)ab·sinγ и частный случай S=(1/2)a^2 sinα.",
+        "Попросить ученика перепроверять коэффициенты (1/2) в геометрических формулах и оценивать порядок величины ответа."
+      ],
+      "aiConfidence": 0.78,
+      "recognitionConfidence": 0.77,
+      "needsHumanReview": true,
+      "analysisDraftId": "ad-sub-w101",
+      "aiProvider": "openai"
+    },
+    {
+      "id": "w102",
+      "submittedAt": "2026-05-01",
+      "status": "Проверено",
+      "aiComment": "AI-анализ будет добавлен после обработки.",
+      "aiErrors": [],
+      "suggestedScore": 0,
+      "finalScore": 0,
+      "teacherId": "t3",
+      "assignmentId": "a103",
+      "studentId": "s102",
+      "files": [
+        {
+          "id": "1777624795309-0-IMG_0194[1].JPG",
+          "name": "IMG_0194[1].JPG",
+          "originalName": "IMG_0194[1].JPG",
+          "storageName": "1777624795209-e907be6d993b-IMG_0194-1-.JPG.jpg",
+          "url": "http://127.0.0.1:4000/uploads/1777624795209-e907be6d993b-IMG_0194-1-.JPG.jpg",
+          "previewUrl": "http://127.0.0.1:4000/uploads/1777624795209-e907be6d993b-IMG_0194-1-.JPG.jpg",
+          "normalizedUrl": "http://127.0.0.1:4000/uploads/1777624795209-e907be6d993b-IMG_0194-1-.JPG.jpg",
+          "kind": "photo",
+          "mimeType": "image/jpeg",
+          "sizeBytes": 3539482,
+          "sha256": "ecdf27294754a87aa784af4db9e837e5b7c870b124be627f9e5eb0d792f62602",
+          "pageCount": 1
+        },
+        {
+          "id": "1777624795308-1-IMG_0195[1].JPG",
+          "name": "IMG_0195[1].JPG",
+          "originalName": "IMG_0195[1].JPG",
+          "storageName": "1777624795241-04eb3aaccb25-IMG_0195-1-.JPG.jpg",
+          "url": "http://127.0.0.1:4000/uploads/1777624795241-04eb3aaccb25-IMG_0195-1-.JPG.jpg",
+          "previewUrl": "http://127.0.0.1:4000/uploads/1777624795241-04eb3aaccb25-IMG_0195-1-.JPG.jpg",
+          "normalizedUrl": "http://127.0.0.1:4000/uploads/1777624795241-04eb3aaccb25-IMG_0195-1-.JPG.jpg",
+          "kind": "photo",
+          "mimeType": "image/jpeg",
+          "sizeBytes": 3272858,
+          "sha256": "2130314e4463cacf883ebb3241cbbfdc4dbe17d06fb593f1b26a7bceb4dc30bd",
+          "pageCount": 1
+        },
+        {
+          "id": "1777624795308-2-IMG_0193[2].JPG",
+          "name": "IMG_0193[2].JPG",
+          "originalName": "IMG_0193[2].JPG",
+          "storageName": "1777624795258-6dc25b9da37c-IMG_0193-2-.JPG.jpg",
+          "url": "http://127.0.0.1:4000/uploads/1777624795258-6dc25b9da37c-IMG_0193-2-.JPG.jpg",
+          "previewUrl": "http://127.0.0.1:4000/uploads/1777624795258-6dc25b9da37c-IMG_0193-2-.JPG.jpg",
+          "normalizedUrl": "http://127.0.0.1:4000/uploads/1777624795258-6dc25b9da37c-IMG_0193-2-.JPG.jpg",
+          "kind": "photo",
+          "mimeType": "image/jpeg",
+          "sizeBytes": 3212869,
+          "sha256": "bd809eb72e92ea49238547e362cbe0c4bc092bce47170ddb4ea1baa3221f7e6a",
+          "pageCount": 1
+        }
+      ],
+      "ocrText": "Распознанный текст будет добавлен после обработки.",
+      "submissionId": "sub-w102",
+      "processingStatus": "approved",
+      "processingRevision": 1,
+      "aiProcessingError": "AI-обработка отключена на сервере. Укажите OPENAI_API_KEY и включите ENABLE_OPENAI_RECOGNITION.",
+      "teacherComment": "",
+      "approvedAt": "2026-05-01T09:05:16.611Z",
+      "wasEditedAfterAI": false
+    },
+    {
+      "id": "w103",
+      "submittedAt": "2026-05-01",
+      "status": "Ожидает подтверждения",
+      "aiComment": "AI-анализ будет добавлен после обработки.",
+      "aiErrors": [],
+      "suggestedScore": 0,
+      "finalScore": null,
+      "teacherId": "t3",
+      "assignmentId": "a105",
+      "studentId": "s102",
+      "files": [
+        {
+          "id": "1777629529240-0-Ð¡Ð½Ð¸Ð¼Ð¾Ðº ÑÐºÑÐ°Ð½Ð° 2026-05-01 2.pdf",
+          "name": "Ð¡Ð½Ð¸Ð¼Ð¾Ðº ÑÐºÑÐ°Ð½Ð° 2026-05-01 2.pdf",
+          "originalName": "Ð¡Ð½Ð¸Ð¼Ð¾Ðº ÑÐºÑÐ°Ð½Ð° 2026-05-01 2.pdf",
+          "storageName": "1777629529233-f6f75fa1e81c-1-2-1-4-3-4-o-N-oN-1-2-2026-05-01-2.pdf",
+          "url": "http://127.0.0.1:4000/uploads/1777629529233-f6f75fa1e81c-1-2-1-4-3-4-o-N-oN-1-2-2026-05-01-2.pdf",
+          "previewUrl": "http://127.0.0.1:4000/uploads/1777629529233-f6f75fa1e81c-1-2-1-4-3-4-o-N-oN-1-2-2026-05-01-2.pdf",
+          "normalizedUrl": "http://127.0.0.1:4000/uploads/1777629529233-f6f75fa1e81c-1-2-1-4-3-4-o-N-oN-1-2-2026-05-01-2.pdf",
+          "kind": "file",
+          "mimeType": "application/pdf",
+          "sizeBytes": 120005,
+          "sha256": "1be210fd2f3cf41ff935aa1cf6b70fb14e135e49653c5d6163273dbbb02d71a6",
+          "pageCount": 2
+        }
+      ],
+      "ocrText": "Распознанный текст будет добавлен после обработки.",
+      "submissionId": "sub-w103",
+      "processingStatus": "failed",
+      "processingRevision": 1,
+      "aiProcessingError": "Не удалось завершить AI-обработку. Попробуйте повторить позже.",
+      "lastJobId": "rjob-4b019ba22c80cf39392f7660",
+      "processingStartedAt": "2026-05-01T09:58:59.203Z",
+      "processingFinishedAt": "2026-05-01T09:58:59.642Z"
+    }
+  ],
+  "reportConfigs": [
+    {
+      "id": "rc1",
+      "targetType": "student",
+      "targetId": "s1",
+      "frequency": "Еженедельно",
+      "period": "7",
+      "saved": true,
+      "nextRun": "2026-05-05T19:56:00.021Z",
+      "teacherId": "t1"
+    },
+    {
+      "id": "rc2",
+      "targetType": "group",
+      "targetId": "g1",
+      "frequency": "Ежемесячно",
+      "period": "30",
+      "saved": true,
+      "nextRun": "2026-05-31T07:05:00.019Z",
+      "teacherId": "t1"
+    },
+    {
+      "id": "rc101",
+      "targetType": "student",
+      "targetId": "s102",
+      "frequency": "Еженедельно",
+      "teacherId": "t3",
+      "saved": true,
+      "nextRun": "2026-05-08T09:30:33.163Z"
+    }
+  ],
+  "reportLogs": [
+    {
+      "id": "log-1777627849941",
+      "createdAt": "2026-05-01T09:30:49.941Z",
+      "targetLabel": "Ученик10 -",
+      "recipients": [
+        {
+          "contact": "родитель10@bk.ru",
+          "name": "к",
+          "studentId": "s102"
+        }
+      ],
+      "deliveries": [
+        {
+          "contact": "родитель10@bk.ru",
+          "name": "к",
+          "studentId": "s102",
+          "fileName": "parent-report-s102-1777627849895.pdf",
+          "url": "http://127.0.0.1:4000/uploads/parent-report-s102-1777627849895.pdf",
+          "payload": {
+            "studentName": "Ученик10 -",
+            "frequentErrors": "Недостаточно данных",
+            "gradesHistogram": "Недостаточно данных",
+            "parentEmail": "родитель10@bk.ru",
+            "periodLabel": "25.04.2026 - 11.02.2026"
+          }
+        }
+      ],
+      "fields": [
+        "Имя ученика",
+        "Частые типы ошибок",
+        "Гистограмма оценок"
+      ],
+      "payload": {
+        "studentName": "Ученик10 -",
+        "frequentErrors": "Недостаточно данных",
+        "gradesHistogram": "Недостаточно данных",
+        "parentEmail": "родитель10@bk.ru",
+        "periodLabel": "25.04.2026 - 11.02.2026"
+      },
+      "periodLabel": "25.04.2026 - 11.02.2026",
+      "mode": "manual",
+      "teacherId": "t3"
+    },
+    {
+      "id": "log-1777619100051-rc2",
+      "createdAt": "2026-05-01T07:05:00.051Z",
+      "targetLabel": "Мини-группа ЕГЭ",
+      "recipients": [
+        {
+          "contact": "sokolova.parent@mail.ru",
+          "name": "Ирина Соколова",
+          "studentId": "s2"
+        },
+        {
+          "contact": "krylova.parent@mail.ru",
+          "name": "Ольга Крылова",
+          "studentId": "s4"
+        }
+      ],
+      "deliveries": [
+        {
+          "contact": "sokolova.parent@mail.ru",
+          "name": "Ирина Соколова",
+          "studentId": "s2",
+          "fileName": "parent-report-s2-1777619100023.pdf",
+          "url": "http://127.0.0.1:4000/uploads/parent-report-s2-1777619100023.pdf",
+          "payload": {
+            "studentName": "Мария Соколова",
+            "frequentErrors": "Недостаточно данных",
+            "gradesHistogram": "Недостаточно данных",
+            "parentEmail": "sokolova.parent@mail.ru",
+            "periodLabel": "02.04.2026 - 01.05.2026"
+          }
+        },
+        {
+          "contact": "krylova.parent@mail.ru",
+          "name": "Ольга Крылова",
+          "studentId": "s4",
+          "fileName": "parent-report-s4-1777619100036.pdf",
+          "url": "http://127.0.0.1:4000/uploads/parent-report-s4-1777619100036.pdf",
+          "payload": {
+            "studentName": "Дарья Крылова",
+            "frequentErrors": "Недостаточно данных",
+            "gradesHistogram": "Недостаточно данных",
+            "parentEmail": "krylova.parent@mail.ru",
+            "periodLabel": "02.04.2026 - 01.05.2026"
+          }
+        }
+      ],
+      "fields": [
+        "Имя ученика",
+        "Частые типы ошибок",
+        "Гистограмма оценок"
+      ],
+      "payload": [
+        {
+          "studentId": "s2",
+          "studentName": "Мария Соколова",
+          "frequentErrors": "Недостаточно данных",
+          "gradesHistogram": "Недостаточно данных",
+          "parentEmail": "sokolova.parent@mail.ru",
+          "periodLabel": "02.04.2026 - 01.05.2026"
+        },
+        {
+          "studentId": "s4",
+          "studentName": "Дарья Крылова",
+          "frequentErrors": "Недостаточно данных",
+          "gradesHistogram": "Недостаточно данных",
+          "parentEmail": "krylova.parent@mail.ru",
+          "periodLabel": "02.04.2026 - 01.05.2026"
+        }
+      ],
+      "periodLabel": "02.04.2026 - 01.05.2026",
+      "mode": "scheduled",
+      "teacherId": "t1"
+    },
+    {
+      "id": "log-1777406160078-rc1",
+      "createdAt": "2026-04-28T19:56:00.078Z",
+      "targetLabel": "Алексей Смирнов",
+      "recipients": [
+        {
+          "contact": "smirnov.parent@mail.ru",
+          "name": "Наталья Смирнова",
+          "studentId": "s1"
+        }
+      ],
+      "deliveries": [
+        {
+          "contact": "smirnov.parent@mail.ru",
+          "name": "Наталья Смирнова",
+          "studentId": "s1",
+          "fileName": "parent-report-s1-1777406160038.pdf",
+          "url": "http://127.0.0.1:4000/uploads/parent-report-s1-1777406160038.pdf",
+          "payload": {
+            "studentName": "Алексей Смирнов",
+            "frequentErrors": "Недостаточно данных",
+            "gradesHistogram": "Недостаточно данных",
+            "parentEmail": "smirnov.parent@mail.ru",
+            "periodLabel": "22.04.2026 - 28.04.2026"
+          }
+        }
+      ],
+      "fields": [
+        "Имя ученика",
+        "Частые типы ошибок",
+        "Гистограмма оценок"
+      ],
+      "payload": {
+        "studentName": "Алексей Смирнов",
+        "frequentErrors": "Недостаточно данных",
+        "gradesHistogram": "Недостаточно данных",
+        "parentEmail": "smirnov.parent@mail.ru",
+        "periodLabel": "22.04.2026 - 28.04.2026"
+      },
+      "periodLabel": "22.04.2026 - 28.04.2026",
+      "mode": "scheduled",
+      "teacherId": "t1"
+    },
+    {
+      "id": "log-1776611139127",
+      "createdAt": "2026-04-19T15:05:39.127Z",
+      "targetLabel": "Алексей Смирнов",
+      "recipients": [
+        {
+          "email": "smirnov.parent@mail.ru",
+          "name": "Наталья Смирнова",
+          "studentId": "s1"
+        }
+      ],
+      "fields": [
+        "Имя",
+        "Типы ошибок",
+        "Описание ошибок",
+        "Итоговый балл",
+        "Дата"
+      ],
+      "mode": "manual",
+      "teacherId": "t1"
+    },
+    {
+      "id": "log-1776386700024-rc1",
+      "createdAt": "2026-04-17T00:45:00.024Z",
+      "targetLabel": "Алексей Смирнов",
+      "recipients": [
+        {
+          "email": "smirnov.parent@mail.ru",
+          "name": "Наталья Смирнова",
+          "studentId": "s1"
+        }
+      ],
+      "fields": [
+        "Имя",
+        "Типы ошибок",
+        "Описание ошибок",
+        "Итоговый балл",
+        "Дата"
+      ],
+      "mode": "scheduled",
+      "teacherId": "t1"
+    }
+  ],
+  "batchSessions": [
+    {
+      "id": "b101",
+      "createdAt": "2026-05-01T09:02:24.486Z",
+      "teacherId": "t3",
+      "scale": "100",
+      "files": [
+        {
+          "id": "1777626144486-0-IMG_0193[2].JPG",
+          "name": "IMG_0193[2].JPG",
+          "originalName": "IMG_0193[2].JPG",
+          "storageName": "1777626144442-98df698bd367-IMG_0193-2-.JPG.jpg",
+          "url": "http://127.0.0.1:4000/uploads/1777626144442-98df698bd367-IMG_0193-2-.JPG.jpg",
+          "previewUrl": "http://127.0.0.1:4000/uploads/1777626144442-98df698bd367-IMG_0193-2-.JPG.jpg",
+          "normalizedUrl": "http://127.0.0.1:4000/uploads/1777626144442-98df698bd367-IMG_0193-2-.JPG.jpg",
+          "kind": "photo",
+          "mimeType": "image/jpeg",
+          "sizeBytes": 3212869,
+          "sha256": "bd809eb72e92ea49238547e362cbe0c4bc092bce47170ddb4ea1baa3221f7e6a",
+          "pageCount": 1
+        }
+      ],
+      "results": [
+        {
+          "id": "r1",
+          "name": "IMG_0193[2].JPG",
+          "originalName": "IMG_0193[2].JPG",
+          "sourceUrl": "http://127.0.0.1:4000/uploads/1777626144442-98df698bd367-IMG_0193-2-.JPG.jpg",
+          "file": {
+            "id": "1777626144486-0-IMG_0193[2].JPG",
+            "name": "IMG_0193[2].JPG",
+            "originalName": "IMG_0193[2].JPG",
+            "storageName": "1777626144442-98df698bd367-IMG_0193-2-.JPG.jpg",
+            "url": "http://127.0.0.1:4000/uploads/1777626144442-98df698bd367-IMG_0193-2-.JPG.jpg",
+            "previewUrl": "http://127.0.0.1:4000/uploads/1777626144442-98df698bd367-IMG_0193-2-.JPG.jpg",
+            "normalizedUrl": "http://127.0.0.1:4000/uploads/1777626144442-98df698bd367-IMG_0193-2-.JPG.jpg",
+            "kind": "photo",
+            "mimeType": "image/jpeg",
+            "sizeBytes": 3212869,
+            "sha256": "bd809eb72e92ea49238547e362cbe0c4bc092bce47170ddb4ea1baa3221f7e6a",
+            "pageCount": 1
+          },
+          "score": null,
+          "aiComment": "",
+          "teacherCommentDraft": "",
+          "errorTypes": [],
+          "errorDescription": "Не удалось завершить AI-обработку. Попробуйте повторить позже.",
+          "typedText": "",
+          "submittedAt": "2026-05-01",
+          "status": "failed",
+          "processingRevision": 1,
+          "aiConfidence": null,
+          "recognitionConfidence": null,
+          "warnings": [],
+          "needsHumanReview": false,
+          "submissionId": "sub-b101-r1",
+          "lastJobId": "rjob-a97092d523030f990c96e513",
+          "processingStartedAt": "2026-05-01T09:46:41.262Z",
+          "processingFinishedAt": "2026-05-01T09:46:44.998Z"
+        }
+      ]
+    }
+  ],
+  "counters": {
+    "student": 104,
+    "group": 101,
+    "assignment": 105,
+    "work": 103,
+    "batch": 101,
+    "report": 101,
+    "teacher": 4
+  },
+  "resetRequests": [],
+  "teacherInvites": [
+    {
+      "status": "accepted",
+      "direction": "teacher_to_student",
+      "token": "4a947c62ba21e82e72be6a511902ca62",
+      "createdAt": "2026-05-01T09:29:44.657Z",
+      "studentNotificationDismissedAt": null,
+      "id": "invite-1777627784657",
+      "teacherId": "t3",
+      "studentId": "s104",
+      "reviewedAt": "2026-05-01T09:31:59.540Z"
+    },
+    {
+      "status": "pending",
+      "direction": "teacher_to_student",
+      "token": "72122042154b7a823af4287d3b0fd038",
+      "createdAt": "2026-05-01T09:16:54.098Z",
+      "studentNotificationDismissedAt": null,
+      "id": "invite-1777627014098",
+      "teacherId": "t3",
+      "studentId": null
+    },
+    {
+      "status": "accepted",
+      "direction": "teacher_to_student",
+      "token": "d3b680a3f6b7e821e84e103624756727",
+      "createdAt": "2026-05-01T09:12:22.234Z",
+      "studentNotificationDismissedAt": null,
+      "id": "invite-1777626742234",
+      "teacherId": "t3",
+      "studentId": "s104",
+      "reviewedAt": "2026-05-01T09:12:52.913Z"
+    },
+    {
+      "status": "accepted",
+      "direction": "student_to_teacher",
+      "token": "3b4c066da4f5c3b20dff44d05e56a7ae",
+      "createdAt": "2026-05-01T08:03:50.908Z",
+      "studentNotificationDismissedAt": "2026-05-01T08:24:27.341Z",
+      "id": "invite-1777622630908",
+      "teacherId": "t3",
+      "studentId": "s102",
+      "reviewedAt": "2026-05-01T08:08:47.985Z"
+    },
+    {
+      "status": "pending",
+      "direction": "teacher_to_student",
+      "token": "aeac620bb53ef5e796e295209e484b5f",
+      "createdAt": "2026-04-21T07:41:29.251Z",
+      "studentNotificationDismissedAt": null,
+      "id": "invite-1776757289250",
+      "teacherId": "t2",
+      "studentId": null
+    },
+    {
+      "status": "accepted",
+      "direction": "teacher_to_student",
+      "token": "272c18ea4b28245bd0a0d2cef324859b",
+      "createdAt": "2026-04-19T16:42:02.489Z",
+      "studentNotificationDismissedAt": null,
+      "id": "invite-1776616922488",
+      "teacherId": "t2",
+      "studentId": "s101",
+      "claimedAt": "2026-04-19T16:42:55.640Z",
+      "reviewedAt": "2026-04-19T16:43:01.524Z"
+    },
+    {
+      "status": "pending",
+      "direction": "teacher_to_student",
+      "token": "130ad1cde4f3779bae0d174a39c9c94a",
+      "createdAt": "2026-04-19T16:41:46.189Z",
+      "studentNotificationDismissedAt": null,
+      "id": "invite-1776616906189",
+      "teacherId": "t2",
+      "studentId": null
+    },
+    {
+      "status": "pending",
+      "direction": "teacher_to_student",
+      "token": "8628bd860e646adcdf93f60f8d15128e",
+      "createdAt": "2026-04-19T16:36:07.744Z",
+      "studentNotificationDismissedAt": null,
+      "id": "invite-1776616567743",
+      "teacherId": "t2",
+      "studentId": null
+    }
+  ],
+  "teachers": [
+    {
+      "id": "t1",
+      "name": "Елена Викторовна Петрова",
+      "email": "teacher@demo.ru",
+      "phone": "+7 999 123-45-67",
+      "avatarUrl": "",
+      "plan": "Trial",
+      "subjects": [
+        "Математика",
+        "Физика",
+        "Химия"
+      ],
+      "notifications": {
+        "Новая работа загружена": true,
+        "Запрос на пересмотр": true,
+        "Дедлайн приближается": true,
+        "Еженедельная сводка": false
+      },
+      "reportPreferences": {
+        "Имя ученика": true,
+        "Частые типы ошибок": true,
+        "Гистограмма оценок": true,
+        "Частота посещаемости": true,
+        "Оценки за период": true,
+        "Динамику успеваемости": true,
+        "Слабые темы": true,
+        "Рекомендации": true,
+        "Просроченные задания": true
+      },
+      "historicalStudentIds": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s5",
+        "s6"
+      ]
+    },
+    {
+      "id": "t2",
+      "name": "Артём Сокерин",
+      "email": "rambletot@gmail.com",
+      "phone": "89527381099",
+      "avatarUrl": "",
+      "plan": "Trial",
+      "subjects": [
+        "Математика",
+        "Физика",
+        "Химия"
+      ],
+      "notifications": {
+        "Новая работа загружена": true,
+        "Запрос на пересмотр": true,
+        "Дедлайн приближается": true,
+        "Еженедельная сводка": true
+      },
+      "reportPreferences": {
+        "Имя ученика": true,
+        "Частые типы ошибок": true,
+        "Гистограмма оценок": true,
+        "Частота посещаемости": true
+      },
+      "historicalStudentIds": [
+        "s101"
+      ]
+    },
+    {
+      "id": "t3",
+      "name": "Учитель10 -",
+      "email": "учитель10@bk.ru",
+      "phone": "+79827054732",
+      "avatarUrl": "",
+      "plan": "Trial",
+      "subjects": [
+        "Математика",
+        "Физика",
+        "Химия"
+      ],
+      "notifications": {
+        "Новая работа загружена": true,
+        "Запрос на пересмотр": true,
+        "Дедлайн приближается": true,
+        "Еженедельная сводка": true
+      },
+      "reportPreferences": {
+        "Имя ученика": true,
+        "Частые типы ошибок": true,
+        "Гистограмма оценок": true
+      },
+      "historicalStudentIds": [
+        "s102",
+        "s103",
+        "s104"
+      ]
+    },
+    {
+      "id": "t4",
+      "name": "учитель11 -",
+      "email": "учитель11@bk.ru",
+      "phone": "+79827054732",
+      "avatarUrl": "",
+      "plan": "Trial",
+      "subjects": [
+        "Математика",
+        "Физика",
+        "Химия"
+      ],
+      "notifications": {
+        "Новая работа загружена": true,
+        "Запрос на пересмотр": true,
+        "Дедлайн приближается": true,
+        "Еженедельная сводка": true
+      },
+      "reportPreferences": {
+        "Имя ученика": true,
+        "Частые типы ошибок": true,
+        "Гистограмма оценок": true
+      },
+      "historicalStudentIds": []
+    }
+  ],
+  "attendanceRecords": [],
+  "submissions": [
+    {
+      "id": "sub-w1",
+      "workId": "w1",
+      "sourceType": "assignment_work",
+      "sourceRefId": "w1",
+      "assignmentId": "a1",
+      "teacherId": "t1",
+      "studentId": "s1",
+      "status": "approved",
+      "processingRevision": 1,
+      "processingStartedAt": null,
+      "processingFinishedAt": null,
+      "createdAt": "2026-03-28",
+      "lastJobId": null
+    },
+    {
+      "id": "sub-w2",
+      "workId": "w2",
+      "sourceType": "assignment_work",
+      "sourceRefId": "w2",
+      "assignmentId": "a1",
+      "teacherId": "t1",
+      "studentId": "s2",
+      "status": "approved",
+      "processingRevision": 1,
+      "processingStartedAt": null,
+      "processingFinishedAt": null,
+      "createdAt": "2026-03-29",
+      "lastJobId": null
+    },
+    {
+      "id": "sub-w3",
+      "workId": "w3",
+      "sourceType": "assignment_work",
+      "sourceRefId": "w3",
+      "assignmentId": "a2",
+      "teacherId": "t1",
+      "studentId": "s3",
+      "status": "draft_ready",
+      "processingRevision": 1,
+      "processingStartedAt": null,
+      "processingFinishedAt": null,
+      "createdAt": "2026-03-27",
+      "lastJobId": null
+    },
+    {
+      "id": "sub-w4",
+      "workId": "w4",
+      "sourceType": "assignment_work",
+      "sourceRefId": "w4",
+      "assignmentId": "a2",
+      "teacherId": "t1",
+      "studentId": "s6",
+      "status": "draft_ready",
+      "processingRevision": 1,
+      "processingStartedAt": null,
+      "processingFinishedAt": null,
+      "createdAt": "2026-03-27",
+      "lastJobId": null
+    },
+    {
+      "id": "sub-w5",
+      "workId": "w5",
+      "sourceType": "assignment_work",
+      "sourceRefId": "w5",
+      "assignmentId": "a3",
+      "teacherId": "t1",
+      "studentId": "s5",
+      "status": "approved",
+      "processingRevision": 1,
+      "processingStartedAt": null,
+      "processingFinishedAt": null,
+      "createdAt": "2026-03-20",
+      "lastJobId": null
+    },
+    {
+      "id": "sub-w101",
+      "workId": "w101",
+      "sourceType": "assignment_work",
+      "sourceRefId": "w101",
+      "assignmentId": "a102",
+      "teacherId": "t2",
+      "studentId": "s101",
+      "status": "needs_human_review",
+      "processingRevision": 1,
+      "processingStartedAt": "2026-04-21T10:22:31.296Z",
+      "processingFinishedAt": "2026-04-21T10:23:09.707Z",
+      "createdAt": "2026-04-21",
+      "lastJobId": "rjob-779e7c737f91c7f97489497b"
+    },
+    {
+      "id": "sub-w102",
+      "workId": "w102",
+      "sourceType": "assignment_work",
+      "sourceRefId": "w102",
+      "assignmentId": "a103",
+      "teacherId": "t3",
+      "studentId": "s102",
+      "status": "approved",
+      "processingRevision": 1,
+      "processingStartedAt": null,
+      "processingFinishedAt": null,
+      "createdAt": "2026-05-01",
+      "lastJobId": null
+    },
+    {
+      "id": "sub-b101-r1",
+      "sourceType": "batch_result",
+      "sourceRefId": "b101:r1",
+      "batchSessionId": "b101",
+      "batchResultId": "r1",
+      "teacherId": "t3",
+      "studentId": null,
+      "assignmentId": null,
+      "status": "failed",
+      "processingRevision": 1,
+      "processingStartedAt": "2026-05-01T09:46:41.262Z",
+      "processingFinishedAt": "2026-05-01T09:46:44.998Z",
+      "createdAt": "2026-05-01T09:02:24.486Z",
+      "lastJobId": "rjob-a97092d523030f990c96e513"
+    },
+    {
+      "id": "sub-w103",
+      "workId": "w103",
+      "sourceType": "assignment_work",
+      "sourceRefId": "w103",
+      "assignmentId": "a105",
+      "teacherId": "t3",
+      "studentId": "s102",
+      "status": "failed",
+      "processingRevision": 1,
+      "processingStartedAt": "2026-05-01T09:58:59.203Z",
+      "processingFinishedAt": "2026-05-01T09:58:59.642Z",
+      "createdAt": "2026-05-01",
+      "lastJobId": "rjob-4b019ba22c80cf39392f7660"
+    }
+  ],
+  "submissionAssets": [
+    {
+      "id": "sa-sub-w1-1",
+      "submissionId": "sub-w1",
+      "type": "image",
+      "originalUrl": "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=800&q=80",
+      "normalizedUrl": "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=800&q=80",
+      "previewUrl": "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=800&q=80",
+      "pageCount": 1,
+      "sha256": null,
+      "mimeType": "",
+      "sizeBytes": null,
+      "originalName": "s1-page1.jpg",
+      "storageName": null,
+      "kind": "photo"
+    },
+    {
+      "id": "sa-sub-w1-2",
+      "submissionId": "sub-w1",
+      "type": "image",
+      "originalUrl": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80",
+      "normalizedUrl": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80",
+      "previewUrl": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80",
+      "pageCount": 1,
+      "sha256": null,
+      "mimeType": "",
+      "sizeBytes": null,
+      "originalName": "s1-page2.jpg",
+      "storageName": null,
+      "kind": "photo"
+    },
+    {
+      "id": "sa-sub-w2-1",
+      "submissionId": "sub-w2",
+      "type": "image",
+      "originalUrl": "https://images.unsplash.com/photo-1456324504439-367cee3b3c32?auto=format&fit=crop&w=800&q=80",
+      "normalizedUrl": "https://images.unsplash.com/photo-1456324504439-367cee3b3c32?auto=format&fit=crop&w=800&q=80",
+      "previewUrl": "https://images.unsplash.com/photo-1456324504439-367cee3b3c32?auto=format&fit=crop&w=800&q=80",
+      "pageCount": 1,
+      "sha256": null,
+      "mimeType": "",
+      "sizeBytes": null,
+      "originalName": "s2-page1.jpg",
+      "storageName": null,
+      "kind": "photo"
+    },
+    {
+      "id": "sa-sub-w3-1",
+      "submissionId": "sub-w3",
+      "type": "image",
+      "originalUrl": "https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=800&q=80",
+      "normalizedUrl": "https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=800&q=80",
+      "previewUrl": "https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=800&q=80",
+      "pageCount": 1,
+      "sha256": null,
+      "mimeType": "",
+      "sizeBytes": null,
+      "originalName": "s3-page1.jpg",
+      "storageName": null,
+      "kind": "photo"
+    },
+    {
+      "id": "sa-sub-w4-1",
+      "submissionId": "sub-w4",
+      "type": "image",
+      "originalUrl": "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=800&q=80",
+      "normalizedUrl": "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=800&q=80",
+      "previewUrl": "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=800&q=80",
+      "pageCount": 1,
+      "sha256": null,
+      "mimeType": "",
+      "sizeBytes": null,
+      "originalName": "s6-page1.jpg",
+      "storageName": null,
+      "kind": "photo"
+    },
+    {
+      "id": "sa-sub-w5-1",
+      "submissionId": "sub-w5",
+      "type": "image",
+      "originalUrl": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80",
+      "normalizedUrl": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80",
+      "previewUrl": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80",
+      "pageCount": 1,
+      "sha256": null,
+      "mimeType": "",
+      "sizeBytes": null,
+      "originalName": "s5-page1.jpg",
+      "storageName": null,
+      "kind": "photo"
+    },
+    {
+      "id": "sa-sub-w101-1",
+      "submissionId": "sub-w101",
+      "type": "image",
+      "originalUrl": "http://127.0.0.1:4000/uploads/1776764649405-cc4202ac7e8c-1-2-1-4-3-4-o-N-oN-1-2-A-a-2026-04-21-2A-12.44.05.png",
+      "normalizedUrl": "http://127.0.0.1:4000/uploads/1776764649405-cc4202ac7e8c-1-2-1-4-3-4-o-N-oN-1-2-A-a-2026-04-21-2A-12.44.05.png",
+      "previewUrl": "http://127.0.0.1:4000/uploads/1776764649405-cc4202ac7e8c-1-2-1-4-3-4-o-N-oN-1-2-A-a-2026-04-21-2A-12.44.05.png",
+      "pageCount": 1,
+      "sha256": "88d42357758185e86e2c346b88fd78ee130c8fbead6d7a87fce11c5fa53f383c",
+      "mimeType": "image/png",
+      "sizeBytes": 2029590,
+      "originalName": "Ð¡Ð½Ð¸Ð¼Ð¾Ðº ÑÐºÑÐ°Ð½Ð°Â â 2026-04-21 Ð²Â 12.44.05.png",
+      "storageName": "1776764649405-cc4202ac7e8c-1-2-1-4-3-4-o-N-oN-1-2-A-a-2026-04-21-2A-12.44.05.png",
+      "kind": "photo"
+    },
+    {
+      "id": "sa-sub-w102-1",
+      "submissionId": "sub-w102",
+      "type": "image",
+      "originalUrl": "http://127.0.0.1:4000/uploads/1777624795209-e907be6d993b-IMG_0194-1-.JPG.jpg",
+      "normalizedUrl": "http://127.0.0.1:4000/uploads/1777624795209-e907be6d993b-IMG_0194-1-.JPG.jpg",
+      "previewUrl": "http://127.0.0.1:4000/uploads/1777624795209-e907be6d993b-IMG_0194-1-.JPG.jpg",
+      "pageCount": 1,
+      "sha256": "ecdf27294754a87aa784af4db9e837e5b7c870b124be627f9e5eb0d792f62602",
+      "mimeType": "image/jpeg",
+      "sizeBytes": 3539482,
+      "originalName": "IMG_0194[1].JPG",
+      "storageName": "1777624795209-e907be6d993b-IMG_0194-1-.JPG.jpg",
+      "kind": "photo"
+    },
+    {
+      "id": "sa-sub-w102-2",
+      "submissionId": "sub-w102",
+      "type": "image",
+      "originalUrl": "http://127.0.0.1:4000/uploads/1777624795241-04eb3aaccb25-IMG_0195-1-.JPG.jpg",
+      "normalizedUrl": "http://127.0.0.1:4000/uploads/1777624795241-04eb3aaccb25-IMG_0195-1-.JPG.jpg",
+      "previewUrl": "http://127.0.0.1:4000/uploads/1777624795241-04eb3aaccb25-IMG_0195-1-.JPG.jpg",
+      "pageCount": 1,
+      "sha256": "2130314e4463cacf883ebb3241cbbfdc4dbe17d06fb593f1b26a7bceb4dc30bd",
+      "mimeType": "image/jpeg",
+      "sizeBytes": 3272858,
+      "originalName": "IMG_0195[1].JPG",
+      "storageName": "1777624795241-04eb3aaccb25-IMG_0195-1-.JPG.jpg",
+      "kind": "photo"
+    },
+    {
+      "id": "sa-sub-w102-3",
+      "submissionId": "sub-w102",
+      "type": "image",
+      "originalUrl": "http://127.0.0.1:4000/uploads/1777624795258-6dc25b9da37c-IMG_0193-2-.JPG.jpg",
+      "normalizedUrl": "http://127.0.0.1:4000/uploads/1777624795258-6dc25b9da37c-IMG_0193-2-.JPG.jpg",
+      "previewUrl": "http://127.0.0.1:4000/uploads/1777624795258-6dc25b9da37c-IMG_0193-2-.JPG.jpg",
+      "pageCount": 1,
+      "sha256": "bd809eb72e92ea49238547e362cbe0c4bc092bce47170ddb4ea1baa3221f7e6a",
+      "mimeType": "image/jpeg",
+      "sizeBytes": 3212869,
+      "originalName": "IMG_0193[2].JPG",
+      "storageName": "1777624795258-6dc25b9da37c-IMG_0193-2-.JPG.jpg",
+      "kind": "photo"
+    },
+    {
+      "id": "sa-sub-b101-r1-1",
+      "submissionId": "sub-b101-r1",
+      "type": "image",
+      "originalUrl": "http://127.0.0.1:4000/uploads/1777626144442-98df698bd367-IMG_0193-2-.JPG.jpg",
+      "normalizedUrl": "http://127.0.0.1:4000/uploads/1777626144442-98df698bd367-IMG_0193-2-.JPG.jpg",
+      "previewUrl": "http://127.0.0.1:4000/uploads/1777626144442-98df698bd367-IMG_0193-2-.JPG.jpg",
+      "pageCount": 1,
+      "sha256": "bd809eb72e92ea49238547e362cbe0c4bc092bce47170ddb4ea1baa3221f7e6a",
+      "mimeType": "image/jpeg",
+      "sizeBytes": 3212869,
+      "originalName": "IMG_0193[2].JPG",
+      "storageName": "1777626144442-98df698bd367-IMG_0193-2-.JPG.jpg",
+      "kind": "photo"
+    },
+    {
+      "id": "sa-sub-w103-1",
+      "submissionId": "sub-w103",
+      "type": "pdf",
+      "originalUrl": "http://127.0.0.1:4000/uploads/1777629529233-f6f75fa1e81c-1-2-1-4-3-4-o-N-oN-1-2-2026-05-01-2.pdf",
+      "normalizedUrl": "http://127.0.0.1:4000/uploads/1777629529233-f6f75fa1e81c-1-2-1-4-3-4-o-N-oN-1-2-2026-05-01-2.pdf",
+      "previewUrl": "http://127.0.0.1:4000/uploads/1777629529233-f6f75fa1e81c-1-2-1-4-3-4-o-N-oN-1-2-2026-05-01-2.pdf",
+      "pageCount": 2,
+      "sha256": "1be210fd2f3cf41ff935aa1cf6b70fb14e135e49653c5d6163273dbbb02d71a6",
+      "mimeType": "application/pdf",
+      "sizeBytes": 120005,
+      "originalName": "Ð¡Ð½Ð¸Ð¼Ð¾Ðº ÑÐºÑÐ°Ð½Ð° 2026-05-01 2.pdf",
+      "storageName": "1777629529233-f6f75fa1e81c-1-2-1-4-3-4-o-N-oN-1-2-2026-05-01-2.pdf",
+      "kind": "file"
+    }
+  ],
+  "recognitionJobs": [
+    {
+      "id": "rjob-4b019ba22c80cf39392f7660",
+      "submissionId": "sub-w103",
+      "teacherId": "t3",
+      "status": "failed",
+      "attempts": 3,
+      "createdAt": "2026-05-01T09:58:49.249Z",
+      "processingRevision": 1,
+      "idempotencyKey": "4b019ba22c80cf39392f7660209c54b9d7b7b2dcfdab32b9794f1a4323b0edf7",
+      "nextAttemptAt": "2026-05-01T09:58:58.156Z",
+      "lastError": "Не удалось завершить AI-обработку. Попробуйте повторить позже.",
+      "sourceType": "assignment_work",
+      "sourceRefId": "w103",
+      "startedAt": "2026-05-01T09:58:59.203Z",
+      "failedAt": "2026-05-01T09:58:59.642Z"
+    },
+    {
+      "id": "rjob-a97092d523030f990c96e513",
+      "submissionId": "sub-b101-r1",
+      "teacherId": "t3",
+      "status": "failed",
+      "attempts": 3,
+      "createdAt": "2026-05-01T09:46:30.124Z",
+      "processingRevision": 2,
+      "idempotencyKey": "a97092d523030f990c96e51314e5b3e26097c4667a9a5b14b90830a84299c52d",
+      "nextAttemptAt": "2026-05-01T09:46:40.210Z",
+      "lastError": "Не удалось завершить AI-обработку. Попробуйте повторить позже.",
+      "sourceType": "batch_result",
+      "sourceRefId": "b101:r1",
+      "startedAt": "2026-05-01T09:46:41.262Z",
+      "failedAt": "2026-05-01T09:46:44.998Z"
+    },
+    {
+      "id": "rjob-79a69d7eb0c19a88b5f79dcb",
+      "submissionId": "sub-b101-r1",
+      "teacherId": "t3",
+      "status": "failed",
+      "attempts": 3,
+      "createdAt": "2026-05-01T09:02:24.496Z",
+      "processingRevision": 1,
+      "idempotencyKey": "79a69d7eb0c19a88b5f79dcb5c28e753cae31063fcf9889c712a13db27df9d70",
+      "nextAttemptAt": "2026-05-01T09:02:34.349Z",
+      "lastError": "Не удалось завершить AI-обработку. Попробуйте повторить позже.",
+      "sourceType": "batch_result",
+      "sourceRefId": "b101:r1",
+      "startedAt": "2026-05-01T09:02:35.381Z",
+      "failedAt": "2026-05-01T09:02:36.618Z"
+    },
+    {
+      "id": "rjob-779e7c737f91c7f97489497b",
+      "submissionId": "sub-w101",
+      "teacherId": "t2",
+      "status": "completed",
+      "attempts": 1,
+      "createdAt": "2026-04-21T10:22:31.267Z",
+      "processingRevision": 2,
+      "idempotencyKey": "779e7c737f91c7f97489497b2b062776eb2953b6856d683a163ff0f966484e77",
+      "nextAttemptAt": "2026-04-21T10:22:31.267Z",
+      "lastError": null,
+      "sourceType": "assignment_work",
+      "sourceRefId": "w101",
+      "startedAt": "2026-04-21T10:22:31.296Z",
+      "completedAt": "2026-04-21T10:23:09.707Z",
+      "provider": "openai"
+    }
+  ],
+  "recognitionPages": [
+    {
+      "id": "sa-sub-w101-1-page-1",
+      "submissionAssetId": "sa-sub-w101-1",
+      "pageNumber": 1,
+      "recognizedText": "№1.\nЗадание: Найти S равнобедр. Δ, известна a = 10, ∠ = 30°\n\nРешение:\n\nРисунок: равнобедренный треугольник, на боковых сторонах подписано «a» и «a», у вершины отмечен угол (похоже, α).\n\nS = 2·a^2·sinα = 2·10^2·sin30 = 150\n\nОтвет: 150\n\nСправа нарисован круг/овал с зачёркиванием; внутри неразборчивые буквы (похоже на «M…»).",
+      "recognizedLatex": "S = 2\\cdot a^2\\cdot \\sin\\alpha = 2\\cdot 10^2\\cdot \\sin 30 = 150\n150",
+      "detectionBlocks": [
+        {
+          "type": "task",
+          "text": "№1.\nЗадание: Найти S равнобедр. Δ, известна a = 10, ∠ = 30°",
+          "latex": null,
+          "confidence": 0.78
+        },
+        {
+          "type": "solution",
+          "text": "Решение:",
+          "latex": null,
+          "confidence": 0.92
+        },
+        {
+          "type": "diagram",
+          "text": "Рисунок: равнобедренный треугольник, на боковых сторонах подписано «a» и «a», у вершины отмечен угол (похоже, α).",
+          "latex": null,
+          "confidence": 0.74
+        },
+        {
+          "type": "solution",
+          "text": "S = 2·a^2·sinα = 2·10^2·sin30 = 150",
+          "latex": "S = 2\\cdot a^2\\cdot \\sin\\alpha = 2\\cdot 10^2\\cdot \\sin 30 = 150",
+          "confidence": 0.83
+        },
+        {
+          "type": "answer",
+          "text": "Ответ: 150",
+          "latex": "150",
+          "confidence": 0.9
+        },
+        {
+          "type": "annotation",
+          "text": "Справа нарисован круг/овал с зачёркиванием; внутри неразборчивые буквы (похоже на «M…»).",
+          "latex": null,
+          "confidence": 0.45
+        }
+      ],
+      "recognitionConfidence": 0.77,
+      "provider": "openai",
+      "rawStructuredOutput": {
+        "pages": [
+          {
+            "pageNumber": 1,
+            "detectedBlocks": [
+              {
+                "type": "task",
+                "text": "№1.\nЗадание: Найти S равнобедр. Δ, известна a = 10, ∠ = 30°",
+                "latex": null,
+                "confidence": 0.78
+              },
+              {
+                "type": "solution",
+                "text": "Решение:",
+                "latex": null,
+                "confidence": 0.92
+              },
+              {
+                "type": "diagram",
+                "text": "Рисунок: равнобедренный треугольник, на боковых сторонах подписано «a» и «a», у вершины отмечен угол (похоже, α).",
+                "latex": null,
+                "confidence": 0.74
+              },
+              {
+                "type": "solution",
+                "text": "S = 2·a^2·sinα = 2·10^2·sin30 = 150",
+                "latex": "S = 2\\cdot a^2\\cdot \\sin\\alpha = 2\\cdot 10^2\\cdot \\sin 30 = 150",
+                "confidence": 0.83
+              },
+              {
+                "type": "answer",
+                "text": "Ответ: 150",
+                "latex": "150",
+                "confidence": 0.9
+              },
+              {
+                "type": "annotation",
+                "text": "Справа нарисован круг/овал с зачёркиванием; внутри неразборчивые буквы (похоже на «M…»).",
+                "latex": null,
+                "confidence": 0.45
+              }
+            ]
+          }
+        ],
+        "globalConfidence": 0.77,
+        "warnings": [
+          "Часть текста условия сокращена и не до конца разборчива (\"равнобедр.\", символ угла/α).",
+          "В правой части есть зачёркнутый набросок в круге; надпись внутри не читается."
+        ]
+      }
+    }
+  ],
+  "analysisDrafts": [
+    {
+      "id": "ad-sub-w1",
+      "submissionId": "sub-w1",
+      "extractedTask": "Лист из 8 заданий на производные и исследование функции.",
+      "extractedStudentSolution": "1) y = sin(x^2), y' = 2x cos(x^2)...\n5) Интервалы возрастания...",
+      "studentSolutionSummary": "1) y = sin(x^2), y' = 2x cos(x^2)...\n5) Интервалы возрастания...",
+      "canonicalSolution": "",
+      "detectedMistakes": [
+        {
+          "types": [
+            "Логическая",
+            "Вычислительная"
+          ],
+          "label": "Цепное правило",
+          "description": "Потерян множитель внутренней функции и неверно определены интервалы возрастания."
+        }
+      ],
+      "teacherCommentDraft": "",
+      "studentCommentDraft": "Ход решения в целом верный, но есть ошибки в применении цепного правила и анализе знаков производной.",
+      "suggestedScore": 31,
+      "confidence": 0.55,
+      "needsHumanReview": false,
+      "rawModelOutput": null,
+      "mistakeTags": [
+        "Логическая",
+        "Вычислительная"
+      ],
+      "recommendations": [],
+      "warnings": []
+    },
+    {
+      "id": "ad-sub-w2",
+      "submissionId": "sub-w2",
+      "extractedTask": "Лист из 8 заданий на производные и исследование функции.",
+      "extractedStudentSolution": "Производные вычислены, но в задаче 8 потерян множитель 1/2...",
+      "studentSolutionSummary": "Производные вычислены, но в задаче 8 потерян множитель 1/2...",
+      "canonicalSolution": "",
+      "detectedMistakes": [
+        {
+          "types": [
+            "Вычислительная"
+          ],
+          "label": "Потерян коэффициент",
+          "description": "В последнем пункте потерян множитель 1/2."
+        }
+      ],
+      "teacherCommentDraft": "",
+      "studentCommentDraft": "Сильная работа, но последняя задача требует аккуратности.",
+      "suggestedScore": 34,
+      "confidence": 0.55,
+      "needsHumanReview": false,
+      "rawModelOutput": null,
+      "mistakeTags": [
+        "Вычислительная"
+      ],
+      "recommendations": [],
+      "warnings": []
+    },
+    {
+      "id": "ad-sub-w3",
+      "submissionId": "sub-w3",
+      "extractedTask": "Домашняя работа по законам Ньютона и связанным телам.",
+      "extractedStudentSolution": "F=ma, задача на наклонную плоскость, задача на блоки...",
+      "studentSolutionSummary": "F=ma, задача на наклонную плоскость, задача на блоки...",
+      "canonicalSolution": "",
+      "detectedMistakes": [
+        {
+          "types": [
+            "Вычислительная",
+            "Оформление"
+          ],
+          "label": "Арифметика и единицы",
+          "description": "Вычисление ускорения выполнено с ошибкой, в ответе отсутствуют единицы измерения."
+        }
+      ],
+      "teacherCommentDraft": "",
+      "studentCommentDraft": "Основной ход решения верный, но есть арифметическая ошибка и неполное оформление ответов.",
+      "suggestedScore": 37,
+      "confidence": 0.55,
+      "needsHumanReview": true,
+      "rawModelOutput": null,
+      "mistakeTags": [
+        "Вычислительная",
+        "Оформление"
+      ],
+      "recommendations": [],
+      "warnings": []
+    },
+    {
+      "id": "ad-sub-w4",
+      "submissionId": "sub-w4",
+      "extractedTask": "Домашняя работа по законам Ньютона и связанным телам.",
+      "extractedStudentSolution": "Решение задачи 3: a=(m1-m2)g/(m1+m2)...",
+      "studentSolutionSummary": "Решение задачи 3: a=(m1-m2)g/(m1+m2)...",
+      "canonicalSolution": "",
+      "detectedMistakes": [
+        {
+          "types": [
+            "Оформление"
+          ],
+          "label": "Спорная описка",
+          "description": "В задаче 3 вероятна описка, влияющая на итоговую формулу."
+        }
+      ],
+      "teacherCommentDraft": "",
+      "studentCommentDraft": "Ученик просит пересмотр из-за описки в задаче 3.",
+      "suggestedScore": 33,
+      "confidence": 0.55,
+      "needsHumanReview": true,
+      "rawModelOutput": null,
+      "mistakeTags": [
+        "Оформление"
+      ],
+      "recommendations": [],
+      "warnings": []
+    },
+    {
+      "id": "ad-sub-w5",
+      "submissionId": "sub-w5",
+      "extractedTask": "Контрольная на ОВР и степени окисления.",
+      "extractedStudentSolution": "ОВР: 2Fe + 3Cl2 = 2FeCl3...",
+      "studentSolutionSummary": "ОВР: 2Fe + 3Cl2 = 2FeCl3...",
+      "canonicalSolution": "",
+      "detectedMistakes": [
+        {
+          "types": [
+            "Логическая",
+            "Терминология"
+          ],
+          "label": "Баланс ОВР",
+          "description": "Коэффициенты подобраны без полного электронного баланса, неверно определена степень окисления."
+        }
+      ],
+      "teacherCommentDraft": "",
+      "studentCommentDraft": "Нужно еще раз пройти электронный баланс.",
+      "suggestedScore": 16,
+      "confidence": 0.55,
+      "needsHumanReview": false,
+      "rawModelOutput": null,
+      "mistakeTags": [
+        "Логическая",
+        "Терминология"
+      ],
+      "recommendations": [],
+      "warnings": []
+    },
+    {
+      "id": "ad-sub-w101",
+      "submissionId": "sub-w101",
+      "extractedTask": "Найти площадь равнобедренного треугольника при a = 10 и α = 30° (по рисунку α — угол при вершине между равными сторонами a и a).",
+      "extractedStudentSolution": "Ученик нарисовал равнобедренный треугольник с боковыми сторонами a и a и углом α при вершине. Записал формулу S = 2·a^2·sinα, подставил a=10, α=30°, получил S = 150 и записал ответ 150.",
+      "studentSolutionSummary": "Ученик нарисовал равнобедренный треугольник с боковыми сторонами a и a и углом α при вершине. Записал формулу S = 2·a^2·sinα, подставил a=10, α=30°, получил S = 150 и записал ответ 150.",
+      "canonicalSolution": "Если α — угол между равными сторонами (вершинный угол), то площадь через две стороны и угол между ними:\nS = (1/2)·a·a·sinα = (1/2)·a^2·sinα.\nПодстановка: S = (1/2)·10^2·sin30° = (1/2)·100·(1/2) = 25.\n\nЕсли же α по условию был не вершинный, а, например, угол при основании, то нужна дополнительная связь (например, найти высоту/основание через тригонометрию), и результат будет другим. По распознанному рисунку α скорее именно вершинный угол.",
+      "detectedMistakes": [
+        {
+          "types": [
+            "формула площади",
+            "треугольники",
+            "тригонометрия"
+          ],
+          "label": "Неверный коэффициент в формуле площади через две стороны и угол между ними",
+          "description": "Для площади по двум сторонам и углу между ними используется S = (1/2)ab·sinγ. При a=b получаем S = (1/2)·a^2·sinα. В работе написано S = 2·a^2·sinα, что завышает ответ в 4 раза.",
+          "locationHint": "Строка с формулой: «S = 2·a^2·sinα …»",
+          "severity": "high",
+          "isRecognitionUncertain": false
+        },
+        {
+          "types": [
+            "формула площади",
+            "треугольники",
+            "тригонометрия"
+          ],
+          "label": "Неверный численный ответ из-за неверной формулы",
+          "description": "При a=10 и sin30°=1/2 правильное значение (если α — угол между равными сторонами) равно 25, а не 150.",
+          "locationHint": "Строка вычислений и «Ответ: 150»",
+          "severity": "high",
+          "isRecognitionUncertain": false
+        },
+        {
+          "types": [
+            "формула площади",
+            "треугольники",
+            "тригонометрия"
+          ],
+          "label": "Возможная неоднозначность: какой именно угол задан (α при вершине или при основании)",
+          "description": "По рисунку угол отмечен у вершины, но текст «∠ = 30°» может быть без уточнения. Если α не является углом между равными сторонами, решение нужно строить иначе. Это влияет на корректность проверки результата.",
+          "locationHint": "Формулировка условия и рисунок с отмеченным углом",
+          "severity": "medium",
+          "isRecognitionUncertain": true
+        }
+      ],
+      "teacherCommentDraft": "По распознаванию: ученик считает площадь равнобедр. треугольника с боковыми сторонами a=a=10 и отмеченным углом α=30° у вершины. Применена формула с синусом, но коэффициент ошибочный: вместо S=(1/2)a^2 sinα записано S=2a^2 sinα → завышение в 4 раза, ответ 150 неверный (должно быть 25 при вершинном угле). При этом ход мысли частично верный (выбор тригонометрической формулы и sin30). Рекомендую 1/2 по рубрике. Есть небольшая неоднозначность: в тексте угол не уточнён, но по рисунку — вершинный; при другом понимании угла требовалось бы иное решение.",
+      "studentCommentDraft": "Ты правильно выбрал идею использовать формулу площади через синус, но в формуле должен быть коэффициент 1/2: S = (1/2)·a^2·sinα. Тогда при a=10 и α=30° получится S = 25 (если α — угол между равными сторонами).",
+      "suggestedScore": 1,
+      "confidence": 0.78,
+      "needsHumanReview": true,
+      "rawModelOutput": {
+        "extractedTask": "Найти площадь равнобедренного треугольника при a = 10 и α = 30° (по рисунку α — угол при вершине между равными сторонами a и a).",
+        "studentSolutionSummary": "Ученик нарисовал равнобедренный треугольник с боковыми сторонами a и a и углом α при вершине. Записал формулу S = 2·a^2·sinα, подставил a=10, α=30°, получил S = 150 и записал ответ 150.",
+        "canonicalSolution": "Если α — угол между равными сторонами (вершинный угол), то площадь через две стороны и угол между ними:\nS = (1/2)·a·a·sinα = (1/2)·a^2·sinα.\nПодстановка: S = (1/2)·10^2·sin30° = (1/2)·100·(1/2) = 25.\n\nЕсли же α по условию был не вершинный, а, например, угол при основании, то нужна дополнительная связь (например, найти высоту/основание через тригонометрию), и результат будет другим. По распознанному рисунку α скорее именно вершинный угол.",
+        "mistakes": [
+          {
+            "title": "Неверный коэффициент в формуле площади через две стороны и угол между ними",
+            "description": "Для площади по двум сторонам и углу между ними используется S = (1/2)ab·sinγ. При a=b получаем S = (1/2)·a^2·sinα. В работе написано S = 2·a^2·sinα, что завышает ответ в 4 раза.",
+            "severity": "high",
+            "locationHint": "Строка с формулой: «S = 2·a^2·sinα …»",
+            "isRecognitionUncertain": false
+          },
+          {
+            "title": "Неверный численный ответ из-за неверной формулы",
+            "description": "При a=10 и sin30°=1/2 правильное значение (если α — угол между равными сторонами) равно 25, а не 150.",
+            "severity": "high",
+            "locationHint": "Строка вычислений и «Ответ: 150»",
+            "isRecognitionUncertain": false
+          },
+          {
+            "title": "Возможная неоднозначность: какой именно угол задан (α при вершине или при основании)",
+            "description": "По рисунку угол отмечен у вершины, но текст «∠ = 30°» может быть без уточнения. Если α не является углом между равными сторонами, решение нужно строить иначе. Это влияет на корректность проверки результата.",
+            "severity": "medium",
+            "locationHint": "Формулировка условия и рисунок с отмеченным углом",
+            "isRecognitionUncertain": true
+          }
+        ],
+        "mistakeTags": [
+          "формула площади",
+          "треугольники",
+          "тригонометрия",
+          "вычисления",
+          "неоднозначность условия/OCR"
+        ],
+        "suggestedScore": 1,
+        "studentCommentDraft": "Ты правильно выбрал идею использовать формулу площади через синус, но в формуле должен быть коэффициент 1/2: S = (1/2)·a^2·sinα. Тогда при a=10 и α=30° получится S = 25 (если α — угол между равными сторонами).",
+        "teacherCommentDraft": "По распознаванию: ученик считает площадь равнобедр. треугольника с боковыми сторонами a=a=10 и отмеченным углом α=30° у вершины. Применена формула с синусом, но коэффициент ошибочный: вместо S=(1/2)a^2 sinα записано S=2a^2 sinα → завышение в 4 раза, ответ 150 неверный (должно быть 25 при вершинном угле). При этом ход мысли частично верный (выбор тригонометрической формулы и sin30). Рекомендую 1/2 по рубрике. Есть небольшая неоднозначность: в тексте угол не уточнён, но по рисунку — вершинный; при другом понимании угла требовалось бы иное решение.",
+        "recommendations": [
+          "Уточнить у ученика/в условии: α — вершинный угол между равными сторонами или угол при основании.",
+          "Если цель — именно вершинный угол, закрепить формулу S = (1/2)ab·sinγ и частный случай S=(1/2)a^2 sinα.",
+          "Попросить ученика перепроверять коэффициенты (1/2) в геометрических формулах и оценивать порядок величины ответа."
+        ],
+        "confidence": 0.78,
+        "needsHumanReview": true,
+        "warnings": [
+          "Угол α в условии может быть не уточнён; корректность эталона зависит от того, является ли α углом между равными сторонами (по рисунку — да)."
+        ]
+      },
+      "mistakeTags": [
+        "формула площади",
+        "треугольники",
+        "тригонометрия",
+        "вычисления",
+        "неоднозначность условия/OCR"
+      ],
+      "recommendations": [
+        "Уточнить у ученика/в условии: α — вершинный угол между равными сторонами или угол при основании.",
+        "Если цель — именно вершинный угол, закрепить формулу S = (1/2)ab·sinγ и частный случай S=(1/2)a^2 sinα.",
+        "Попросить ученика перепроверять коэффициенты (1/2) в геометрических формулах и оценивать порядок величины ответа."
+      ],
+      "warnings": [
+        "Угол α в условии может быть не уточнён; корректность эталона зависит от того, является ли α углом между равными сторонами (по рисунку — да)."
+      ]
+    },
+    {
+      "id": "ad-sub-w102",
+      "submissionId": "sub-w102",
+      "extractedTask": "Сделать задание по ссылке",
+      "extractedStudentSolution": "Распознанный текст будет добавлен после обработки.",
+      "studentSolutionSummary": "Распознанный текст будет добавлен после обработки.",
+      "canonicalSolution": "",
+      "detectedMistakes": [],
+      "teacherCommentDraft": "",
+      "studentCommentDraft": "AI-анализ будет добавлен после обработки.",
+      "suggestedScore": 0,
+      "confidence": 0.55,
+      "needsHumanReview": true,
+      "rawModelOutput": null,
+      "mistakeTags": [],
+      "recommendations": [],
+      "warnings": []
+    },
+    {
+      "id": "ad-sub-w103",
+      "submissionId": "sub-w103",
+      "extractedTask": "",
+      "extractedStudentSolution": "Распознанный текст будет добавлен после обработки.",
+      "studentSolutionSummary": "Распознанный текст будет добавлен после обработки.",
+      "canonicalSolution": "",
+      "detectedMistakes": [],
+      "teacherCommentDraft": "",
+      "studentCommentDraft": "AI-анализ будет добавлен после обработки.",
+      "suggestedScore": 0,
+      "confidence": 0.55,
+      "needsHumanReview": true,
+      "rawModelOutput": null,
+      "mistakeTags": [],
+      "recommendations": [],
+      "warnings": []
+    }
+  ],
+  "teacherReviews": [
+    {
+      "id": "tr-sub-w1",
+      "submissionId": "sub-w1",
+      "editedStudentComment": "Ход решения в целом верный, но есть ошибки в применении цепного правила и анализе знаков производной.",
+      "editedTeacherComment": "",
+      "finalScore": 31,
+      "teacherApprovedAt": null,
+      "wasEditedAfterAI": false
+    },
+    {
+      "id": "tr-sub-w2",
+      "submissionId": "sub-w2",
+      "editedStudentComment": "Сильная работа, но последняя задача требует аккуратности.",
+      "editedTeacherComment": "",
+      "finalScore": 33,
+      "teacherApprovedAt": null,
+      "wasEditedAfterAI": false
+    },
+    {
+      "id": "tr-sub-w5",
+      "submissionId": "sub-w5",
+      "editedStudentComment": "Нужно еще раз пройти электронный баланс.",
+      "editedTeacherComment": "",
+      "finalScore": 15,
+      "teacherApprovedAt": null,
+      "wasEditedAfterAI": false
+    },
+    {
+      "id": "tr-sub-w102",
+      "submissionId": "sub-w102",
+      "editedStudentComment": "AI-анализ будет добавлен после обработки.",
+      "editedTeacherComment": "",
+      "finalScore": 0,
+      "teacherApprovedAt": "2026-05-01T09:05:16.611Z",
+      "wasEditedAfterAI": false
+    }
+  ],
+  "finalFeedbacks": [
+    {
+      "id": "ff-sub-w1",
+      "submissionId": "sub-w1",
+      "studentId": "s1",
+      "teacherId": "t1",
+      "finalScore": 31,
+      "studentComment": "Ход решения в целом верный, но есть ошибки в применении цепного правила и анализе знаков производной.",
+      "teacherComment": "",
+      "recommendations": [],
+      "publishedAt": null
+    },
+    {
+      "id": "ff-sub-w2",
+      "submissionId": "sub-w2",
+      "studentId": "s2",
+      "teacherId": "t1",
+      "finalScore": 33,
+      "studentComment": "Сильная работа, но последняя задача требует аккуратности.",
+      "teacherComment": "",
+      "recommendations": [],
+      "publishedAt": null
+    },
+    {
+      "id": "ff-sub-w5",
+      "submissionId": "sub-w5",
+      "studentId": "s5",
+      "teacherId": "t1",
+      "finalScore": 15,
+      "studentComment": "Нужно еще раз пройти электронный баланс.",
+      "teacherComment": "",
+      "recommendations": [],
+      "publishedAt": null
+    },
+    {
+      "id": "ff-sub-w102",
+      "submissionId": "sub-w102",
+      "studentId": "s102",
+      "teacherId": "t3",
+      "finalScore": 0,
+      "studentComment": "AI-анализ будет добавлен после обработки.",
+      "teacherComment": "",
+      "recommendations": [],
+      "publishedAt": "2026-05-01T09:05:16.611Z"
+    }
+  ],
+  "parentReportSnapshots": [
+    {
+      "id": "prs-1777627849941-8b4103",
+      "createdAt": "2026-05-01T09:30:49.941Z",
+      "teacherId": "t3",
+      "targetType": "student",
+      "targetId": "s102",
+      "periodLabel": "25.04.2026 - 11.02.2026",
+      "payload": {
+        "studentName": "Ученик10 -",
+        "frequentErrors": "Недостаточно данных",
+        "gradesHistogram": "Недостаточно данных",
+        "parentEmail": "родитель10@bk.ru",
+        "periodLabel": "25.04.2026 - 11.02.2026"
+      },
+      "recipients": [
+        {
+          "contact": "родитель10@bk.ru",
+          "name": "к",
+          "studentId": "s102"
+        }
+      ]
+    },
+    {
+      "id": "prs-1777619100051-297eed",
+      "createdAt": "2026-05-01T07:05:00.051Z",
+      "teacherId": "t1",
+      "targetType": "group",
+      "targetId": "g1",
+      "periodLabel": "02.04.2026 - 01.05.2026",
+      "payload": [
+        {
+          "studentId": "s2",
+          "studentName": "Мария Соколова",
+          "frequentErrors": "Недостаточно данных",
+          "gradesHistogram": "Недостаточно данных",
+          "parentEmail": "sokolova.parent@mail.ru",
+          "periodLabel": "02.04.2026 - 01.05.2026"
+        },
+        {
+          "studentId": "s4",
+          "studentName": "Дарья Крылова",
+          "frequentErrors": "Недостаточно данных",
+          "gradesHistogram": "Недостаточно данных",
+          "parentEmail": "krylova.parent@mail.ru",
+          "periodLabel": "02.04.2026 - 01.05.2026"
+        }
+      ],
+      "recipients": [
+        {
+          "contact": "sokolova.parent@mail.ru",
+          "name": "Ирина Соколова",
+          "studentId": "s2"
+        },
+        {
+          "contact": "krylova.parent@mail.ru",
+          "name": "Ольга Крылова",
+          "studentId": "s4"
+        }
+      ]
+    },
+    {
+      "id": "prs-1777406160079-cdd1c3",
+      "createdAt": "2026-04-28T19:56:00.079Z",
+      "teacherId": "t1",
+      "targetType": "student",
+      "targetId": "s1",
+      "periodLabel": "22.04.2026 - 28.04.2026",
+      "payload": {
+        "studentName": "Алексей Смирнов",
+        "frequentErrors": "Недостаточно данных",
+        "gradesHistogram": "Недостаточно данных",
+        "parentEmail": "smirnov.parent@mail.ru",
+        "periodLabel": "22.04.2026 - 28.04.2026"
+      },
+      "recipients": [
+        {
+          "contact": "smirnov.parent@mail.ru",
+          "name": "Наталья Смирнова",
+          "studentId": "s1"
+        }
+      ]
+    }
+  ],
+  "auditTrail": [
+    {
+      "id": "audit-1777629539642-214656",
+      "createdAt": "2026-05-01T09:58:59.642Z",
+      "actorId": "t3",
+      "action": "ai_job_failed",
+      "entityType": "submission",
+      "entityId": "sub-w103",
+      "meta": {
+        "attempts": 3,
+        "safeMessage": "Не удалось завершить AI-обработку. Попробуйте повторить позже."
+      }
+    },
+    {
+      "id": "audit-1777629533156-744b6f",
+      "createdAt": "2026-05-01T09:58:53.156Z",
+      "actorId": "t3",
+      "action": "ai_job_retry_scheduled",
+      "entityType": "submission",
+      "entityId": "sub-w103",
+      "meta": {
+        "attempts": 2,
+        "safeMessage": "Не удалось завершить AI-обработку. Попробуйте повторить позже."
+      }
+    },
+    {
+      "id": "audit-1777629529907-54259e",
+      "createdAt": "2026-05-01T09:58:49.907Z",
+      "actorId": "t3",
+      "action": "ai_job_retry_scheduled",
+      "entityType": "submission",
+      "entityId": "sub-w103",
+      "meta": {
+        "attempts": 1,
+        "safeMessage": "Не удалось завершить AI-обработку. Попробуйте повторить позже."
+      }
+    },
+    {
+      "id": "audit-1777629529249-c4026f",
+      "createdAt": "2026-05-01T09:58:49.249Z",
+      "actorId": "t3",
+      "action": "ai_job_enqueued",
+      "entityType": "submission",
+      "entityId": "sub-w103",
+      "meta": {
+        "sourceType": "assignment_work",
+        "processingRevision": 1
+      }
+    },
+    {
+      "id": "audit-1777628804998-6d0e33",
+      "createdAt": "2026-05-01T09:46:44.998Z",
+      "actorId": "t3",
+      "action": "ai_job_failed",
+      "entityType": "submission",
+      "entityId": "sub-b101-r1",
+      "meta": {
+        "attempts": 3,
+        "safeMessage": "Не удалось завершить AI-обработку. Попробуйте повторить позже."
+      }
+    },
+    {
+      "id": "audit-1777628795210-9e9f51",
+      "createdAt": "2026-05-01T09:46:35.210Z",
+      "actorId": "t3",
+      "action": "ai_job_retry_scheduled",
+      "entityType": "submission",
+      "entityId": "sub-b101-r1",
+      "meta": {
+        "attempts": 2,
+        "safeMessage": "Не удалось завершить AI-обработку. Попробуйте повторить позже."
+      }
+    },
+    {
+      "id": "audit-1777628791416-025b91",
+      "createdAt": "2026-05-01T09:46:31.416Z",
+      "actorId": "t3",
+      "action": "ai_job_retry_scheduled",
+      "entityType": "submission",
+      "entityId": "sub-b101-r1",
+      "meta": {
+        "attempts": 1,
+        "safeMessage": "Не удалось завершить AI-обработку. Попробуйте повторить позже."
+      }
+    },
+    {
+      "id": "audit-1777628790124-541b67",
+      "createdAt": "2026-05-01T09:46:30.124Z",
+      "actorId": "t3",
+      "action": "ai_job_enqueued",
+      "entityType": "submission",
+      "entityId": "sub-b101-r1",
+      "meta": {
+        "sourceType": "batch_result",
+        "processingRevision": 2
+      }
+    },
+    {
+      "id": "audit-1777626316611-578b3f",
+      "createdAt": "2026-05-01T09:05:16.611Z",
+      "actorId": "t3",
+      "action": "teacher_review_approved",
+      "entityType": "submission",
+      "entityId": "sub-w102",
+      "meta": {
+        "wasEditedAfterAI": false
+      }
+    },
+    {
+      "id": "audit-1777626156618-4e6477",
+      "createdAt": "2026-05-01T09:02:36.618Z",
+      "actorId": "t3",
+      "action": "ai_job_failed",
+      "entityType": "submission",
+      "entityId": "sub-b101-r1",
+      "meta": {
+        "attempts": 3,
+        "safeMessage": "Не удалось завершить AI-обработку. Попробуйте повторить позже."
+      }
+    },
+    {
+      "id": "audit-1777626149349-48195c",
+      "createdAt": "2026-05-01T09:02:29.349Z",
+      "actorId": "t3",
+      "action": "ai_job_retry_scheduled",
+      "entityType": "submission",
+      "entityId": "sub-b101-r1",
+      "meta": {
+        "attempts": 2,
+        "safeMessage": "Не удалось завершить AI-обработку. Попробуйте повторить позже."
+      }
+    },
+    {
+      "id": "audit-1777626145581-f35f32",
+      "createdAt": "2026-05-01T09:02:25.581Z",
+      "actorId": "t3",
+      "action": "ai_job_retry_scheduled",
+      "entityType": "submission",
+      "entityId": "sub-b101-r1",
+      "meta": {
+        "attempts": 1,
+        "safeMessage": "Не удалось завершить AI-обработку. Попробуйте повторить позже."
+      }
+    },
+    {
+      "id": "audit-1777626144496-f588c3",
+      "createdAt": "2026-05-01T09:02:24.496Z",
+      "actorId": "t3",
+      "action": "ai_job_enqueued",
+      "entityType": "submission",
+      "entityId": "sub-b101-r1",
+      "meta": {
+        "sourceType": "batch_result",
+        "processingRevision": 1
+      }
+    },
+    {
+      "id": "audit-1776766989707-b48218",
+      "createdAt": "2026-04-21T10:23:09.708Z",
+      "actorId": "t2",
+      "action": "ai_job_completed",
+      "entityType": "submission",
+      "entityId": "sub-w101",
+      "meta": {
+        "provider": "openai",
+        "status": "needs_human_review"
+      }
+    },
+    {
+      "id": "audit-1776766951267-38e8eb",
+      "createdAt": "2026-04-21T10:22:31.267Z",
+      "actorId": "t2",
+      "action": "ai_job_enqueued",
+      "entityType": "submission",
+      "entityId": "sub-w101",
+      "meta": {
+        "sourceType": "assignment_work",
+        "processingRevision": 2
+      }
+    }
+  ]
+}

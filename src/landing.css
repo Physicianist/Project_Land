@@ -1,0 +1,3020 @@
+.plPage {
+  --pl-bg: #ffffff;
+  --pl-bg-soft: #faf8ff;
+  --pl-bg-muted: #f4f1ff;
+  --pl-surface: #ffffff;
+  --pl-surface-strong: #f7f5ff;
+  --pl-ink: #111218;
+  --pl-muted: #5d6372;
+  --pl-line: rgba(17, 18, 24, 0.1);
+  --pl-line-strong: rgba(17, 18, 24, 0.18);
+  --pl-accent: #7d73ef;
+  --pl-accent-soft: #ece9ff;
+  --pl-dark: #101116;
+  --pl-dark-soft: #171821;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 12% 10%, rgba(125, 115, 239, 0.06), transparent 20%),
+    radial-gradient(circle at 86% 16%, rgba(125, 115, 239, 0.05), transparent 18%),
+    linear-gradient(180deg, #ffffff 0%, #fcfbff 52%, #ffffff 100%);
+  color: var(--pl-ink);
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+}
+
+.plPage::before,
+.plPage::after {
+  content: '';
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.plPage::before {
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(125, 115, 239, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(125, 115, 239, 0.04) 1px, transparent 1px);
+  background-size: 120px 120px;
+  mask-image: radial-gradient(circle at center, black 24%, transparent 82%);
+  opacity: 0.52;
+  transform: translateY(calc(var(--pl-scroll-progress, 0) * -18px));
+  transition:
+    transform 0.85s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.85s cubic-bezier(0.22, 1, 0.36, 1),
+    background-size 0.85s cubic-bezier(0.22, 1, 0.36, 1),
+    mask-image 0.85s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.plPage::after {
+  inset: auto;
+  border-radius: 999px;
+  opacity: 0.75;
+  width: 420px;
+  height: 420px;
+  top: 120px;
+  right: -180px;
+  background:
+    radial-gradient(circle, transparent 58%, rgba(125, 115, 239, 0.12) 58.5%, rgba(125, 115, 239, 0.12) 60%, transparent 60.5%),
+    radial-gradient(circle, transparent 76%, rgba(125, 115, 239, 0.08) 76.5%, rgba(125, 115, 239, 0.08) 78%, transparent 78.5%);
+  transition: transform 0.85s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.85s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.plBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.plBackdropGlow {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(10px);
+  opacity: 0.24;
+  transition:
+    transform 0.85s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.85s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.plBackdropGlowOne {
+  width: 340px;
+  height: 340px;
+  top: 4%;
+  left: -120px;
+  background: radial-gradient(circle, rgba(93, 130, 255, 0.05), transparent 68%);
+}
+
+.plBackdropGlowTwo {
+  width: 420px;
+  height: 420px;
+  right: -160px;
+  top: 16%;
+  background: radial-gradient(circle, rgba(77, 181, 160, 0.045), transparent 70%);
+}
+
+.plBackdropGlowThree {
+  width: 380px;
+  height: 380px;
+  left: 34%;
+  bottom: -160px;
+  background: radial-gradient(circle, rgba(255, 174, 71, 0.045), transparent 68%);
+}
+
+.plBackdropObject,
+.plBackdropClockNext {
+  position: absolute;
+  border-radius: 34px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(92, 102, 129, 0.04);
+  box-shadow: 0 18px 50px rgba(111, 123, 157, 0.025);
+  backdrop-filter: blur(3px);
+  opacity: 0.46;
+  transition:
+    transform 0.85s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.85s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.plBackdropObject {
+  padding: 22px 22px 18px;
+}
+
+.plBackdropLabel {
+  margin-bottom: 10px;
+  color: rgba(65, 74, 96, 0.34);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.plBackdropFormulaText {
+  color: rgba(44, 52, 74, 0.28);
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.plBackdropSvg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.plBackdropAxis,
+.plBackdropShapeMuted {
+  fill: none;
+  stroke: rgba(88, 98, 126, 0.11);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.5;
+}
+
+.plBackdropShape,
+.plBackdropCurve,
+.plBackdropWave,
+.plBackdropOutline {
+  fill: none;
+  stroke: rgba(62, 74, 110, 0.18);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.plBackdropShape,
+.plBackdropOutline {
+  stroke-width: 3;
+}
+
+.plBackdropCurve,
+.plBackdropWave {
+  stroke-width: 4;
+}
+
+.plBackdropPoint {
+  fill: rgba(81, 96, 150, 0.14);
+}
+
+.plBackdropMathBoard {
+  width: 260px;
+  top: 7%;
+  left: 6%;
+  transform: rotate(-5deg);
+  animation: plFloatSlow 15s ease-in-out infinite;
+}
+
+.plBackdropGeometryCard {
+  width: 230px;
+  top: 38%;
+  left: 6%;
+  transform: rotate(5deg);
+  animation: plFloatMedium 16s ease-in-out infinite;
+}
+
+.plBackdropPhysicsBoard {
+  width: 260px;
+  top: 7%;
+  left: 50%;
+  transform: translateX(-50%) rotate(4deg);
+  animation: plFloatMedium 17s ease-in-out infinite;
+}
+
+.plBackdropPhysicsCard {
+  width: 220px;
+  top: 38%;
+  right: 6%;
+  transform: rotate(-6deg);
+  animation: plFloatSlow 18s ease-in-out infinite;
+}
+
+.plBackdropChemBoard {
+  width: 230px;
+  top: 38%;
+  left: 50%;
+  transform: translateX(-50%) rotate(-3deg);
+  animation: plFloatSlow 17.5s ease-in-out infinite;
+}
+
+.plBackdropChemBoard .plBackdropFormulaText {
+  display: none;
+}
+
+.plBackdropLabCard {
+  width: 220px;
+  bottom: 7%;
+  left: 50%;
+  transform: translateX(-50%) rotate(3deg);
+  animation: plFloatMedium 15.5s ease-in-out infinite;
+}
+
+.plBackdropLabCard .plBackdropLabel {
+  display: none;
+}
+
+.plBackdropBubbleOne {
+  animation: plBubble 5s ease-in-out infinite;
+}
+
+.plBackdropBubbleTwo {
+  animation: plBubble 4.6s ease-in-out infinite 1.2s;
+}
+
+.plBackdropClockNext {
+  width: 168px;
+  height: 168px;
+  right: 6%;
+  top: 8%;
+  border-radius: 999px;
+  background: radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.56), rgba(235, 239, 248, 0.28) 70%);
+  border: 1px solid rgba(89, 100, 127, 0.05);
+  display: grid;
+  place-items: center;
+  opacity: 0.4;
+  animation: plFloatMedium 14s ease-in-out infinite;
+}
+
+.plBackdropClockNext::before {
+  content: '';
+  position: absolute;
+  inset: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(89, 100, 127, 0.06);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.5), rgba(237, 240, 248, 0.2) 74%);
+}
+
+.plBackdropClockNext::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(67, 77, 106, 0.28);
+  z-index: 2;
+}
+
+.plBackdropClockMarks {
+  position: absolute;
+  inset: 22px;
+}
+
+.plBackdropClockMarks span {
+  position: absolute;
+  top: 4px;
+  left: calc(50% - 1.5px);
+  width: 3px;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(76, 85, 112, 0.16);
+  transform-origin: 50% 69px;
+  transform: rotate(var(--clock-rotation));
+}
+
+.plBackdropClockHand {
+  position: absolute;
+  left: calc(50% - 2px);
+  bottom: 50%;
+  border-radius: 999px;
+  background: rgba(64, 73, 102, 0.3);
+  transform-origin: 50% 100%;
+  z-index: 2;
+}
+
+.plBackdropClockHandHour {
+  width: 4px;
+  height: 42px;
+  transform: rotate(38deg);
+  animation: plClockHour 24s linear infinite;
+}
+
+.plBackdropClockHandMinute {
+  width: 3px;
+  height: 60px;
+  transform: rotate(128deg);
+  animation: plClockMinute 8s linear infinite;
+}
+
+.plBackdropOrbit,
+.plBackdropBeam,
+.plBackdropTrail,
+.plBackdropPanel,
+.plBackdropFrame,
+.plBackdropDots,
+.plBackdropBadge,
+.plBackdropClock {
+  display: none;
+}
+
+@keyframes plFloatSlow {
+  0%, 100% {
+    translate: 0 0;
+  }
+
+  50% {
+    translate: 0 -14px;
+  }
+}
+
+@keyframes plFloatMedium {
+  0%, 100% {
+    translate: 0 0;
+  }
+
+  50% {
+    translate: 0 -10px;
+  }
+}
+
+@keyframes plBubble {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: 0.72;
+  }
+
+  50% {
+    transform: translateY(-8px);
+    opacity: 1;
+  }
+}
+
+@keyframes plClockHour {
+  from {
+    transform: rotate(38deg);
+  }
+
+  to {
+    transform: rotate(398deg);
+  }
+}
+
+@keyframes plClockMinute {
+  from {
+    transform: rotate(128deg);
+  }
+
+  to {
+    transform: rotate(488deg);
+  }
+}
+
+.plBackdropOrbit,
+.plBackdropBeam,
+.plBackdropTrail,
+.plBackdropPanel,
+.plBackdropFrame,
+.plBackdropDots {
+  position: absolute;
+  transition:
+    transform 0.85s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.85s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.plBackdropOrbit {
+  border-radius: 999px;
+  border: 1px solid rgba(125, 115, 239, 0.12);
+}
+
+.plBackdropOrbitOne {
+  width: 440px;
+  height: 440px;
+  top: 8%;
+  right: -160px;
+  opacity: 0.48;
+  transform: translateY(calc(var(--pl-scroll-progress, 0) * 32px));
+}
+
+.plBackdropOrbitTwo {
+  width: 220px;
+  height: 220px;
+  left: 4%;
+  top: 38%;
+  opacity: 0.28;
+  transform: translateY(calc(var(--pl-scroll-progress, 0) * -24px));
+}
+
+.plBackdropOrbitThree {
+  width: 300px;
+  height: 300px;
+  right: 12%;
+  bottom: 10%;
+  opacity: 0.22;
+  transform: translateY(calc(var(--pl-scroll-progress, 0) * -40px));
+}
+
+.plBackdropBeam {
+  height: 1px;
+  background: linear-gradient(90deg, rgba(125, 115, 239, 0), rgba(125, 115, 239, 0.22), rgba(125, 115, 239, 0));
+  opacity: 0.55;
+}
+
+.plBackdropTrail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  opacity: 0.34;
+}
+
+.plBackdropTrail span {
+  display: block;
+  height: 1px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(125, 115, 239, 0.04), rgba(125, 115, 239, 0.28), rgba(125, 115, 239, 0.04));
+}
+
+.plBackdropTrail span:nth-child(1) {
+  width: 82px;
+}
+
+.plBackdropTrail span:nth-child(2) {
+  width: 118px;
+}
+
+.plBackdropTrail span:nth-child(3) {
+  width: 56px;
+}
+
+.plBackdropTrail span:nth-child(4) {
+  width: 96px;
+}
+
+.plBackdropPanel {
+  border: 1px solid rgba(125, 115, 239, 0.1);
+  background: linear-gradient(180deg, rgba(125, 115, 239, 0.08), rgba(125, 115, 239, 0.02));
+  opacity: 0.28;
+}
+
+.plBackdropBeamOne {
+  width: 320px;
+  top: 22%;
+  left: 10%;
+  transform: rotate(-18deg);
+}
+
+.plBackdropBeamTwo {
+  width: 260px;
+  right: 8%;
+  top: 66%;
+  transform: rotate(24deg);
+}
+
+.plBackdropTrailOne {
+  top: 14%;
+  left: 18%;
+  transform: rotate(-90deg) translateY(calc(var(--pl-scroll-progress, 0) * -18px));
+}
+
+.plBackdropTrailTwo {
+  right: 10%;
+  bottom: 20%;
+  transform: rotate(18deg) translateY(calc(var(--pl-scroll-progress, 0) * 20px));
+}
+
+.plBackdropFrame {
+  width: 240px;
+  height: 240px;
+  right: 18%;
+  top: 36%;
+  border: 1px solid rgba(125, 115, 239, 0.1);
+  border-radius: 28px;
+  opacity: 0.34;
+}
+
+.plBackdropPanelOne {
+  width: 220px;
+  height: 150px;
+  left: -44px;
+  top: 18%;
+  border-radius: 36px;
+  transform: rotate(-16deg) translateY(calc(var(--pl-scroll-progress, 0) * 26px));
+}
+
+.plBackdropPanelTwo {
+  width: 180px;
+  height: 180px;
+  right: 4%;
+  bottom: 16%;
+  border-radius: 40px;
+  transform: rotate(14deg) translateY(calc(var(--pl-scroll-progress, 0) * -22px));
+}
+
+.plBackdropBadge {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 110px;
+  min-height: 110px;
+  padding: 16px;
+  border-radius: 28px;
+  background: rgba(125, 115, 239, 0.08);
+  border: 1px solid rgba(125, 115, 239, 0.14);
+  color: #3a3454;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.1;
+  opacity: 0.82;
+  box-shadow: 0 24px 80px rgba(125, 115, 239, 0.04);
+}
+
+.plBackdropPhysics {
+  top: 16%;
+  left: 8%;
+  transform: rotate(-4deg);
+}
+
+.plBackdropChemistry {
+  top: 10%;
+  right: 16%;
+  width: 92px;
+  min-height: 92px;
+  transform: rotate(6deg);
+  font-size: 0.88rem;
+}
+
+.plBackdropMath {
+  bottom: 18%;
+  left: 14%;
+  width: 104px;
+  min-height: 104px;
+  transform: rotate(5deg);
+}
+
+.plBackdropBadge {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 104px;
+  min-height: 104px;
+  padding: 14px;
+  border-radius: 28px;
+  background: rgba(125, 115, 239, 0.06);
+  border: 1px solid rgba(125, 115, 239, 0.08);
+  color: rgba(56, 45, 89, 0.52);
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.1;
+  opacity: 0.55;
+  box-shadow: 0 16px 35px rgba(125, 115, 239, 0.02);
+}
+
+.plBackdropFormula,
+.plBackdropGraph,
+.plBackdropSigma,
+.plBackdropMath,
+.plBackdropPhysics,
+.plBackdropChemistry,
+.plBackdropPhysics2,
+.plBackdropChemistry2,
+.plBackdropMath2,
+.plBackdropFormula2,
+.plBackdropFormula3 {
+  width: 104px;
+  min-height: 104px;
+}
+
+.plBackdropFormula {
+  top: 24%;
+  right: 22%;
+  transform: rotate(4deg);
+}
+
+.plBackdropPhysics2 {
+  top: 6%;
+  left: 38%;
+  width: 96px;
+  min-height: 96px;
+  transform: rotate(-6deg);
+}
+
+.plBackdropChemistry2 {
+  top: 30%;
+  right: 10%;
+  width: 104px;
+  min-height: 104px;
+  transform: rotate(12deg);
+}
+
+.plBackdropMath2 {
+  right: 18%;
+  top: 48%;
+  width: 96px;
+  min-height: 96px;
+  transform: rotate(-10deg);
+}
+
+.plBackdropFormula2 {
+  left: 6%;
+  top: 50%;
+  width: 100px;
+  min-height: 100px;
+  transform: rotate(3deg);
+}
+
+.plBackdropFormula3 {
+  bottom: 8%;
+  right: 24%;
+  width: 112px;
+  min-height: 92px;
+  transform: rotate(-4deg);
+}
+
+.plBackdropGraph {
+  top: 54%;
+  left: 18%;
+  width: 100px;
+  min-height: 100px;
+  transform: rotate(-6deg);
+}
+
+.plBackdropSigma {
+  left: 12%;
+  top: 30%;
+  width: 112px;
+  min-height: 92px;
+  transform: rotate(8deg);
+}
+
+.plBackdropClock {
+  position: absolute;
+  width: 140px;
+  height: 140px;
+  border-radius: 999px;
+  top: 18%;
+  right: 8%;
+  border: 1px solid rgba(125, 115, 239, 0.1);
+  background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.92), rgba(125, 115, 239, 0.07) 68%);
+  box-shadow: 0 20px 48px rgba(125, 115, 239, 0.05);
+  opacity: 0.58;
+  display: grid;
+  place-items: center;
+}
+
+.plBackdropClock::before {
+  content: '';
+  position: absolute;
+  inset: 16px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.9), rgba(125, 115, 239, 0.06) 75%);
+  border: 1px solid rgba(125, 115, 239, 0.08);
+}
+
+.plBackdropClock::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(125, 115, 239, 0.9);
+}
+
+.plBackdropClock span {
+  position: absolute;
+  width: 6px;
+  height: 44px;
+  background: rgba(125, 115, 239, 0.82);
+  border-radius: 999px;
+  top: calc(50% - 22px);
+  left: calc(50% - 3px);
+}
+
+.plBackdropClock span:nth-child(2) {
+  width: 6px;
+  height: 28px;
+  top: calc(50% - 14px);
+  left: calc(50% - 3px);
+  transform: rotate(110deg);
+}
+
+.plBackdropClock span:first-child {
+  transform: rotate(40deg);
+}
+
+.plBackdropDots {
+  left: 9%;
+  bottom: 12%;
+  display: grid;
+  grid-template-columns: repeat(3, 10px);
+  gap: 18px;
+  opacity: 0.42;
+}
+
+.plBackdropDots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(125, 115, 239, 0.28);
+}
+
+.plPage[data-phase='1']::after {
+  transform: translate3d(-120px, 140px, 0) scale(0.88);
+  opacity: 0.58;
+}
+
+.plPage[data-phase='1']::before {
+  opacity: 0.44;
+  background-size: 106px 106px;
+}
+
+.plPage[data-phase='1'] .plBackdropOrbitOne {
+  transform: translate3d(-180px, 90px, 0) scale(0.86);
+  opacity: 0.34;
+}
+
+.plPage[data-phase='1'] .plBackdropOrbitTwo {
+  transform: translate3d(140px, -20px, 0) scale(1.14);
+  opacity: 0.38;
+}
+
+.plPage[data-phase='1'] .plBackdropFrame {
+  transform: translate3d(-160px, -90px, 0) rotate(-12deg);
+  opacity: 0.46;
+}
+
+.plPage[data-phase='1'] .plBackdropTrailOne {
+  transform: translate3d(60px, 20px, 0) rotate(-74deg) scale(1.02);
+  opacity: 0.42;
+}
+
+.plPage[data-phase='1'] .plBackdropTrailTwo {
+  transform: translate3d(-80px, -40px, 0) rotate(10deg) scale(0.94);
+  opacity: 0.3;
+}
+
+.plPage[data-phase='1'] .plBackdropPanelOne {
+  transform: translate3d(80px, 40px, 0) rotate(-6deg) scale(1.06);
+  opacity: 0.34;
+}
+
+.plPage[data-phase='1'] .plBackdropPanelTwo {
+  transform: translate3d(-40px, -70px, 0) rotate(18deg) scale(0.92);
+  opacity: 0.22;
+}
+
+.plPage[data-phase='2']::after {
+  transform: translate3d(-220px, 300px, 0) scale(0.72);
+  opacity: 0.34;
+}
+
+.plPage[data-phase='2']::before {
+  opacity: 0.34;
+  background-size: 138px 138px;
+  mask-image: radial-gradient(circle at 56% 44%, black 26%, transparent 84%);
+}
+
+.plPage[data-phase='2'] .plBackdropOrbitOne {
+  transform: translate3d(-260px, 220px, 0) scale(0.7);
+  opacity: 0.18;
+}
+
+.plPage[data-phase='2'] .plBackdropOrbitThree {
+  transform: translate3d(-120px, -160px, 0) scale(1.18);
+  opacity: 0.36;
+}
+
+.plPage[data-phase='2'] .plBackdropBeamOne {
+  transform: translate3d(90px, 110px, 0) rotate(8deg);
+  opacity: 0.3;
+}
+
+.plPage[data-phase='2'] .plBackdropBeamTwo {
+  transform: translate3d(-120px, -80px, 0) rotate(-22deg);
+  opacity: 0.46;
+}
+
+.plPage[data-phase='2'] .plBackdropDots {
+  transform: translate3d(110px, -140px, 0) scale(1.08);
+  opacity: 0.54;
+}
+
+.plPage[data-phase='2'] .plBackdropTrailOne {
+  transform: translate3d(120px, 180px, 0) rotate(-28deg) scale(0.86);
+  opacity: 0.24;
+}
+
+.plPage[data-phase='2'] .plBackdropTrailTwo {
+  transform: translate3d(-180px, -120px, 0) rotate(-10deg) scale(1.06);
+  opacity: 0.42;
+}
+
+.plPage[data-phase='2'] .plBackdropPanelOne {
+  transform: translate3d(160px, 180px, 0) rotate(8deg) scale(0.82);
+  opacity: 0.2;
+}
+
+.plPage[data-phase='2'] .plBackdropPanelTwo {
+  transform: translate3d(-160px, -120px, 0) rotate(-10deg) scale(1.08);
+  opacity: 0.3;
+}
+
+.plPage[data-phase='3']::after {
+  transform: translate3d(-320px, 420px, 0) scale(0.56);
+  opacity: 0.18;
+}
+
+.plPage[data-phase='3']::before {
+  opacity: 0.26;
+  background-size: 154px 154px;
+  mask-image: radial-gradient(circle at 68% 32%, black 24%, transparent 82%);
+}
+
+.plPage[data-phase='3'] .plBackdropOrbitTwo {
+  transform: translate3d(220px, -180px, 0) scale(0.84);
+  opacity: 0.22;
+}
+
+.plPage[data-phase='3'] .plBackdropOrbitThree {
+  transform: translate3d(-180px, -220px, 0) scale(1.26);
+  opacity: 0.42;
+}
+
+.plPage[data-phase='3'] .plBackdropFrame {
+  transform: translate3d(-280px, 140px, 0) rotate(14deg);
+  opacity: 0.24;
+}
+
+.plPage[data-phase='3'] .plBackdropDots {
+  transform: translate3d(180px, -250px, 0) scale(0.92);
+  opacity: 0.3;
+}
+
+.plPage[data-phase='3'] .plBackdropTrailOne {
+  transform: translate3d(200px, 240px, 0) rotate(-8deg) scale(0.72);
+  opacity: 0.16;
+}
+
+.plPage[data-phase='3'] .plBackdropTrailTwo {
+  transform: translate3d(-260px, -180px, 0) rotate(-24deg) scale(1.14);
+  opacity: 0.22;
+}
+
+.plPage[data-phase='3'] .plBackdropPanelOne {
+  transform: translate3d(220px, 260px, 0) rotate(14deg) scale(0.68);
+  opacity: 0.12;
+}
+
+.plPage[data-phase='3'] .plBackdropPanelTwo {
+  transform: translate3d(-240px, -220px, 0) rotate(-18deg) scale(1.12);
+  opacity: 0.18;
+}
+
+.plPage[data-phase='1'] .plBackdropMathBoard {
+  transform: translate3d(10px, 16px, 0) rotate(-4deg);
+}
+
+.plPage[data-phase='1'] .plBackdropGeometryCard {
+  transform: translate3d(8px, 16px, 0) rotate(6deg);
+}
+
+.plPage[data-phase='1'] .plBackdropPhysicsBoard {
+  transform: translate3d(-50%, 16px, 0) rotate(6deg);
+}
+
+.plPage[data-phase='1'] .plBackdropChemBoard {
+  transform: translate3d(-50%, 18px, 0) rotate(-5deg);
+}
+
+.plPage[data-phase='1'] .plBackdropClockNext {
+  transform: translate3d(-10px, 16px, 0);
+}
+
+.plPage[data-phase='2'] .plBackdropPhysicsCard {
+  transform: translate3d(-14px, -12px, 0) rotate(-4deg);
+}
+
+.plPage[data-phase='2'] .plBackdropLabCard {
+  transform: translate3d(-50%, -14px, 0) rotate(4deg);
+}
+
+.plPage[data-phase='2'] .plBackdropGeometryCard {
+  transform: translate3d(12px, -10px, 0) rotate(7deg);
+}
+
+.plPage[data-phase='2'] .plBackdropGlowTwo {
+  transform: translate3d(-90px, 50px, 0) scale(0.92);
+  opacity: 0.42;
+}
+
+.plPage[data-phase='3'] .plBackdropMathBoard {
+  transform: translate3d(12px, -12px, 0) rotate(-7deg);
+  opacity: 0.4;
+}
+
+.plPage[data-phase='3'] .plBackdropGeometryCard {
+  transform: translate3d(10px, -12px, 0) rotate(4deg);
+  opacity: 0.38;
+}
+
+.plPage[data-phase='3'] .plBackdropChemBoard {
+  transform: translate3d(-50%, -16px, 0) rotate(-1deg);
+  opacity: 0.38;
+}
+
+.plPage[data-phase='3'] .plBackdropClockNext {
+  transform: translate3d(-12px, -14px, 0) scale(0.94);
+  opacity: 0.38;
+}
+
+.plPage[data-phase='3'] .plBackdropGlowThree {
+  transform: translate3d(20px, -80px, 0) scale(0.9);
+  opacity: 0.2;
+}
+
+.plPage * {
+  box-sizing: border-box;
+}
+
+.plPage h1,
+.plPage h2,
+.plPage h3,
+.plPage p {
+  margin: 0;
+}
+
+.plContainer {
+  width: min(1200px, calc(100% - 40px));
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+[data-reveal][data-revealed='true'] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.plHasCursor,
+.plHasCursor * {
+  cursor: none !important;
+}
+
+.plCursorAura,
+.plCursorDot {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 80;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity 0.22s ease,
+    width 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.24s ease,
+    box-shadow 0.24s ease;
+  will-change: transform, opacity, width, height;
+}
+
+.plCursorAura {
+  width: 88px;
+  height: 88px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(125, 115, 239, 0.18) 0%, rgba(125, 115, 239, 0.1) 36%, rgba(125, 115, 239, 0) 74%);
+  filter: blur(14px);
+  mix-blend-mode: normal;
+}
+
+.plCursorDot {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(125, 115, 239, 0.92);
+  box-shadow:
+    0 0 0 10px rgba(125, 115, 239, 0.1),
+    0 0 24px rgba(125, 115, 239, 0.28);
+}
+
+.plCursorAura.is-visible,
+.plCursorDot.is-visible {
+  opacity: 1;
+}
+
+.plCursorAura.is-active {
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, rgba(125, 115, 239, 0.24) 0%, rgba(125, 115, 239, 0.13) 40%, rgba(125, 115, 239, 0) 78%);
+}
+
+.plCursorDot.is-active {
+  box-shadow:
+    0 0 0 14px rgba(125, 115, 239, 0.12),
+    0 0 32px rgba(125, 115, 239, 0.3);
+}
+
+.plCursorAura.is-pressed {
+  width: 72px;
+  height: 72px;
+}
+
+.plHeader {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--pl-line);
+}
+
+.plHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 80px;
+}
+
+.plBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.plBrandMark {
+  position: relative;
+  display: inline-flex;
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  border: 1px solid var(--pl-line-strong);
+  background: var(--pl-surface);
+  flex: none;
+}
+
+.plBrandMark::before,
+.plBrandMark::after,
+.plBrandMarkCore {
+  content: '';
+  position: absolute;
+  border-radius: 999px;
+}
+
+.plBrandMark::before {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--pl-ink);
+}
+
+.plBrandMark::after {
+  width: 28px;
+  height: 2px;
+  background: var(--pl-accent);
+  transform: rotate(-36deg);
+}
+
+.plBrandMarkCore {
+  width: 8px;
+  height: 8px;
+  background: var(--pl-accent);
+}
+
+.plBrandTextWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.plBrandText {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+}
+
+.plBrandMeta,
+.plFooterMeta {
+  color: var(--pl-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.plNav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.plNav button,
+.plMobileMenuInner button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--pl-muted);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.plNav button:hover,
+.plMobileMenuInner button:hover {
+  color: var(--pl-ink);
+}
+
+.plHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.plPrimaryBtn,
+.plSecondaryBtn,
+.plGhostBtn,
+.plConfirmBtn,
+.plEditBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid var(--pl-line-strong);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.plPrimaryBtn,
+.plConfirmBtn {
+  background: var(--pl-accent);
+  border-color: rgba(125, 115, 239, 0.55);
+  color: #ffffff;
+}
+
+.plSecondaryBtn,
+.plGhostBtn,
+.plEditBtn {
+  background: var(--pl-surface);
+  color: var(--pl-ink);
+}
+
+.plEditBtn {
+  background: #eef1f5;
+  border-color: rgba(17, 18, 24, 0.1);
+  color: #4d5566;
+}
+
+.plPrimaryBtnWide {
+  width: 100%;
+}
+
+.plHeaderCta {
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+
+.plGhostBtn {
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+
+.plBurger {
+  display: none;
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  border: 1px solid var(--pl-line);
+  background: var(--pl-surface);
+  color: var(--pl-ink);
+}
+
+.plMobileMenu {
+  border-top: 1px solid var(--pl-line);
+  background: var(--pl-bg);
+}
+
+.plMobileMenuInner {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 0 18px;
+}
+
+.plMobileMenuInner button {
+  text-align: left;
+}
+
+.plHero,
+.plSection,
+.plFinalSection {
+  padding: 88px 0;
+}
+
+.plHeroGrid,
+.plPainGrid,
+.plExampleLayout,
+.plTrustGrid,
+.plOutcomeGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  gap: 32px;
+  align-items: start;
+}
+
+.plHeroCopy {
+  padding-top: 12px;
+}
+
+.plEyebrowDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--pl-accent);
+}
+
+.plEyebrow,
+.plMiniTitle,
+.plCardLabel,
+.plEyebrowLight {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--pl-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+}
+
+.plEyebrowLight,
+.plSectionTitleLight,
+.plSectionTextLight {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.plHeroTitle,
+.plSectionHead h2,
+.plTrustMain h2,
+.plFinalCard h2,
+.plSectionTitleLight {
+  max-width: 16ch;
+  font-size: clamp(34px, 4.6vw, 56px);
+  line-height: 0.96;
+  letter-spacing: -0.07em;
+  text-wrap: balance;
+}
+
+.plHeroTitle {
+  max-width: 11ch;
+  font-size: clamp(42px, 5.4vw, 64px);
+}
+
+.plHeroText,
+.plSectionHead p,
+.plTrustMain p,
+.plFinalCard p,
+.plSectionTextLight {
+  max-width: 42ch;
+  margin-top: 18px;
+  color: var(--pl-muted);
+  font-size: 18px;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+.plHeroActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.plHeroMetrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.plHeroMetric {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: start;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid var(--pl-line);
+  background: rgba(255, 255, 255, 0.9);
+  overflow: hidden;
+}
+
+.plHeroMetric::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(125, 115, 239, 0.08), transparent 36%);
+}
+
+.plHeroMetric strong,
+.plHeroMetricBody {
+  position: relative;
+  z-index: 1;
+}
+
+.plHeroMetric strong {
+  font-size: 34px;
+  line-height: 0.94;
+  letter-spacing: -0.08em;
+}
+
+.plHeroMetricBody span {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--pl-ink);
+}
+
+.plHeroMetricBody p {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--pl-muted);
+}
+
+.plHeroScope {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.plHeroScopeLabel {
+  color: var(--pl-muted);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.plHeroScopeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.plPillRow,
+.plAudienceRow,
+.plFinalTrust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.plPillRow {
+  margin-top: 24px;
+}
+
+.plAudienceRow {
+  margin-top: 16px;
+}
+
+.plPill,
+.plAudiencePill,
+.plFinalTrust span,
+.plCardBadge,
+.plFeaturedBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(125, 115, 239, 0.2);
+  background: var(--pl-accent-soft);
+  color: #554cc2;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.plAudiencePill {
+  background: var(--pl-surface);
+  border-color: var(--pl-line);
+  color: var(--pl-ink);
+}
+
+.plHeroDemo,
+.plProofGrid,
+.plAudienceGrid,
+.plStepsGrid,
+.plBenefitsGrid,
+.plPricingGrid,
+.plOutcomeCards {
+  display: grid;
+  gap: 18px;
+}
+
+.plHeroDemo {
+  grid-template-columns: 1fr;
+  align-items: stretch;
+}
+
+.plHeroDemo > .plDemoSource,
+.plHeroDemo > .plDemoResult {
+  display: none;
+}
+
+.plReviewCase {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--pl-line);
+  background: var(--pl-surface);
+  border-radius: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.plReviewCase::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, rgba(125, 115, 239, 0.08), transparent 30%),
+    radial-gradient(circle at top right, rgba(125, 115, 239, 0.12), transparent 24%);
+  opacity: 0.8;
+}
+
+.plReviewCase > * {
+  position: relative;
+  z-index: 1;
+}
+
+.plDemoSource,
+.plDemoResult,
+.plCard,
+.plProofCard,
+.plPainItem,
+.plPainFooter,
+.plTimelineItem,
+.plFaqItem,
+.plFinalCard {
+  border: 1px solid var(--pl-line);
+  background: var(--pl-surface);
+  border-radius: 24px;
+}
+
+.plDemoSource,
+.plDemoResult {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+}
+
+.plDemoSource::before,
+.plDemoResult::before,
+.plCard::before,
+.plProofCard::before,
+.plFinalCard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, rgba(125, 115, 239, 0.08), transparent 30%),
+    radial-gradient(circle at top right, rgba(125, 115, 239, 0.12), transparent 24%);
+  opacity: 0.8;
+}
+
+.plDemoCardTop,
+.plCardTop,
+.plPriceTop,
+.plFooterRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plCardTop,
+.plPriceTop {
+  flex-wrap: wrap;
+}
+
+.plDemoCardTop {
+  color: var(--pl-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.plNotebookShot {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.plNotebookMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.plNotebookMeta strong {
+  font-size: 18px;
+  letter-spacing: -0.04em;
+}
+
+.plNotebookMeta span,
+.plDemoHint,
+.plHumanLoopNote,
+.plPriceNote,
+.plCalcFootnote {
+  color: var(--pl-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.plNotebookPaper {
+  position: relative;
+  min-height: 320px;
+  padding: 28px 22px;
+  border-radius: 20px;
+  border: 1px solid rgba(17, 18, 24, 0.08);
+  background: #fffdf8;
+  overflow: hidden;
+}
+
+.plNotebookFocus {
+  position: absolute;
+  left: 44px;
+  top: 102px;
+  width: 162px;
+  height: 56px;
+  border-radius: 16px;
+  border: 1px solid rgba(166, 61, 97, 0.26);
+  background: rgba(255, 240, 244, 0.58);
+}
+
+.plNotebookPaper::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to bottom, transparent 31px, rgba(125, 115, 239, 0.09) 32px);
+  background-size: 100% 32px;
+  pointer-events: none;
+}
+
+.plNotebookPhoto {
+  display: none;
+  border-radius: 18px;
+  border: 1px solid rgba(17, 18, 24, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(246, 248, 255, 0.94)),
+    linear-gradient(90deg, rgba(218, 228, 255, 0.7) 1px, transparent 1px),
+    linear-gradient(rgba(218, 228, 255, 0.7) 1px, transparent 1px);
+  background-size: auto, 28px 28px, 28px 28px;
+  padding: 14px;
+}
+
+.plNotebookPhotoFrame {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 14px;
+  align-items: start;
+  min-height: 208px;
+}
+
+.plNotebookPhotoSketch {
+  padding-right: 10px;
+  border-right: 1px solid rgba(17, 18, 24, 0.08);
+}
+
+.plNotebookSketch,
+.plRecognizedSketch {
+  width: 100%;
+  height: auto;
+}
+
+.plNotebookSketch path,
+.plRecognizedSketch path {
+  fill: none;
+  stroke: rgba(74, 82, 128, 0.82);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.plNotebookSketch text,
+.plRecognizedSketch text {
+  fill: rgba(74, 82, 128, 0.92);
+  font-family: 'Segoe Print', 'Bradley Hand', cursive;
+  font-size: 18px;
+}
+
+.plNotebookPhotoText {
+  display: grid;
+  gap: 12px;
+  padding-top: 6px;
+  font-family: 'Segoe Print', 'Bradley Hand', cursive;
+  font-size: 22px;
+  line-height: 1.35;
+  color: #3b4360;
+}
+
+.plWorkPhotoCard {
+  border-radius: 18px;
+  border: 1px solid rgba(17, 18, 24, 0.08);
+  background: #f5f6fb;
+  overflow: hidden;
+}
+
+.plWorkPhoto {
+  display: block;
+  width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+  object-position: center;
+}
+
+.plNotebookLine {
+  position: relative;
+  z-index: 1;
+  font-family: 'Segoe Print', 'Bradley Hand', cursive;
+  font-size: 24px;
+  line-height: 1.8;
+  color: #2c3342;
+}
+
+.plNotebookLineError {
+  color: #a63d61;
+}
+
+.plNotebookBadge {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #fff0f4;
+  border: 1px solid rgba(166, 61, 97, 0.16);
+  color: #a63d61;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.plResultGrid,
+.plPricingGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.plResultItem,
+.plDraftComment,
+.plUploadStack,
+.plAuditList > div,
+.plCalcResult {
+  border-radius: 18px;
+  border: 1px solid rgba(17, 18, 24, 0.08);
+  background: var(--pl-surface-strong);
+}
+
+.plResultItem,
+.plDraftComment {
+  padding: 14px;
+}
+
+.plResultItem span,
+.plDraftComment span,
+.plMiniTitle {
+  margin-bottom: 8px;
+}
+
+.plResultItem p,
+.plDraftComment p,
+.plAuditList p,
+.plExampleOutcome p,
+.plPriceNote,
+.plCard p,
+.plFaqContent {
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.plResultScore strong,
+.plPriceValue,
+.plCalcResult strong {
+  font-size: clamp(34px, 4vw, 48px);
+  line-height: 0.95;
+  letter-spacing: -0.08em;
+}
+
+.plResultScore {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 160px;
+}
+
+.plResultScore span {
+  margin-bottom: 0;
+}
+
+.plResultScore strong {
+  align-self: center;
+  color: var(--pl-ink);
+}
+
+.plDraftComment em {
+  font-style: normal;
+  color: var(--pl-accent);
+}
+
+.plRecognizedBlock,
+.plRecognizedBlockNext {
+  display: grid;
+  gap: 12px;
+}
+
+.plRecognizedBlockNext {
+  grid-template-columns: minmax(0, 1.5fr) 220px;
+  align-items: start;
+}
+
+.plLatexCard,
+.plRecognizedSketchCard,
+.plRecognizedTextCard,
+.plRecognizedCropCard {
+  border-radius: 14px;
+  border: 1px solid rgba(17, 18, 24, 0.08);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.plLatexCard {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  font-family: 'Times New Roman', 'Cambria Math', serif;
+}
+
+.plLatexLine {
+  color: #27314c;
+  font-size: 18px;
+  line-height: 1.45;
+  white-space: nowrap;
+}
+
+.plRecognizedSketchCard {
+  padding: 10px;
+}
+
+.plRecognizedTextCard,
+.plRecognizedCropCard {
+  padding: 12px;
+}
+
+.plRecognizedTextCard {
+  display: grid;
+  gap: 8px;
+}
+
+.plRecognizedTextLine {
+  color: #27314c;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.plRecognizedCropCard {
+  overflow: hidden;
+}
+
+.plRecognizedCrop {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  object-position: center;
+  border-radius: 10px;
+}
+
+.plReviewBottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.plReviewActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.plCursorAura,
+.plCursorDot {
+  display: none !important;
+}
+
+.plResultActions {
+  display: flex;
+  gap: 10px;
+}
+
+.plConfirmBtn,
+.plEditBtn {
+  min-height: 42px;
+  padding: 0 14px;
+}
+
+.plHumanLoopNote {
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(125, 115, 239, 0.18);
+  background: var(--pl-accent-soft);
+}
+
+.plProofStrip {
+  padding: 0 0 24px;
+}
+
+.plProofTitleWrap {
+  display: flex;
+  justify-content: center;
+}
+
+.plProofTitle {
+  width: min(100%, 980px);
+  margin: 0 0 80px;
+  padding: 0;
+  color: var(--pl-ink);
+  font-size: clamp(24px, 3vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.plProofGrid,
+.plBenefitsGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.plProofGrid {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-items: start;
+}
+
+.plProofCard {
+  padding: 20px;
+}
+
+.plProofCard.is-top-row {
+  grid-column: span 4;
+}
+
+.plProofCard.is-bottom-row {
+  grid-column: span 4;
+}
+
+.plProofCard:nth-child(1) {
+  grid-column: 1 / span 4;
+}
+
+.plProofCard:nth-child(2) {
+  grid-column: 5 / span 4;
+}
+
+.plProofCard:nth-child(3) {
+  grid-column: 9 / span 4;
+}
+
+.plProofCard:nth-child(4) {
+  grid-column: 3 / span 4;
+}
+
+.plProofCard:nth-child(5) {
+  grid-column: 7 / span 4;
+}
+
+.plProofTop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.plProofDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--pl-accent);
+}
+
+.plProofRail {
+  width: 72px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(125, 115, 239, 0.95), rgba(125, 115, 239, 0.14));
+}
+
+.plProofCard p {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.plSectionTint {
+  background: var(--pl-bg-soft);
+  border-top: 1px solid rgba(17, 18, 24, 0.04);
+  border-bottom: 1px solid rgba(17, 18, 24, 0.04);
+}
+
+.plSectionHead {
+  max-width: 840px;
+  margin-bottom: 40px;
+}
+
+.plAudienceGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.plCard,
+.plPainItem,
+.plPainFooter,
+.plTimelineItem,
+.plFaqItem,
+.plFinalCard {
+  padding: 24px;
+}
+
+.plCard,
+.plProofCard,
+.plFinalCard {
+  position: relative;
+  overflow: hidden;
+}
+
+.plAudienceCard.is-primary {
+  background: #fcfbff;
+}
+
+.plAudienceCard.is-secondary {
+  grid-column: 1 / -1;
+}
+
+.plCardIndex,
+.plStepNumber {
+  color: rgba(17, 18, 24, 0.32);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.plCard h3,
+.plTimelineItem h3,
+.plFaqButton span,
+.plPriceTop h3,
+.plCalculatorCard h3 {
+  font-size: clamp(22px, 2vw, 28px);
+  line-height: 1.12;
+  letter-spacing: -0.05em;
+  text-wrap: balance;
+}
+
+.plCardSignal,
+.plPlanTrack {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  min-height: 42px;
+  margin-bottom: 14px;
+}
+
+.plSignalBar,
+.plPlanTrackBar {
+  display: block;
+  width: 10px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(125, 115, 239, 0.28), rgba(125, 115, 239, 0.96));
+  height: var(--signal-size, var(--track-size));
+  min-height: 12px;
+}
+
+.plBenefitMeta {
+  display: inline-flex;
+  margin-bottom: 10px;
+  color: var(--pl-accent);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.plCardSplit {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.plList,
+.plTrustList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plList li,
+.plTrustList li {
+  position: relative;
+  padding-left: 18px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.plList li::before,
+.plTrustList li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.66em;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--pl-accent);
+}
+
+.plSectionDark {
+  background: var(--pl-dark);
+}
+
+.plPainBoard {
+  display: grid;
+  gap: 12px;
+}
+
+.plPainItem {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 16px;
+  background: var(--pl-dark-soft);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.plPainItem span,
+.plPainItem p,
+.plPainFooter {
+  color: #ffffff;
+}
+
+.plPainItem span {
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.plPainItem p,
+.plPainFooter {
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.plPainFooter {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(125, 115, 239, 0.2);
+}
+
+.plExampleTimeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.plTimelineItem {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 18px;
+}
+
+.plTimelineItem span {
+  color: rgba(17, 18, 24, 0.42);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.plTimelineItem p {
+  margin-top: 10px;
+  color: var(--pl-muted);
+}
+
+.plExampleBoard {
+  display: grid;
+  gap: 16px;
+}
+
+.plExampleColumn,
+.plExampleOutcome,
+.plAuditCard,
+.plPolicyCard,
+.plCalculatorCard {
+  border: 1px solid var(--pl-line);
+  background: var(--pl-surface);
+  border-radius: 24px;
+  padding: 24px;
+}
+
+.plUploadStack,
+.plAuditList {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.plUploadStack {
+  padding: 16px;
+}
+
+.plUploadStack div,
+.plAuditList > div {
+  padding: 14px;
+}
+
+.plAuditList strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 16px;
+  letter-spacing: -0.03em;
+}
+
+.plPolicySignals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.plPolicySignals span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--pl-accent-soft);
+  color: #554cc2;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.plStepsGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.plStepCard {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.plStepNumber {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.plStepCard p,
+.plBenefitCard p,
+.plOutcomeCards .plCard p {
+  color: var(--pl-muted);
+}
+
+.plSectionNote,
+.plPricingFootnote {
+  margin-top: 18px;
+  color: var(--pl-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.plContactCard,
+.plContactCardInline {
+  margin-top: 24px;
+  padding: 20px 22px;
+  border-radius: 26px;
+  border: 1px solid var(--pl-line-strong);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(246, 248, 252, 0.96));
+  box-shadow: 0 18px 38px rgba(17, 18, 24, 0.08);
+}
+
+.plContactCardInline {
+  margin-top: 6px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(125, 115, 239, 0.08), rgba(255, 255, 255, 0.96));
+  box-shadow: none;
+}
+
+.plContactList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.plContactList a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--pl-line-strong);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--pl-ink);
+  font-weight: 700;
+}
+
+#pricing .plSectionHead,
+#faq .plSectionHead {
+  gap: 14px;
+}
+
+#pricing .plSectionHead h2,
+#faq .plSectionHead h2 {
+  max-width: 18ch;
+  font-size: clamp(40px, 5vw, 64px);
+  line-height: 0.94;
+  letter-spacing: -0.075em;
+}
+
+.plSectionNote {
+  max-width: 42rem;
+}
+
+.plBenefitsGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.plTrustGrid,
+.plOutcomeGrid {
+  align-items: stretch;
+}
+
+.plTrustMain,
+.plTrustSide {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.plTrustMain {
+  border: 1px solid var(--pl-line);
+  background: var(--pl-surface);
+  border-radius: 32px;
+  padding: 28px;
+}
+
+.plOutcomeCards {
+  grid-template-columns: 1fr;
+}
+
+.plOutcomeCard {
+  position: relative;
+  overflow: hidden;
+}
+
+.plOutcomeAccent {
+  width: 96px;
+  height: 6px;
+  margin-bottom: 16px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(125, 115, 239, 0.98), rgba(125, 115, 239, 0.14));
+}
+
+.plCalculatorCard {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.plField {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(125, 115, 239, 0.1);
+  background: linear-gradient(180deg, rgba(125, 115, 239, 0.04), rgba(255, 255, 255, 0.94));
+}
+
+.plField span {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.plFieldHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.plFieldValue {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(125, 115, 239, 0.1);
+  color: #584fd0;
+  font-size: 15px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+}
+
+.plField input[type='range'] {
+  width: 100%;
+}
+
+.plRangeShell {
+  position: relative;
+  padding: 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(125, 115, 239, 0.08);
+  background:
+    linear-gradient(180deg, rgba(125, 115, 239, 0.08), rgba(255, 255, 255, 0.98)),
+    #ffffff;
+}
+
+.plRange {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  border: 0;
+  background:
+    linear-gradient(90deg, #6f65e7 0%, #8c82f3 var(--range-percent), #ede9fb var(--range-percent), #ede9fb 100%);
+  contain: paint;
+  touch-action: pan-y;
+  cursor: ew-resize;
+}
+
+.plRange::-webkit-slider-runnable-track {
+  height: 10px;
+  background: transparent;
+  border-radius: 999px;
+}
+
+.plRange::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -4px;
+  border-radius: 999px;
+  border: 3px solid #6f65e7;
+  background: #ffffff;
+  box-shadow:
+    0 0 0 6px rgba(125, 115, 239, 0.08),
+    0 8px 22px rgba(125, 115, 239, 0.18);
+  will-change: transform, box-shadow;
+}
+
+.plRange::-moz-range-track {
+  height: 10px;
+  background: transparent;
+  border-radius: 999px;
+}
+
+.plRange::-moz-range-progress {
+  height: 10px;
+  background: linear-gradient(90deg, #7268e8 0%, #8f84f4 100%);
+  border-radius: 999px;
+}
+
+.plRange::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 3px solid #7268e8;
+  background: #ffffff;
+  box-shadow:
+    0 0 0 6px rgba(125, 115, 239, 0.08),
+    0 8px 22px rgba(125, 115, 239, 0.18);
+  will-change: transform, box-shadow;
+}
+
+.plRangeScale {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: rgba(93, 99, 114, 0.82);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.plFieldHint {
+  color: var(--pl-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.plCalcResult {
+  padding: 18px;
+}
+
+.plCalcResult span {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--pl-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.plPriceCard {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: relative;
+  overflow: hidden;
+}
+
+.plPriceCard.is-featured {
+  background: #f9f7ff;
+  border-color: rgba(125, 115, 239, 0.28);
+}
+
+.plFeaturedBadge {
+  flex: none;
+}
+
+.plPriceValue {
+  font-size: clamp(38px, 4vw, 56px);
+}
+
+.plFaqWrap {
+  max-width: 940px;
+}
+
+.plFaqList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.plFaqButton {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0;
+  color: var(--pl-ink);
+  text-align: left;
+}
+
+.plFaqButton svg {
+  color: var(--pl-accent);
+  flex: none;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.plFaqContent {
+  margin-top: 14px;
+  color: var(--pl-muted);
+}
+
+.plFaqItem.is-active .plFaqButton svg {
+  transform: rotate(180deg);
+}
+
+.plFinalSection {
+  padding-top: 0;
+}
+
+.plFinalCard {
+  text-align: center;
+  padding: 40px 32px;
+}
+
+.plSectionTextLight {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.plFinalCard h2,
+.plFinalCard p {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.plFinalActions {
+  justify-content: center;
+}
+
+.plFinalTrust {
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.plFooter {
+  padding: 0 0 36px;
+}
+
+.plFooterRow {
+  padding-top: 20px;
+  border-top: 1px solid var(--pl-line);
+  color: var(--pl-muted);
+  font-size: 13px;
+}
+
+#demo,
+#audience,
+#pricing,
+#faq {
+  scroll-margin-top: 108px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .plHeroDemo {
+    animation: plFloatStage 8s ease-in-out infinite;
+  }
+
+  .plNotebookBadge,
+  .plEyebrowDot,
+  .plProofDot {
+    animation: plPulseDot 2.6s ease-in-out infinite;
+  }
+
+  .plSignalBar,
+  .plPlanTrackBar {
+    animation: plGrowBar 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--signal-delay, var(--track-delay, 0ms));
+    transform-origin: bottom;
+    will-change: transform, opacity;
+  }
+
+  .plRange::-webkit-slider-thumb,
+  .plRange::-moz-range-thumb {
+    transition: box-shadow 0.18s ease, transform 0.18s ease;
+  }
+
+  .plRange:hover::-webkit-slider-thumb,
+  .plRange:hover::-moz-range-thumb {
+    transform: scale(1.03);
+    box-shadow:
+      0 0 0 9px rgba(125, 115, 239, 0.1),
+      0 8px 22px rgba(125, 115, 239, 0.18);
+  }
+
+  .plRange:active::-webkit-slider-thumb,
+  .plRange:active::-moz-range-thumb {
+    transform: scale(0.98);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .plPrimaryBtn:hover,
+  .plConfirmBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 34px rgba(125, 115, 239, 0.2);
+  }
+
+  .plSecondaryBtn:hover,
+  .plGhostBtn:hover,
+  .plEditBtn:hover {
+    transform: translateY(-1px);
+    border-color: rgba(125, 115, 239, 0.22);
+    background: #fbfaff;
+  }
+
+  .plFaqItem:hover {
+    border-color: rgba(125, 115, 239, 0.22);
+    background: #fcfbff;
+  }
+
+  .plFaqItem:hover .plFaqButton svg {
+    transform: translateY(1px);
+  }
+
+  .plField:hover {
+    border-color: rgba(125, 115, 239, 0.16);
+    background: linear-gradient(180deg, rgba(125, 115, 239, 0.06), rgba(255, 255, 255, 0.98));
+  }
+
+  .plField:hover .plRangeShell {
+    border-color: rgba(125, 115, 239, 0.16);
+  }
+
+  .plNav button,
+  .plMobileMenuInner button {
+    transition: color 0.2s ease, opacity 0.2s ease;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plBackdropObject,
+  .plBackdropGlow,
+  .plBackdropClockNext,
+  .plBackdropBubbleOne,
+  .plBackdropBubbleTwo,
+  .plBackdropClockHandHour,
+  .plBackdropClockHandMinute {
+    animation: none !important;
+  }
+}
+
+@keyframes plFloatStage {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes plPulseDot {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(125, 115, 239, 0.18);
+  }
+  55% {
+    box-shadow: 0 0 0 10px rgba(125, 115, 239, 0);
+  }
+}
+
+@keyframes plGrowBar {
+  from {
+    opacity: 0;
+    transform: scaleY(0.35);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@media (max-width: 1180px) {
+  .plProofGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .plProofCard.is-top-row,
+  .plProofCard.is-bottom-row,
+  .plProofCard:nth-child(4),
+  .plProofCard:nth-child(5),
+  .plProofCard:nth-child(2) {
+    grid-column: auto;
+    transform: none;
+  }
+
+  .plBackdropMathBoard {
+    left: 3%;
+  }
+
+  .plBackdropPhysicsBoard {
+    right: 7%;
+  }
+
+  .plBackdropChemBoard {
+    left: 32%;
+  }
+
+  .plBackdropClockNext {
+    right: 4%;
+    top: 32%;
+    scale: 0.88;
+  }
+
+  .plHeroGrid,
+  .plPainGrid,
+  .plExampleLayout,
+  .plTrustGrid,
+  .plOutcomeGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .plProofGrid,
+  .plOutcomeCards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .plAudienceGrid,
+  .plBenefitsGrid,
+  .plPricingGrid,
+  .plStepsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .plHeroDemo {
+    grid-template-columns: 1fr;
+  }
+
+  .plHeroMetrics {
+    grid-template-columns: 1fr;
+  }
+
+  .plPage::before {
+    mask-image: radial-gradient(circle at center, black 34%, transparent 86%);
+  }
+}
+
+@media (max-width: 900px) {
+  .plProofGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .plRecognizedBlockNext {
+    grid-template-columns: 1fr;
+  }
+
+  .plRecognizedCrop {
+    aspect-ratio: 2.2 / 1;
+  }
+
+  .plReviewBottom {
+    grid-template-columns: 1fr;
+  }
+
+  .plReviewActions {
+    justify-content: stretch;
+  }
+
+  .plReviewActions .plEditBtn,
+  .plReviewActions .plConfirmBtn {
+    flex: 1 1 0;
+  }
+
+  .plNotebookPhotoFrame {
+    grid-template-columns: 1fr;
+  }
+
+  .plNotebookPhotoSketch {
+    padding-right: 0;
+    padding-bottom: 10px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(17, 18, 24, 0.08);
+  }
+
+  .plNotebookPhotoText {
+    font-size: 20px;
+  }
+
+  .plLatexLine {
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .plBackdropMathBoard,
+  .plBackdropPhysicsBoard,
+  .plBackdropChemBoard,
+  .plBackdropGeometryCard,
+  .plBackdropPhysicsCard,
+  .plBackdropLabCard,
+  .plBackdropClockNext {
+    opacity: 0.56;
+  }
+
+  .plBackdropMathBoard {
+    width: 270px;
+    left: -16px;
+    top: 9%;
+  }
+
+  .plBackdropPhysicsBoard {
+    width: 260px;
+    right: -18px;
+    top: 12%;
+  }
+
+  .plBackdropChemBoard {
+    width: 250px;
+    left: 50%;
+    top: 34%;
+    transform: translateX(-50%) rotate(-4deg);
+  }
+
+  .plBackdropGeometryCard,
+  .plBackdropPhysicsCard,
+  .plBackdropLabCard {
+    display: none;
+  }
+
+  .plBackdropClockNext {
+    width: 150px;
+    height: 150px;
+    right: -18px;
+    top: 54%;
+    scale: 0.9;
+  }
+
+  .plContainer {
+    width: min(1200px, calc(100% - 24px));
+  }
+
+  .plHeaderRow {
+    min-height: 72px;
+  }
+
+  .plNav,
+  .plHeaderActions {
+    display: none;
+  }
+
+  .plBurger {
+    display: inline-flex;
+  }
+
+  .plHero,
+  .plSection,
+  .plFinalSection {
+    padding: 72px 0;
+  }
+
+  .plHeroTitle,
+  .plSectionHead h2,
+  .plTrustMain h2,
+  .plFinalCard h2,
+  .plSectionTitleLight {
+    max-width: 100%;
+    font-size: clamp(36px, 10vw, 54px);
+  }
+
+  .plResultGrid,
+  .plProofGrid,
+  .plAudienceGrid,
+  .plBenefitsGrid,
+  .plPricingGrid,
+  .plOutcomeCards,
+  .plStepsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .plHeroScope {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .plAudienceCard.is-secondary {
+    grid-column: auto;
+  }
+
+  .plHeroDemo {
+    animation: none;
+  }
+
+  .plBackdrop,
+  .plCursorAura,
+  .plCursorDot {
+    display: none;
+  }
+
+  .plHasCursor,
+  .plHasCursor * {
+    cursor: auto !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .plFieldHead {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .plHeroActions,
+  .plResultActions,
+  .plFinalActions {
+    flex-direction: column;
+  }
+
+  .plPrimaryBtn,
+  .plSecondaryBtn,
+  .plGhostBtn,
+  .plConfirmBtn,
+  .plEditBtn {
+    width: 100%;
+    white-space: normal;
+    padding: 12px 16px;
+  }
+
+  .plDemoSource,
+  .plDemoResult,
+  .plCard,
+  .plPainItem,
+  .plPainFooter,
+  .plTimelineItem,
+  .plExampleColumn,
+  .plExampleOutcome,
+  .plAuditCard,
+  .plPolicyCard,
+  .plCalculatorCard,
+  .plFaqItem,
+  .plFinalCard {
+    border-radius: 20px;
+    padding: 20px;
+  }
+
+  .plNotebookPaper {
+    min-height: 260px;
+  }
+
+  .plNotebookLine {
+    font-size: 20px;
+  }
+
+  .plNotebookFocus {
+    left: 28px;
+    top: 92px;
+    width: 132px;
+  }
+
+  .plTimelineItem,
+  .plPainItem {
+    grid-template-columns: 1fr;
+  }
+
+  .plFooterRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .plBrandMeta {
+    display: none;
+  }
+
+  .plHero,
+  .plSection,
+  .plFinalSection {
+    padding: 60px 0;
+  }
+
+  .plPage::before,
+  .plPage::after {
+    display: none;
+  }
+
+  .plBackdrop {
+    display: none;
+  }
+
+  .plPill,
+  .plAudiencePill,
+  .plFinalTrust span,
+  .plCardBadge,
+  .plFeaturedBadge {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .plPillRow,
+  .plAudienceRow,
+  .plFinalTrust {
+    flex-direction: column;
+  }
+}
