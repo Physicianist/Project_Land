@@ -1,16 +1,31 @@
+/**
+ * Prompt builders for recognition and analysis.
+ *
+ * IMPORTANT: Assignment context is placed at the START of system instructions
+ * to maximise OpenAI prefix cache hit rate — the static context prefix is
+ * shared across repeated requests for the same assignment.
+ */
 const compactJson = (value) => JSON.stringify(value, null, 2);
 
 export function buildRecognitionInstructions({ assignmentContext = {}, assetLabel = '' } = {}) {
+  // Assignment context first → stable prefix for caching
+  const contextBlock = [
+    assignmentContext?.subject ? `Предмет: ${assignmentContext.subject}.` : '',
+    assignmentContext?.title ? `Название задания: ${assignmentContext.title}.` : '',
+    assignmentContext?.description ? `Описание задания: ${assignmentContext.description}.` : '',
+    assignmentContext?.expectedAnswer ? `Ожидаемый ответ: ${assignmentContext.expectedAnswer}.` : '',
+    assignmentContext?.scoringScale ? `Шкала оценивания: ${assignmentContext.scoringScale}.` : '',
+  ].filter(Boolean).join('\n');
+
   return [
+    contextBlock,
+    assetLabel ? `Контекст файла: ${assetLabel}.` : '',
+    // General instructions after the stable prefix
     'Ты помогаешь преподавателю проверить письменную работу ученика.',
     'Нужно извлечь только то, что реально видно на изображении или в PDF.',
     'Не выдумывай отсутствующие фрагменты условия или решения.',
     'Если уверенность низкая, укажи это в warnings и снизь confidence.',
     'Верни только JSON по заданной схеме.',
-    assetLabel ? `Контекст файла: ${assetLabel}.` : '',
-    assignmentContext?.subject ? `Предмет: ${assignmentContext.subject}.` : '',
-    assignmentContext?.title ? `Название задания: ${assignmentContext.title}.` : '',
-    assignmentContext?.description ? `Описание задания: ${assignmentContext.description}.` : '',
   ].filter(Boolean).join('\n');
 }
 
@@ -33,7 +48,19 @@ export function buildRecognitionUserPrompt({ assignmentContext = {} } = {}) {
 }
 
 export function buildAnalysisInstructions({ assignmentContext = {} } = {}) {
+  // Assignment context first → stable prefix for caching
+  const contextBlock = [
+    assignmentContext?.subject ? `Предмет: ${assignmentContext.subject}.` : '',
+    assignmentContext?.title ? `Задание: ${assignmentContext.title}.` : '',
+    assignmentContext?.description ? `Описание: ${assignmentContext.description}.` : '',
+    assignmentContext?.gradingCriteria ? `Критерии оценивания: ${assignmentContext.gradingCriteria}.` : '',
+    assignmentContext?.expectedAnswer ? `Ожидаемый ответ: ${assignmentContext.expectedAnswer}.` : '',
+    assignmentContext?.scoringScale ? `Максимум баллов: ${assignmentContext.scoringScale}.` : '',
+  ].filter(Boolean).join('\n');
+
   return [
+    contextBlock,
+    // General instructions after the stable prefix
     'Ты готовишь черновик проверки для преподавателя.',
     'Не раскрывай скрытые рассуждения и не выводи chain-of-thought.',
     'Нужно отделять ошибку ученика от ошибки распознавания.',
@@ -65,4 +92,3 @@ export function buildAnalysisUserPrompt({ assignmentContext = {}, recognitionRes
     compactJson(recognitionResult),
   ].join('\n');
 }
-

@@ -104,7 +104,7 @@
       "name": "Ученик10 -",
       "email": "ученик10@bk.ru",
       "phone": "1234555567",
-      "password": "12345",
+      "password": "$2b$12$7IDcQwIWdTaS/7L3wBHCgetLv9BuQQ0NTSfMAphLeQiygK11spTE.",
       "verified": true,
       "createdAt": "2026-05-01T07:56:01.482Z",
       "userId": "s102",
@@ -157,9 +157,51 @@
       "createdAt": "2026-05-01T12:40:29.493Z",
       "userId": "s105",
       "onboardingCompleted": true
+    },
+    {
+      "id": "acc-1777704165005",
+      "role": "teacher",
+      "name": "учитель100 -",
+      "email": "учитель100@bk.ru",
+      "phone": "1234567890",
+      "password": "12345",
+      "verified": false,
+      "createdAt": "2026-05-02T06:42:45.005Z",
+      "userId": "t6",
+      "onboardingCompleted": false
+    },
+    {
+      "id": "acc-1777704591808",
+      "role": "teacher",
+      "name": "учитель101 -",
+      "email": "учитель101@bk.ru",
+      "phone": "1234567891",
+      "password": "$2b$12$izf3nj./0RH1k03jXaakL.rB1WFYZl5vthl6216LvZlmglNo7w6Py",
+      "verified": true,
+      "createdAt": "2026-05-02T06:49:51.808Z",
+      "userId": "t7",
+      "onboardingCompleted": true
     }
   ],
   "smsLogs": [
+    {
+      "id": "sms-1777704591808",
+      "email": "учитель101@bk.ru",
+      "role": "teacher",
+      "phone": "1234567891",
+      "code": "3131",
+      "createdAt": "2026-05-02T06:49:51.808Z",
+      "used": true
+    },
+    {
+      "id": "sms-1777704165005",
+      "email": "учитель100@bk.ru",
+      "role": "teacher",
+      "phone": "1234567890",
+      "code": "2900",
+      "createdAt": "2026-05-02T06:42:45.005Z",
+      "used": false
+    },
     {
       "id": "sms-1777639229493",
       "email": "ученик1@bk.ru",
@@ -437,7 +479,7 @@
       "phone": "1234555567",
       "parentName": "к",
       "parentEmail": "родитель10@bk.ru",
-      "parentContact": "",
+      "parentContact": "родитель10@bk.ru",
       "level": "",
       "subjects": [],
       "active": true,
@@ -1708,10 +1750,20 @@
     "work": 105,
     "batch": 101,
     "report": 101,
-    "teacher": 5
+    "teacher": 7
   },
   "resetRequests": [],
   "teacherInvites": [
+    {
+      "status": "pending",
+      "direction": "teacher_to_student",
+      "token": "28f03b324ab1800aa27576d8e909a7b9",
+      "createdAt": "2026-05-02T06:50:45.508Z",
+      "studentNotificationDismissedAt": null,
+      "id": "invite-1777704645508",
+      "teacherId": "t7",
+      "studentId": "s102"
+    },
     {
       "status": "accepted",
       "direction": "student_to_teacher",
@@ -1957,6 +2009,56 @@
         "s105",
         "s106"
       ]
+    },
+    {
+      "id": "t6",
+      "name": "учитель100 -",
+      "email": "учитель100@bk.ru",
+      "phone": "1234567890",
+      "avatarUrl": "",
+      "plan": "Trial",
+      "subjects": [
+        "Математика",
+        "Физика",
+        "Химия"
+      ],
+      "notifications": {
+        "Новая работа загружена": true,
+        "Запрос на пересмотр": true,
+        "Дедлайн приближается": true,
+        "Еженедельная сводка": true
+      },
+      "reportPreferences": {
+        "Имя ученика": true,
+        "Частые типы ошибок": true,
+        "Гистограмма оценок": true
+      },
+      "historicalStudentIds": []
+    },
+    {
+      "id": "t7",
+      "name": "учитель101 -",
+      "email": "учитель101@bk.ru",
+      "phone": "1234567891",
+      "avatarUrl": "",
+      "plan": "Trial",
+      "subjects": [
+        "Математика",
+        "Физика",
+        "Химия"
+      ],
+      "notifications": {
+        "Новая работа загружена": true,
+        "Запрос на пересмотр": true,
+        "Дедлайн приближается": true,
+        "Еженедельная сводка": true
+      },
+      "reportPreferences": {
+        "Имя ученика": true,
+        "Частые типы ошибок": true,
+        "Гистограмма оценок": true
+      },
+      "historicalStudentIds": []
     }
   ],
   "attendanceRecords": [],

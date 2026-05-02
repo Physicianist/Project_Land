@@ -115,7 +115,12 @@ const api = {
   },
   exportCsvUrl: (sessionId) => `${API}/api/batch/sessions/${sessionId}/export.csv`,
   exportPdfUrl: (sessionId) => `${API}/api/batch/sessions/${sessionId}/export.pdf`,
-  register: (payload) => jsonPost('/api/auth/register', payload),
+  register: async (payload) => {
+    const res = await fetch(`${API}/api/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { const err = new Error(data.error || 'Запрос завершился с ошибкой'); err.fields = data.fields || null; throw err; }
+    return data;
+  },
   verifySms: (payload) => jsonPost('/api/auth/verify-sms', payload),
   login: (payload) => jsonPost('/api/auth/login', payload),
   completeOnboarding: (payload) => jsonPost('/api/auth/onboarding-complete', payload),
@@ -809,10 +814,11 @@ function LoginPage({ onAuth, notify }) {
         parentEmail: role === 'student' ? reg.parentEmail : '',
       });
       if (result.requiresSms) {
-        setPendingSms({ email: result.email, role: result.role, debugCode: result.debugCode, password: reg.password });
-        notify({ type: 'success', text: `SMS-код сгенерирован. Для локального запуска: ${result.debugCode}` });
+        setPendingSms({ email: result.email, role: result.role, password: reg.password });
+        notify({ type: 'success', text: 'Аккаунт создан. Введите SMS-код для подтверждения.' });
       }
     } catch (e) {
+      if (e.fields) setValidationErrors(e.fields);
       notify({ type: 'error', text: e.message });
     } finally { setWorking(false); }
   };
@@ -1337,7 +1343,7 @@ function StudentModal({ mode, db, student, onClose, onSave, notify }) {
       <div className="slotHintLabel">Минуты</div>
       <div></div>
       <select className="input selectSmall" value={slotDraft.day} onChange={e=>setSlotDraft(v=>({...v,day:e.target.value}))}>{['ПН','ВТ','СР','ЧТ','ПТ','СБ','ВС'].map(day=><option key={day}>{day}</option>)}</select>
-      <input className="input selectSmall" type="text" value={slotDraft.time} onChange={e=>setSlotDraft(v=>({...v,time:e.target.value}))} placeholder="ЧЧ:ММ" />
+      <input className="input selectSmall" type="text" value={slotDraft.time} onChange={e=>setSlotDraft(v=>({...v,time:applyTimeMask(e.target.value)}))} placeholder="ЧЧ:ММ" maxLength={5} inputMode="numeric" />
       <input className="input selectSmall" type="text" inputMode="numeric" value={slotDraft.durationHours} onChange={e=>setSlotDraft(v=>({...v,durationHours:e.target.value}))} placeholder="0" />
       <input className="input selectSmall" type="text" inputMode="numeric" value={slotDraft.durationMinutes} onChange={e=>setSlotDraft(v=>({...v,durationMinutes:e.target.value}))} placeholder="0" />
       <div className="row gap8"><button className="secondaryBtn" onClick={addSlot}>Добавить слот</button><button className="ghostBtn" onClick={()=>{setShowSlotEditor(false); setSlotError('');}}>Скрыть</button></div>
@@ -1522,6 +1528,35 @@ function toDDMMYYYY(isoDate = '') {
   return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`;
 }
 
+// Input mask: ДД.ММ.ГГГГ — accepts only digit keystrokes, inserts dots automatically
+function applyDateMask(raw = '') {
+  const digits = String(raw).replace(/\D/g, '').slice(0, 8);
+  let result = '';
+  for (let i = 0; i < digits.length; i++) {
+    if (i === 2 || i === 4) result += '.';
+    result += digits[i];
+  }
+  return result;
+}
+function isValidRuDate(value = '') {
+  const m = String(value).match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (!m) return false;
+  const d = parseInt(m[1], 10), mo = parseInt(m[2], 10), y = parseInt(m[3], 10);
+  if (mo < 1 || mo > 12 || d < 1 || y < 2000 || y > 2100) return false;
+  return d <= new Date(y, mo, 0).getDate();
+}
+
+// Input mask: ЧЧ:ММ — accepts only digits, inserts colon automatically
+function applyTimeMask(raw = '') {
+  const digits = String(raw).replace(/\D/g, '').slice(0, 4);
+  let result = '';
+  for (let i = 0; i < digits.length; i++) {
+    if (i === 2) result += ':';
+    result += digits[i];
+  }
+  return result;
+}
+
 function AssignmentModal({ mode, db, assignment, onClose, onSave, notify, teacherId }) {
   const availableStudents = teacherOwnedStudents(db, teacherId);
   const availableGroups = teacherOwnedGroups(db, teacherId);
@@ -1557,9 +1592,11 @@ function AssignmentModal({ mode, db, assignment, onClose, onSave, notify, teache
   const removeAttachment = (fileId) => setForm(v => ({ ...v, attachments: (v.attachments || []).filter(a => a.id !== fileId) }));
 
   const handleDeadlineInput = (raw) => {
+    const masked = applyDateMask(raw);
     setForm(v => {
-      const parsed = parseDDMMYYYY(raw);
-      return { ...v, deadlineDisplay: raw, deadline: parsed ? `${parsed}T23:59:59` : '' };
+      const iso = parseDDMMYYYY(masked);
+      const valid = iso && isValidRuDate(masked);
+      return { ...v, deadlineDisplay: masked, deadline: valid ? `${iso}T23:59:59` : '' };
     });
   };
 
@@ -1599,11 +1636,19 @@ function AssignmentModal({ mode, db, assignment, onClose, onSave, notify, teache
         </>}
         {isActive && <div className="cardInner"><span className="pill info">Активно</span> · Получатель: {recipientLabel(db, form)}</div>}
       </div></label>
-      <label className="field"><span>Дедлайн (ДД.ММ.ГГГГ)</span>
-        <div style={{position:'relative'}}>
-          <input className="input" value={form.deadlineDisplay} onChange={e=>handleDeadlineInput(e.target.value)} placeholder="ДД.ММ.ГГГГ" disabled={isActive} maxLength={10} />
-        </div>
-        {form.deadlineDisplay && !parseDDMMYYYY(form.deadlineDisplay) && <div className="muted small mt4">Формат: ДД.ММ.ГГГГ (например 31.12.2025)</div>}
+      <label className="field"><span>Дедлайн</span>
+        <input
+          className="input"
+          value={form.deadlineDisplay}
+          onChange={e => handleDeadlineInput(e.target.value)}
+          placeholder="ДД.ММ.ГГГГ"
+          disabled={isActive}
+          maxLength={10}
+          inputMode="numeric"
+        />
+        {form.deadlineDisplay.length === 10 && !isValidRuDate(form.deadlineDisplay) && (
+          <div className="muted small mt4" style={{color:'var(--danger)'}}>Некорректная дата</div>
+        )}
       </label>
     </div>
 

@@ -21,7 +21,7 @@ export function loadAiConfig(env = process.env) {
   const openAiApiKey = String(env.OPENAI_API_KEY || '').trim();
   const enableOpenAiByDefault = Boolean(openAiApiKey);
   const enableOpenAiRecognition = parseBoolean(env.ENABLE_OPENAI_RECOGNITION, enableOpenAiByDefault);
-  const defaultModel = String(env.OPENAI_MODEL || 'gpt-5.2').trim();
+  const defaultModel = String(env.OPENAI_MODEL || 'gpt-4o').trim();
   const config = {
     flags: {
       ENABLE_OPENAI_RECOGNITION: enableOpenAiRecognition,
@@ -34,8 +34,8 @@ export function loadAiConfig(env = process.env) {
       apiKey: openAiApiKey,
       baseUrl: String(env.OPENAI_BASE_URL || 'https://api.openai.com/v1').trim(),
       model: defaultModel,
-      recognitionModel: String(env.OPENAI_RECOGNITION_MODEL || env.OPENAI_MODEL || defaultModel).trim(),
-      analysisModel: String(env.OPENAI_ANALYSIS_MODEL || env.OPENAI_MODEL || defaultModel).trim(),
+      recognitionModel: String(env.OPENAI_RECOGNITION_MODEL || 'gpt-4o-mini').trim(),
+      analysisModel: String(env.OPENAI_ANALYSIS_MODEL || 'gpt-4o').trim(),
       timeoutMs: toPositive(env.OPENAI_TIMEOUT_MS, 90_000),
       maxOutputTokens: toPositive(env.OPENAI_MAX_OUTPUT_TOKENS, 3_500),
     },

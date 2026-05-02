@@ -1,4 +1,5 @@
 import { redactAiError } from './config.js';
+import { logger } from '../logger.js';
 import {
   buildProcessingContext,
   copyRecognitionPagesFromCache,
@@ -20,7 +21,7 @@ import {
 
 export function createRecognitionQueue({ config, readDb, writeDb, uploadsDir }) {
   const openaiProvider = new OpenAIRecognitionProvider({ config, uploadsDir });
-  const mathpixProvider = new MathpixRecognitionProvider();
+  const mathpixProvider = new MathpixRecognitionProvider({ config, uploadsDir });
   const orchestrator = new RecognitionOrchestrator({
     config,
     openaiProvider,

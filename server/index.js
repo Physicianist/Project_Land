@@ -7,7 +7,10 @@ import path from 'path';
 import crypto from 'crypto';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import bcrypt from 'bcryptjs';
+import { fileTypeFromBuffer } from 'file-type';
 import { loadServerEnv } from './load-env.js';
+import { logger } from './logger.js';
 import { readDb, writeDb, nextId, publicFileUrl } from './db.js';
 import { createRecognitionQueue } from './ai/queue.js';
 import { featureFlagsPayload, loadAiConfig, redactAiError } from './ai/config.js';
@@ -39,26 +42,53 @@ const uploadsDir = path.join(__dirname, 'uploads');
 const aiConfig = loadAiConfig();
 const envFileExists = ['.env', '.env.local']
   .some(fileName => fs.existsSync(path.join(path.join(__dirname, '..'), fileName)));
+// Bundled PT Sans (downloaded via server/download-fonts.js) has priority over system fonts
+const bundledFontDir = path.join(__dirname, 'assets', 'fonts');
 const pdfFontPath = [
-  // macOS
+  // Bundled project fonts (highest priority — guaranteed Cyrillic support)
+  path.join(bundledFontDir, 'PTSans-Regular.ttf'),
+  // macOS system fonts
   '/Library/Fonts/Arial Unicode.ttf',
   '/System/Library/Fonts/Supplemental/Arial Unicode.ttf',
-  // Windows (SystemRoot env or default path)
+  // Windows
   path.join(process.env.SystemRoot || 'C:\\Windows', 'Fonts', 'arial.ttf'),
   'C:/Windows/Fonts/arial.ttf',
-  // Linux – DejaVu (Ubuntu/Debian/Fedora)
+  // Linux
   '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
   '/usr/share/fonts/dejavu/DejaVuSans.ttf',
   '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
-  '/usr/share/fonts/truetype/freefont/FreeSans.ttf',
 ].find(candidate => { try { return fs.existsSync(candidate); } catch { return false; } });
+const pdfBoldFontPath = [
+  path.join(bundledFontDir, 'PTSans-Bold.ttf'),
+  pdfFontPath,
+].find(candidate => candidate && fs.existsSync(candidate)) || pdfFontPath;
 
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+const BCRYPT_ROUNDS = 12;
+const BCRYPT_PREFIX = '$2b$';
+const MAX_STUDENT_DISK_BYTES = toPositiveMb(process.env.MAX_STUDENT_DISK_MB, 200) * 1024 * 1024;
+function toPositiveMb(v, fallback) { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : fallback; }
+
+async function hashPassword(plain) { return bcrypt.hash(plain, BCRYPT_ROUNDS); }
+async function verifyPassword(plain, stored) {
+  if (!stored) return false;
+  if (String(stored).startsWith(BCRYPT_PREFIX)) return bcrypt.compare(plain, stored);
+  // Legacy plaintext — compare directly, then transparently upgrade on first login
+  return plain === stored;
+}
+async function upgradePasswordIfNeeded(db, account, plain) {
+  if (!account.password || String(account.password).startsWith(BCRYPT_PREFIX)) return;
+  account.password = await hashPassword(plain);
+  writeDb(db);
+}
+
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+// NOTE: /uploads static is kept for backward-compat with existing DB URLs.
+// New uploads use /api/uploads/:filename which has auth verification.
 app.use('/uploads', express.static(uploadsDir));
 
 const storage = multer.diskStorage({
@@ -83,7 +113,7 @@ const upload = multer({
 });
 
 const rateLimitState = new Map();
-const createRateLimit = ({ windowMs, maxRequests }) => (req, res, next) => {
+const createRateLimit = ({ windowMs, maxRequests, message }) => (req, res, next) => {
   const bucketKey = `${req.ip}:${req.path}`;
   const now = Date.now();
   const current = rateLimitState.get(bucketKey);
@@ -93,12 +123,17 @@ const createRateLimit = ({ windowMs, maxRequests }) => (req, res, next) => {
     return;
   }
   if (current.count >= maxRequests) {
-    res.status(429).json({ error: 'Слишком много запросов. Попробуйте чуть позже.' });
+    res.status(429).json({ error: message || 'Слишком много запросов. Попробуйте чуть позже.' });
     return;
   }
   current.count += 1;
   next();
 };
+const resetPasswordRateLimit = createRateLimit({
+  windowMs: 15 * 60 * 1000,
+  maxRequests: 5,
+  message: 'Слишком много попыток. Повторите через 15 минут.',
+});
 
 const apiRateLimit = createRateLimit({
   windowMs: aiConfig.rateLimits.windowMs,
@@ -832,11 +867,15 @@ function writeParentReportPdf({ student, payload, teacher, baseUrl }) {
     stream.on('error', reject);
     doc.pipe(stream);
 
-    if (pdfFontPath) {
-      try { doc.font(pdfFontPath); } catch { /* use built-in */ }
-    }
-
     const hasFont = !!pdfFontPath;
+    if (pdfFontPath) {
+      try {
+        doc.registerFont('Regular', pdfFontPath);
+        if (pdfBoldFontPath && pdfBoldFontPath !== pdfFontPath) doc.registerFont('Bold', pdfBoldFontPath);
+        else doc.registerFont('Bold', pdfFontPath);
+        doc.font('Regular');
+      } catch { /* fall back to built-in */ }
+    }
     const safe = (str) => {
       if (hasFont) return String(str || '');
       // Transliterate Cyrillic when no font is available so PDF is still readable
@@ -845,20 +884,20 @@ function writeParentReportPdf({ student, payload, teacher, baseUrl }) {
     };
 
     // Header
-    doc.fontSize(18).font(pdfFontPath || 'Helvetica-Bold').text(
+    doc.fontSize(18).font(hasFont ? 'Bold' : 'Helvetica-Bold').text(
       safe(`Отчет по ученику: ${payload.studentName}`), { align: 'left' }
     );
     doc.moveDown(0.3);
-    doc.fontSize(11).font(pdfFontPath || 'Helvetica');
+    doc.fontSize(11).font(hasFont ? 'Regular' : 'Helvetica');
     doc.text(safe(`Период: ${payload.periodLabel}`));
     doc.text(safe(`Преподаватель: ${teacher?.name || 'Преподаватель'}`));
     doc.text(safe(`Email родителя: ${payload.parentEmail || 'Не указан'}`));
     doc.moveDown(0.8);
 
     // Section 1
-    doc.fontSize(13).font(pdfFontPath || 'Helvetica-Bold').text(safe('1. Общая динамика'));
+    doc.fontSize(13).font(hasFont ? 'Bold' : 'Helvetica-Bold').text(safe('1. Общая динамика'));
     doc.moveDown(0.3);
-    doc.fontSize(11).font(pdfFontPath || 'Helvetica');
+    doc.fontSize(11).font(hasFont ? 'Regular' : 'Helvetica');
     doc.text(safe(`Проверено работ: ${payload.checkedWorksCount ?? 0}`));
     doc.text(safe(`Средний балл: ${payload.averageScore ?? 'Нет данных'}`));
     doc.text(safe(`Последний результат: ${payload.lastScore ?? 'Нет данных'}`));
@@ -866,13 +905,13 @@ function writeParentReportPdf({ student, payload, teacher, baseUrl }) {
     doc.moveDown(0.8);
 
     // Section 2
-    doc.fontSize(13).font(pdfFontPath || 'Helvetica-Bold').text(safe('2. Частые ошибки'));
+    doc.fontSize(13).font(hasFont ? 'Bold' : 'Helvetica-Bold').text(safe('2. Частые ошибки'));
     doc.moveDown(0.3);
-    doc.fontSize(11).font(pdfFontPath || 'Helvetica').text(safe(payload.topErrorsList || 'Не выявлено'));
+    doc.fontSize(11).font(hasFont ? 'Regular' : 'Helvetica').text(safe(payload.topErrorsList || 'Не выявлено'));
     doc.moveDown(0.8);
 
     // Section 3 – histogram (drawn with PDFKit primitives)
-    doc.fontSize(13).font(pdfFontPath || 'Helvetica-Bold').text(safe('3. Распределение оценок'));
+    doc.fontSize(13).font(hasFont ? 'Bold' : 'Helvetica-Bold').text(safe('3. Распределение оценок'));
     doc.moveDown(0.3);
     const buckets = payload.histogramBuckets || {};
     const bucketKeys = ['0-49', '50-69', '70-84', '85-100'];
@@ -884,7 +923,7 @@ function writeParentReportPdf({ student, payload, teacher, baseUrl }) {
     const histBaseY = doc.y + barMaxHeight + 20;
     const totalCount = bucketKeys.reduce((s, k) => s + (buckets[k] || 0), 0);
     if (totalCount === 0) {
-      doc.fontSize(11).font(pdfFontPath || 'Helvetica').text(safe('Недостаточно данных за выбранный период'));
+      doc.fontSize(11).font(hasFont ? 'Regular' : 'Helvetica').text(safe('Недостаточно данных за выбранный период'));
     } else {
       bucketKeys.forEach((key, i) => {
         const val = buckets[key] || 0;
@@ -892,7 +931,7 @@ function writeParentReportPdf({ student, payload, teacher, baseUrl }) {
         const bx = histX + i * (barWidth + barGap);
         const by = histBaseY - bh;
         doc.rect(bx, by, barWidth, bh).fill('#2563eb');
-        doc.fontSize(9).font(pdfFontPath || 'Helvetica').fillColor('#0f172a');
+        doc.fontSize(9).font(hasFont ? 'Regular' : 'Helvetica').fillColor('#0f172a');
         doc.text(String(val), bx, by - 14, { width: barWidth, align: 'center' });
         doc.text(safe(key), bx, histBaseY + 4, { width: barWidth, align: 'center' });
       });
@@ -902,15 +941,15 @@ function writeParentReportPdf({ student, payload, teacher, baseUrl }) {
     doc.moveDown(1);
 
     // Section 4
-    doc.fontSize(13).font(pdfFontPath || 'Helvetica-Bold').text(safe('4. Рекомендации'));
+    doc.fontSize(13).font(hasFont ? 'Bold' : 'Helvetica-Bold').text(safe('4. Рекомендации'));
     doc.moveDown(0.3);
-    doc.fontSize(11).font(pdfFontPath || 'Helvetica').text(safe(payload.recommendationsList || 'Нет данных'));
+    doc.fontSize(11).font(hasFont ? 'Regular' : 'Helvetica').text(safe(payload.recommendationsList || 'Нет данных'));
     doc.moveDown(0.8);
 
     // Conclusion
-    doc.fontSize(13).font(pdfFontPath || 'Helvetica-Bold').text(safe('Итог'));
+    doc.fontSize(13).font(hasFont ? 'Bold' : 'Helvetica-Bold').text(safe('Итог'));
     doc.moveDown(0.3);
-    doc.fontSize(11).font(pdfFontPath || 'Helvetica').text(safe(payload.shortConclusion || ''));
+    doc.fontSize(11).font(hasFont ? 'Regular' : 'Helvetica').text(safe(payload.shortConclusion || ''));
 
     if (!hasFont) {
       doc.moveDown(1);
@@ -1057,6 +1096,40 @@ const safeAccount = (db, account) => ({
 
 const createSmsCode = () => String(Math.floor(1000 + Math.random() * 9000));
 
+// ─── Health check ────────────────────────────────────────────────────────────
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    version: process.env.npm_package_version || '1.0.0',
+  });
+});
+
+// ─── Protected file access ────────────────────────────────────────────────────
+app.get('/api/uploads/:filename', (req, res) => {
+  const { filename } = req.params;
+  const { userId, role } = req.query;
+  const filePath = path.join(uploadsDir, filename);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Файл не найден.' });
+  if (!userId || !role) return res.status(401).json({ error: 'Требуется авторизация.' });
+  const db = readDb();
+  ensureDbDefaults(db);
+  ensureAiDbDefaults(db);
+  const isTeacher = role === 'teacher' && db.teachers.some(t => t.id === userId);
+  const isStudent = role === 'student' && db.students.some(s => s.id === userId);
+  if (!isTeacher && !isStudent) return res.status(403).json({ error: 'Доступ запрещён.' });
+  const asset = (db.submissionAssets || []).find(a => a.storageName === filename);
+  if (asset) {
+    const allowed = isTeacher
+      ? db.works.some(w => w.teacherId === userId && (w.files || []).some(f => f.storageName === filename))
+        || (db.batchSessions || []).some(s => s.teacherId === userId && (s.files || []).some(f => f.storageName === filename))
+      : db.works.some(w => w.studentId === userId && (w.files || []).some(f => f.storageName === filename));
+    if (!allowed) return res.status(403).json({ error: 'Нет доступа к этому файлу.' });
+  }
+  res.sendFile(filePath);
+});
+
 app.get('/api/bootstrap', (req, res) => {
   const { role, userId } = req.query || {};
   res.json(serializeBootstrap({ role, userId }));
@@ -1097,7 +1170,7 @@ app.get('/api/students/search', (req, res) => {
   res.json(results);
 });
 
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   const db = readDb();
   ensureDbDefaults(db);
   const { role, name, firstName, lastName, email, phone, password, parentName, parentEmail, parentContact } = req.body;
@@ -1108,8 +1181,19 @@ app.post('/api/auth/register', (req, res) => {
   const hasSplitName = String(firstName || '').trim() && String(lastName || '').trim();
   if (!role || !normalizedName || !normalizedEmail || !password || !hasSplitName) return res.status(400).json({ error: 'Заполните имя, фамилию, email, телефон и пароль.' });
   if (!normalizedPhone) return res.status(400).json({ error: 'Номер телефона обязателен.' });
-  const existing = db.accounts.find(acc => acc.role === role && acc.email === normalizedEmail);
-  if (existing) return res.status(409).json({ error: 'Аккаунт с такой ролью и почтой уже существует.' });
+  const existingEmail = db.accounts.find(acc => acc.role === role && acc.email === normalizedEmail);
+  const existingPhone = normalizedPhone
+    ? db.accounts.find(acc => acc.role === role && normalizePhone(acc.phone || '') === normalizePhone(normalizedPhone))
+    : null;
+  if (existingEmail && existingPhone) {
+    return res.status(409).json({ error: 'Пользователь с таким email и телефоном уже зарегистрирован.', fields: { email: true, phone: true } });
+  }
+  if (existingEmail) {
+    return res.status(409).json({ error: 'Этот email уже зарегистрирован. Введите другой email.', fields: { email: true } });
+  }
+  if (existingPhone) {
+    return res.status(409).json({ error: 'Этот номер телефона уже зарегистрирован. Введите другой номер.', fields: { phone: true } });
+  }
 
   let userId = null;
   if (role === 'teacher') {
@@ -1157,13 +1241,14 @@ app.post('/api/auth/register', (req, res) => {
     userId = mergedStudent.id;
   }
 
+  const hashedPassword = await hashPassword(password);
   const account = {
     id: `acc-${Date.now()}`,
     role,
     name: normalizedName,
     email: normalizedEmail,
     phone: normalizedPhone,
-    password,
+    password: hashedPassword,
     verified: false,
     createdAt: new Date().toISOString(),
     userId,
@@ -1174,7 +1259,8 @@ app.post('/api/auth/register', (req, res) => {
   const code = createSmsCode();
   db.smsLogs.unshift({ id: `sms-${Date.now()}`, email: normalizedEmail, role, phone: normalizedPhone, code, createdAt: new Date().toISOString(), used: false });
   writeDb(db);
-  return res.json({ requiresSms: true, debugCode: code, email: normalizedEmail, role });
+  if (process.env.NODE_ENV !== 'production') logger.info({ code }, '[sms-stub] verification code');
+  return res.json({ requiresSms: true, email: normalizedEmail, role });
 });
 
 app.post('/api/auth/onboarding-complete', (req, res) => {
@@ -1204,7 +1290,7 @@ app.post('/api/auth/verify-sms', (req, res) => {
 });
 
 
-app.post('/api/auth/request-reset', (req, res) => {
+app.post('/api/auth/request-reset', resetPasswordRateLimit, (req, res) => {
   const db = readDb();
   ensureDbDefaults(db);
   const { role, identifier } = req.body;
@@ -1215,7 +1301,8 @@ app.post('/api/auth/request-reset', (req, res) => {
   const code = createSmsCode();
   db.resetRequests.unshift({ id: `reset-${Date.now()}`, role, identifier: byEmail ? account.email : account.phone, code, channel: byEmail ? 'email' : 'phone', used: false, createdAt: new Date().toISOString() });
   writeDb(db);
-  res.json({ success: true, debugCode: code, channel: byEmail ? 'email' : 'phone' });
+  if (process.env.NODE_ENV !== 'production') logger.info({ code }, '[sms-stub] password reset code');
+  res.json({ success: true, channel: byEmail ? 'email' : 'phone' });
 });
 
 app.post('/api/auth/verify-reset', (req, res) => {
@@ -1227,7 +1314,7 @@ app.post('/api/auth/verify-reset', (req, res) => {
   res.json({ success: true });
 });
 
-app.post('/api/auth/complete-reset', (req, res) => {
+app.post('/api/auth/complete-reset', async (req, res) => {
   const db = readDb();
   const { role, identifier, code, password } = req.body;
   const normalized = String(identifier || '').trim().toLowerCase();
@@ -1236,20 +1323,24 @@ app.post('/api/auth/complete-reset', (req, res) => {
   const byEmail = normalized.includes('@');
   const account = db.accounts.find(acc => acc.role === role && (byEmail ? acc.email === normalized : String(acc.phone || '').trim() === String(identifier || '').trim()));
   if (!account) return res.status(404).json({ error: 'Аккаунт не найден.' });
-  account.password = password;
+  account.password = await hashPassword(password);
   request.used = true;
   writeDb(db);
   res.json({ success: true });
 });
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const db = readDb();
   ensureDbDefaults(db);
   const { email, role, password } = req.body;
   const normalizedEmail = String(email || '').trim().toLowerCase();
-  const account = db.accounts.find(acc => acc.email === normalizedEmail && acc.role === role && acc.password === password);
+  const account = db.accounts.find(acc => acc.email === normalizedEmail && acc.role === role);
   if (!account) return res.status(401).json({ error: 'Неверная почта, роль или пароль.' });
+  const passwordOk = await verifyPassword(password, account.password);
+  if (!passwordOk) return res.status(401).json({ error: 'Неверная почта, роль или пароль.' });
   if (!account.verified) return res.status(403).json({ error: 'Сначала подтвердите аккаунт по SMS.' });
+  // Transparently upgrade legacy plaintext passwords to bcrypt on successful login
+  await upgradePasswordIfNeeded(db, account, password);
   res.json({ session: safeAccount(db, account) });
 });
 
@@ -1393,9 +1484,35 @@ app.post('/api/teacher-invites/:id/dismiss-student-notification', (req, res) => 
   res.json({ success: true });
 });
 
+const ALLOWED_REAL_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf']);
+
 app.post('/api/upload', aiRateLimit, upload.array('files', aiConfig.limits.maxFilesPerSubmission), async (req, res, next) => {
   try {
-    const files = await buildUploadedFileDescriptors(req, req.files || []);
+    const uploadedFiles = req.files || [];
+    // Verify real MIME type and enforce disk quota
+    const { studentId } = req.body;
+    if (studentId) {
+      const db = readDb();
+      ensureAiDbDefaults(db);
+      const existingBytes = (db.submissionAssets || [])
+        .filter(a => a.submissionId && db.submissions.some(s => s.studentId === studentId && s.id === a.submissionId))
+        .reduce((sum, a) => sum + (a.sizeBytes || 0), 0);
+      const newBytes = uploadedFiles.reduce((sum, f) => sum + (f.size || 0), 0);
+      if (existingBytes + newBytes > MAX_STUDENT_DISK_BYTES) {
+        uploadedFiles.forEach(f => { try { fs.unlinkSync(path.join(uploadsDir, f.filename)); } catch {} });
+        return res.status(413).json({ error: `Превышен лимит дискового пространства (${Math.round(MAX_STUDENT_DISK_BYTES / 1024 / 1024)} МБ).` });
+      }
+    }
+    for (const file of uploadedFiles) {
+      const filePath = path.join(uploadsDir, file.filename);
+      const buffer = await fs.promises.readFile(filePath);
+      const detected = await fileTypeFromBuffer(buffer);
+      if (!detected || !ALLOWED_REAL_MIMES.has(detected.mime)) {
+        try { fs.unlinkSync(filePath); } catch {}
+        return res.status(400).json({ error: `Файл "${file.originalname}" имеет недопустимый тип. Разрешены JPG, PNG, WEBP, HEIC и PDF.` });
+      }
+    }
+    const files = await buildUploadedFileDescriptors(req, uploadedFiles);
     res.json({ files });
   } catch (error) {
     next(error);
@@ -1561,10 +1678,21 @@ app.post('/api/groups/:id/archive', (req, res) => {
   res.json({ success: true });
 });
 
+function validateAssignmentDeadline(deadlineStr) {
+  if (!deadlineStr) return null;
+  const d = new Date(deadlineStr);
+  if (isNaN(d.getTime())) return 'Некорректный формат даты дедлайна.';
+  return null;
+}
+
 app.post('/api/assignments', (req, res) => {
   const db = readDb();
   ensureDbDefaults(db);
   if (!req.body.teacherId) return res.status(400).json({ error: 'Не указан преподаватель задания.' });
+  if (req.body.deadline) {
+    const deadlineErr = validateAssignmentDeadline(req.body.deadline);
+    if (deadlineErr) return res.status(400).json({ error: deadlineErr });
+  }
   const recipients = normalizeAssignmentRecipients(db, req.body, req.body.teacherId);
   const hasRecipient = recipients.recipientType === 'students'
     ? recipients.recipientIds.length
@@ -2028,11 +2156,22 @@ app.use((error, req, res, next) => {
 
 recognitionQueue.start();
 app.listen(PORT, () => {
-  console.log(`Backend running on http://127.0.0.1:${PORT}`);
-  console.log(`AI config: enabled=${aiConfig.flags.ENABLE_OPENAI_RECOGNITION}, batch=${aiConfig.flags.ENABLE_BATCH_AI_GRADING}, model=${aiConfig.openai.model}`);
+  logger.info({ port: PORT, url: `http://127.0.0.1:${PORT}` }, 'Backend started');
+  logger.info({
+    enableRecognition: aiConfig.flags.ENABLE_OPENAI_RECOGNITION,
+    enableBatch: aiConfig.flags.ENABLE_BATCH_AI_GRADING,
+    model: aiConfig.openai.model,
+    recognitionModel: aiConfig.openai.recognitionModel,
+    analysisModel: aiConfig.openai.analysisModel,
+  }, 'AI config');
   if (!envFileExists) {
-    console.warn('AI env warning: .env or .env.local was not found in the project root. Server-only AI features will stay disabled until the file is created.');
+    logger.warn('AI env warning: .env not found. Server AI features disabled until .env is created.');
   } else if (!aiConfig.openai.apiKey) {
-    console.warn('AI env warning: OPENAI_API_KEY is empty. Server-only AI features will stay disabled until the key is set.');
+    logger.warn('AI env warning: OPENAI_API_KEY is empty. Server AI features disabled.');
+  }
+  if (pdfFontPath) {
+    logger.info({ pdfFontPath }, 'PDF font loaded');
+  } else {
+    logger.warn('No Cyrillic font found for PDF. Run: node server/download-fonts.js');
   }
 });
