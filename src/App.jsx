@@ -3,7 +3,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearch
 import {
   AlertTriangle, ArrowRight, BarChart3, BookOpen, CheckSquare, ChevronLeft, ChevronRight, Clock3,
   CreditCard, Download, ExternalLink, Expand, FileText, FolderOpen, GraduationCap,
-  LayoutDashboard, Link2, Lock, LogOut, Maximize2, Minimize2, Pencil, Plus, Save, Search, Send, Settings,
+  LayoutDashboard, Link2, Lock, LogOut, Maximize2, Minimize2, Pencil, Plus, RotateCw, Save, Search, Send, Settings,
   Sparkles, Trash2, UploadCloud, User, Users, X
 } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -84,11 +84,13 @@ const api = {
   markWorkManualReview: (id, payload = {}) => jsonPut(`/api/works/${id}/manual-review`, payload),
   saveReportConfig: post('/api/reports/configs'),
   sendReport: post('/api/reports/send'),
-  createBatchSession: async (files, scale, teacherId) => {
+  createBatchSession: async (files, scale, teacherId, assignmentFiles = [], assignmentLinks = []) => {
     const fd = new FormData();
     Array.from(files).forEach(file => fd.append('files', file));
+    Array.from(assignmentFiles).forEach(file => fd.append('assignmentFiles', file));
     fd.append('scale', scale);
     if (teacherId) fd.append('teacherId', teacherId);
+    if (assignmentLinks.length) fd.append('assignmentLinks', JSON.stringify(assignmentLinks));
     const res = await fetch(`${API}/api/batch/sessions`, { method: 'POST', body: fd });
     if (!res.ok) throw new Error('Не удалось создать пакетную сессию');
     return res.json();
@@ -222,15 +224,22 @@ const AI_PROCESSING_LABELS = {
 };
 const onboardingVariants = {
   student: [
-    { title: 'Заполнить профиль', text: 'Добавьте телефон и Email родителя, если он нужен для отчетов.', path: '/student/profile', cta: 'Открыть профиль' },
-    { title: 'Найти преподавателя', text: 'Откройте раздел «Репетиторы» и отправьте запрос нужному преподавателю.', path: '/student/tutors', cta: 'Перейти к репетиторам' },
-    { title: 'Открыть первое задание', text: 'Как только преподаватель опубликует задание, оно появится в вашем списке.', path: '/student/assignments', cta: 'Открыть задания' },
+    { title: 'Заполните профиль', text: 'Добавьте телефон и Email родителя, если он нужен для отчетов.' },
+    { title: 'Подключите преподавателя', text: 'Откройте раздел «Репетиторы» и отправьте запрос нужному преподавателю.' },
+    { title: 'Откройте первое задание', text: 'Как только преподаватель опубликует задание, оно появится в вашем списке.' },
+    { title: 'Прикрепите решение', text: 'В карточке задания выберите фото или файл и нажмите «Загрузить».' },
+    { title: 'Дождитесь проверки', text: 'После отправки преподаватель получит вашу работу и начнёт проверку.' },
+    { title: 'Посмотрите результат и рекомендации', text: 'Проверенные работы появятся в разделе «Главная» с баллом и комментарием.' },
   ],
   teacher: [
-    { title: 'Заполнить профиль', text: 'Укажите контакты и предметы, с которыми вы работаете.', path: '/teacher/settings', cta: 'Открыть настройки' },
-    { title: 'Пригласить ученика', text: 'Создайте ученика вручную или отправьте ссылку-приглашение.', path: '/teacher/students', cta: 'Открыть учеников' },
-    { title: 'Создать группу или пропустить', text: 'Можно собрать мини-группу сразу или сделать это позже.', path: '/teacher/groups', cta: 'Открыть группы' },
-    { title: 'Выдать первое задание', text: 'После публикации оно сразу появится в аккаунтах нужных учеников.', path: '/teacher/assignments', cta: 'Открыть задания' },
+    { title: 'Заполните профиль', text: 'Укажите контакты и предметы, с которыми вы работаете.' },
+    { title: 'Добавьте ученика', text: 'Создайте ученика вручную или отправьте ссылку-приглашение.' },
+    { title: 'Создайте группу', text: 'Объедините учеников с одним предметом и расписанием в группу.' },
+    { title: 'Создайте задание', text: 'Добавьте задание и опубликуйте его для нужного ученика или группы.' },
+    { title: 'Проверьте работу', text: 'Откройте «Проверка → Очередь» и подтвердите AI-черновик для каждой работы.' },
+    { title: 'Используйте пакетную проверку', text: 'Загрузите несколько работ сразу в «Пакетная проверка» для быстрого анализа.' },
+    { title: 'Сформируйте отчет', text: 'В разделе «Отчеты» настройте автоотправку или сформируйте PDF вручную.' },
+    { title: 'Настройте тариф и параметры кабинета', text: 'В «Настройки → Тарифы» выберите подходящий план.' },
   ],
 };
 
@@ -361,44 +370,39 @@ function formatConfidence(value) {
   return `${Math.round(Number(value) * 100)}%`;
 }
 
-function ImageCarousel({ files = [], onFullscreen }) {
+function ImageCarousel({ files = [] }) {
   const [idx, setIdx] = useState(0);
-  const [fullscreen, setFullscreen] = useState(false);
+  const [rotations, setRotations] = useState({});
   const safeFiles = files.length ? files : [];
   const cur = safeFiles[Math.min(idx, Math.max(safeFiles.length - 1, 0))] || null;
-  useEffect(() => { setIdx(0); }, [safeFiles.length]);
+
+  useEffect(() => { setIdx(0); setRotations({}); }, [safeFiles.length]);
 
   const prev = () => setIdx(i => Math.max(0, i - 1));
   const next = () => setIdx(i => Math.min(safeFiles.length - 1, i + 1));
+  const rotate = () => setRotations(r => ({ ...r, [idx]: ((r[idx] || 0) + 90) % 360 }));
 
   if (!cur) return <div className="empty">Нет приложенных файлов.</div>;
   const href = normalizeUrl(cur.previewUrl || cur.normalizedUrl || cur.url);
+  const currentRotation = rotations[idx] || 0;
 
-  const viewerContent = (
-    <div className={cx('carouselViewer', fullscreen && 'carouselFullscreen')} onClick={e => fullscreen && e.target === e.currentTarget && setFullscreen(false)}>
+  return (
+    <div className="carouselViewer">
       <div className="carouselImageWrap">
         {cur.kind === 'photo'
-          ? <img src={href} alt={cur.name} className="carouselImage" />
+          ? <img src={href} alt={cur.name} className="carouselImage" style={{ transform: `rotate(${currentRotation}deg)`, transition: 'transform .25s ease' }} />
           : <object data={href} type={cur.mimeType || 'application/pdf'} className="reviewViewerPdf"><a href={href} target="_blank" rel="noreferrer" className="fileTile">Открыть файл</a></object>}
       </div>
       <div className="carouselControls">
         <button className="iconGhost" onClick={prev} disabled={idx === 0}><ChevronLeft size={18}/></button>
         <span className="muted small">{idx + 1} / {safeFiles.length}</span>
         <button className="iconGhost" onClick={next} disabled={idx === safeFiles.length - 1}><ChevronRight size={18}/></button>
-        <button className="iconGhost" onClick={() => setFullscreen(f => !f)} title={fullscreen ? 'Выйти из полноэкранного режима' : 'Полный экран'}>{fullscreen ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}</button>
+        <button className="iconGhost" onClick={rotate} title="Повернуть"><RotateCw size={16}/></button>
         <a href={href} download target="_blank" rel="noreferrer" className="iconGhost" title="Скачать"><Download size={16}/></a>
       </div>
-      {safeFiles.length > 1 && <div className="chipWrap mt8">
-        {safeFiles.map((f, i) => <button key={f.id || i} className={cx('chipBtn', i === idx && 'active')} onClick={() => setIdx(i)}>Стр. {i + 1}</button>)}
-      </div>}
       <div className="muted small mt4">{cur.originalName || cur.name}</div>
     </div>
   );
-
-  if (fullscreen) {
-    return <div className="carouselOverlay" onClick={() => setFullscreen(false)}><div onClick={e=>e.stopPropagation()}>{viewerContent}</div></div>;
-  }
-  return viewerContent;
 }
 
 function ReviewFileViewer({ files = [] }) {
@@ -590,10 +594,8 @@ export default function App() {
 }
 
 function SpotlightOnboarding({ session, onFinish }) {
-  const navigate = useNavigate();
   const items = onboardingVariants[session.role] || [];
   const [step, setStep] = useState(0);
-  const [dismissForever, setDismissForever] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const finish = async () => {
@@ -613,15 +615,13 @@ function SpotlightOnboarding({ session, onFinish }) {
         <p className="spotlightText">{cur.text}</p>
         <div className="modalActions">
           {step > 0 && <button className="secondaryBtn" onClick={()=>setStep(s=>s-1)}>Назад</button>}
-          <button className="ghostBtn" onClick={()=>navigate(cur.path)}>{cur.cta}</button>
           {step < items.length - 1
             ? <button className="primaryBtn" onClick={()=>setStep(s=>s+1)}>Далее</button>
             : <button className="primaryBtn" disabled={saving} onClick={finish}>Завершить</button>}
         </div>
-        <label className="checkRow mt12" style={{justifyContent:'center'}}>
-          <input type="checkbox" checked={dismissForever} onChange={e=>setDismissForever(e.target.checked)} />
-          <span className="muted small">Больше не показывать</span>
-        </label>
+        <div style={{textAlign:'center',marginTop:14}}>
+          <button className="linkButton muted small" disabled={saving} onClick={finish} style={{fontSize:13,color:'var(--muted)',background:'none',border:'none',cursor:'pointer',padding:'4px 8px'}}>Пропустить обучение</button>
+        </div>
       </div>
     </div>
   );
@@ -648,18 +648,16 @@ function Shell({ session, db, reload, logout, notify, updateSession }) {
     { path: '/teacher/grading', label: 'Проверка', icon: CheckSquare },
     { path: '/teacher/analytics', label: 'Аналитика', icon: BarChart3 },
     { path: '/teacher/reports', label: 'Отчеты', icon: FileText },
-    { path: '/teacher/pricing', label: 'Тарифы', icon: CreditCard },
-    { path: '/teacher/settings', label: 'Настройки', icon: Settings },
   ];
   const studentItems = [
     { path: '/student', label: 'Главная', icon: LayoutDashboard },
     { path: '/student/assignments', label: 'Мои задания', icon: BookOpen },
-    { path: '/student/tutors', label: 'Репетиторы', icon: Search, badge: studentPendingInvites || null },
+    { path: '/student/tutors', label: 'Репетиторы', icon: Search },
   ];
   const navItems = session.role === 'teacher' ? teacherItems : studentItems;
 
   const onNav = (item) => {
-    if (isTeacherLimited && !['/teacher/grading', '/teacher/pricing'].includes(item.path)) {
+    if (isTeacherLimited && item.path !== '/teacher/grading') {
       setTeaser({ title: item.label, text: 'Пробный период завершен. В Free-режиме доступна только пакетная проверка и тарифы.' });
       return;
     }
@@ -713,7 +711,7 @@ function Shell({ session, db, reload, logout, notify, updateSession }) {
       </aside>
       <div className="main">
         <header className="topbar noCollapseTopbar">
-          {isTeacherLimited ? <div className="banner"><Sparkles size={14} /> Пробный период завершен. Доступна только Пакетная проверка и Тарифы</div> : null}
+          {isTeacherLimited ? <div className="banner"><Sparkles size={14} /> Пробный период завершен. Доступна только Пакетная проверка и <button className="linkButton" style={{background:'none',border:'none',color:'inherit',fontWeight:700,cursor:'pointer',padding:0}} onClick={() => navigate('/teacher/settings?tab=pricing')}>Тарифы</button></div> : null}
         </header>
         <main className="content">
           <Routes>
@@ -724,7 +722,7 @@ function Shell({ session, db, reload, logout, notify, updateSession }) {
             <Route path="/teacher/grading" element={<TeacherGradingPage db={db} reload={reload} session={session} notify={notify} />} />
             <Route path="/teacher/analytics" element={<TeacherAnalyticsPage db={db} session={session} />} />
             <Route path="/teacher/reports" element={<TeacherReportsPage db={db} reload={reload} notify={notify} session={session} />} />
-            <Route path="/teacher/pricing" element={<TeacherPricingPage db={db} session={session} />} />
+            <Route path="/teacher/pricing" element={<Navigate to="/teacher/settings?tab=pricing" replace />} />
             <Route path="/teacher/settings" element={<TeacherSettingsPage db={db} reload={reload} notify={notify} session={session} />} />
             <Route path="/student" element={<StudentDashboardPage db={db} session={session} navigate={navigate} reload={reload} notify={notify} />} />
             <Route path="/student/assignments" element={<StudentAssignmentsPage db={db} reload={reload} notify={notify} session={session} />} />
@@ -734,7 +732,7 @@ function Shell({ session, db, reload, logout, notify, updateSession }) {
           </Routes>
         </main>
       </div>
-      {teaser && <Modal title={teaser.title} onClose={() => setTeaser(null)}><p>{teaser.text}</p><div className="modalActions"><button className="secondaryBtn" onClick={() => setTeaser(null)}>Понятно</button><button className="primaryBtn" onClick={() => { setTeaser(null); navigate('/teacher/pricing'); }}>Перейти к тарифам</button></div></Modal>}
+      {teaser && <Modal title={teaser.title} onClose={() => setTeaser(null)}><p>{teaser.text}</p><div className="modalActions"><button className="secondaryBtn" onClick={() => setTeaser(null)}>Понятно</button><button className="primaryBtn" onClick={() => { setTeaser(null); navigate('/teacher/settings?tab=pricing'); }}>Перейти к тарифам</button></div></Modal>}
       {!session.onboardingCompleted && <SpotlightOnboarding session={session} onFinish={finishOnboarding} />}
     </div>
   );
@@ -761,6 +759,13 @@ function LoginPage({ onAuth, notify }) {
   const [working, setWorking] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
+  const smsRef = useRef(null);
+
+  useEffect(() => {
+    if (pendingSms && smsRef.current) {
+      smsRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [pendingSms]);
 
   const validateReg = () => {
     const errs = {};
@@ -878,7 +883,7 @@ function LoginPage({ onAuth, notify }) {
           </div>
         )}
 
-        {pendingSms && <div className="mt20 cardInner"><div className="cardTitle">Подтверди аккаунт по SMS</div><div className="muted small mt8">Код отправлен на номер из регистрации. Для локального запуска используй код {pendingSms.debugCode}</div><div className="row gap8 mt12"><input className="input" value={smsCode} onChange={e=>setSmsCode(e.target.value)} placeholder="Введите код" /><button className="primaryBtn" onClick={verifySms} disabled={working}>Подтвердить</button></div></div>}
+        {pendingSms && <div ref={smsRef} className="mt20 cardInner"><div className="cardTitle">Подтверди аккаунт по SMS</div><div className="muted small mt8">Код отправлен на номер из регистрации. Для локального запуска используй код {pendingSms.debugCode}</div><div className="row gap8 mt12"><input className="input" value={smsCode} onChange={e=>setSmsCode(e.target.value)} placeholder="Введите код" /><button className="primaryBtn" onClick={verifySms} disabled={working}>Подтвердить</button></div></div>}
       </section>
       {resetOpen && <ForgotPasswordModal role={role} onClose={()=>setResetOpen(false)} notify={notify} setEmail={setEmail} setPassword={setPassword} setMode={setMode} />}
     </div>
@@ -1312,26 +1317,6 @@ function StudentModal({ mode, db, student, onClose, onSave, notify }) {
     });
   };
 
-  const SlotEditor = () => (
-    <>
-      <div className="sectionLabel mt20">Слоты занятий (необязательно)</div>
-      {!showSlotEditor && <button className="secondaryBtn mt12" onClick={()=>setShowSlotEditor(true)}><Plus size={16} /> Добавить слот</button>}
-      {showSlotEditor && <div className="slotHintCard mt12">
-        <div className="slotHintLabel">День недели</div>
-        <div className="slotHintLabel">Время начала (HH:MM)</div>
-        <div className="slotHintLabel">Часы</div>
-        <div className="slotHintLabel">Минуты</div>
-        <div></div>
-        <select className="input selectSmall" value={slotDraft.day} onChange={e=>setSlotDraft(v=>({...v,day:e.target.value}))}>{['ПН','ВТ','СР','ЧТ','ПТ','СБ','ВС'].map(day=><option key={day}>{day}</option>)}</select>
-        <input className="input selectSmall" type="time" value={slotDraft.time} onChange={e=>setSlotDraft(v=>({...v,time:e.target.value}))} />
-        <input className="input selectSmall" type="number" min="0" value={slotDraft.durationHours} onChange={e=>setSlotDraft(v=>({...v,durationHours:e.target.value}))} placeholder="0" />
-        <input className="input selectSmall" type="number" min="0" max="59" value={slotDraft.durationMinutes} onChange={e=>setSlotDraft(v=>({...v,durationMinutes:e.target.value}))} placeholder="0" />
-        <div className="row gap8"><button className="secondaryBtn" onClick={addSlot}>Добавить слот</button><button className="ghostBtn" onClick={()=>{setShowSlotEditor(false); setSlotError('');}}>Скрыть</button></div>
-      </div>}
-      {!!slots.length && <div className="stack gap8 mt16">{slots.map(slot => <div key={slot.id} className={cx('listRow', (hasLocalDuplicate(slot, slot.id) || hasExternalConflict(slot)) && 'conflictRow')}><span>{slot.day} {slot.time} · {slot.durationHours || 0} ч {slot.durationMinutes || 0} мин</span><button className="iconGhost" onClick={()=>setSlots(prev=>prev.filter(s=>s.id!==slot.id))}><Trash2 size={14}/></button></div>)}</div>}
-    </>
-  );
-
   return <Modal title={isCreate ? 'Добавить виртуального ученика' : 'Редактировать ученика'} onClose={onClose} wide>
     {isCreate && <div className="cardInner mb16">При добавлении виртуального ученика вы получите идентичный функционал (аналитика, авто-отчеты, проверка работ), но ученик не сможет самостоятельно прикреплять решение.</div>}
     <div className="grid twoCol">
@@ -1342,7 +1327,22 @@ function StudentModal({ mode, db, student, onClose, onSave, notify }) {
       <label className="field"><span>Имя родителя</span><input className="input" value={form.parentName} onChange={e=>setForm(v=>({...v,parentName:e.target.value}))} placeholder="Опционально" /></label>
       <label className="field"><span>Уровень</span><input className="input" value={form.level} onChange={e=>setForm(v=>({...v,level:e.target.value}))} placeholder="Опционально" /></label>
     </div>
-    <SlotEditor />
+    {/* Slot editor inlined to avoid focus loss from inner component redefinition */}
+    <div className="sectionLabel mt20">Слоты занятий (необязательно)</div>
+    {!showSlotEditor && <button className="secondaryBtn mt12" onClick={()=>setShowSlotEditor(true)}><Plus size={16} /> Добавить слот</button>}
+    {showSlotEditor && <div className="slotHintCard mt12">
+      <div className="slotHintLabel">День недели</div>
+      <div className="slotHintLabel">Время начала (HH:MM)</div>
+      <div className="slotHintLabel">Часы</div>
+      <div className="slotHintLabel">Минуты</div>
+      <div></div>
+      <select className="input selectSmall" value={slotDraft.day} onChange={e=>setSlotDraft(v=>({...v,day:e.target.value}))}>{['ПН','ВТ','СР','ЧТ','ПТ','СБ','ВС'].map(day=><option key={day}>{day}</option>)}</select>
+      <input className="input selectSmall" type="text" value={slotDraft.time} onChange={e=>setSlotDraft(v=>({...v,time:e.target.value}))} placeholder="ЧЧ:ММ" />
+      <input className="input selectSmall" type="text" inputMode="numeric" value={slotDraft.durationHours} onChange={e=>setSlotDraft(v=>({...v,durationHours:e.target.value}))} placeholder="0" />
+      <input className="input selectSmall" type="text" inputMode="numeric" value={slotDraft.durationMinutes} onChange={e=>setSlotDraft(v=>({...v,durationMinutes:e.target.value}))} placeholder="0" />
+      <div className="row gap8"><button className="secondaryBtn" onClick={addSlot}>Добавить слот</button><button className="ghostBtn" onClick={()=>{setShowSlotEditor(false); setSlotError('');}}>Скрыть</button></div>
+    </div>}
+    {!!slots.length && <div className="stack gap8 mt16">{slots.map(slot => <div key={slot.id} className={cx('listRow', (hasLocalDuplicate(slot, slot.id) || hasExternalConflict(slot)) && 'conflictRow')}><span>{slot.day} {slot.time} · {slot.durationHours || 0} ч {slot.durationMinutes || 0} мин</span><button className="iconGhost" onClick={()=>setSlots(prev=>prev.filter(s=>s.id!==slot.id))}><Trash2 size={14}/></button></div>)}</div>}
     {slotError && <div className="pill danger mt12">{slotError}</div>}
     {isCreate && <div className="muted small mt16">В будущем вы сможете объединить с аккаунтом реального ученика.</div>}
     <div className="modalActions"><button className="primaryBtn" onClick={submit}>{isCreate ? 'Сохранить виртуального ученика' : 'Сохранить ученика'}</button></div>
@@ -1778,6 +1778,9 @@ function BatchReview({ db, reload, session, notify }) {
   const isLimited = session.role === 'teacher' && session.accessMode === 'limited';
   const [scale, setScale] = useState('100');
   const [files, setFiles] = useState([]);
+  const [assignmentFiles, setAssignmentFiles] = useState([]);
+  const [assignmentLinks, setAssignmentLinks] = useState([]);
+  const [assignmentLinkInput, setAssignmentLinkInput] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const teacherSessions = (db.batchSessions || []).filter(item => item.teacherId === session.userId);
   const [sessionId, setSessionId] = useState(teacherSessions?.[0]?.id || null);
@@ -1789,7 +1792,7 @@ function BatchReview({ db, reload, session, notify }) {
     if (!files.length) return notify({ type:'error', text:'Добавь файлы перед началом пакетной проверки.' });
     setLoading(true);
     try {
-      const created = await api.createBatchSession(files, scale, session.userId);
+      const created = await api.createBatchSession(files, scale, session.userId, assignmentFiles, assignmentLinks);
       setSessionId(created.id);
       await api.analyzeBatch(created.id);
       await reload();
@@ -1815,12 +1818,37 @@ function BatchReview({ db, reload, session, notify }) {
     setFiles(prev => [...prev, ...incoming.filter(f => !prev.some(e => e.name === f.name && e.size === f.size))]);
   }, []);
 
+  const addAssignmentLink = () => {
+    const url = assignmentLinkInput.trim();
+    if (!url) return;
+    setAssignmentLinks(prev => [...prev, url]);
+    setAssignmentLinkInput('');
+  };
+
+  const noAssignmentContext = !assignmentFiles.length && !assignmentLinks.length;
+
   return <div className="stack gap24">
     <div className="row between wrap gap16">
       <div><h2 className="pageTitle">Пакетная проверка</h2><p className="muted">Множественные фото и файлы, явный запуск анализа и компактная таблица результатов.</p></div>
       <div className="row gap8"><select className="input selectSmall" value={scale} onChange={e=>setScale(e.target.value)}><option value="5">5-балльная</option><option value="10">10-балльная</option><option value="100">100-балльная</option></select>{isLimited && <span className="pill info">Текущий тариф: Free</span>}</div>
     </div>
-    <div className="grid batchSplit">
+    <div className="grid batchTriple">
+      <Card title="Задание">
+        <div className="stack gap12">
+          <div className="muted small">Загрузите фото/файлы с условием задания или добавьте ссылку. AI использует их как эталон при проверке.</div>
+          <label className="uploadZone small">
+            <input type="file" multiple onChange={e=>{setAssignmentFiles(prev=>[...prev,...Array.from(e.target.files||[]).filter(f=>!prev.some(e2=>e2.name===f.name&&e2.size===f.size))]); e.target.value='';}} />
+            <UploadCloud size={20}/><div className="muted small">Фото/файлы с условием</div>
+          </label>
+          {assignmentFiles.length > 0 && <div className="stack gap6">{assignmentFiles.map(f=><div key={f.name+f.size} className="listRow compact"><span>{f.name}</span><button className="iconGhost danger" onClick={()=>setAssignmentFiles(prev=>prev.filter(x=>x!==f))}><Trash2 size={13}/></button></div>)}</div>}
+          <div className="row gap8 mt4">
+            <input className="input grow" value={assignmentLinkInput} onChange={e=>setAssignmentLinkInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();addAssignmentLink();}}} placeholder="https://ссылка на задание" />
+            <button className="secondaryBtn" onClick={addAssignmentLink}><Link2 size={14}/></button>
+          </div>
+          {assignmentLinks.length > 0 && <div className="stack gap6">{assignmentLinks.map((url,i)=><div key={url+i} className="listRow compact"><a href={url} target="_blank" rel="noreferrer" className="linkText grow">{url}</a><button className="iconGhost danger" onClick={()=>setAssignmentLinks(prev=>prev.filter((_,j)=>j!==i))}><Trash2 size={13}/></button></div>)}</div>}
+          {noAssignmentContext && files.length > 0 && <div className="banner subtle" style={{fontSize:12}}>ИИ будет проверять без условия задания. Добавьте файл или ссылку для точности.</div>}
+        </div>
+      </Card>
       <Card title="Исходники для проверки">
         <div className="stack gap12">
           <label className={cx('uploadZone', dragActive && 'uploadZoneActive')}
@@ -1830,8 +1858,8 @@ function BatchReview({ db, reload, session, notify }) {
           >
             <input type="file" multiple onChange={e=>{onDropFiles(Array.from(e.target.files||[])); e.target.value='';}} />
             <UploadCloud size={24}/>
-            <div>Добавить несколько фото и/или файлов</div>
-            <div className="muted small">Можно перетащить файлы прямо в эту область</div>
+            <div>Работы учеников</div>
+            <div className="muted small">Перетащите сюда или выберите файлы</div>
           </label>
           <div className="batchFileList">{files.length ? files.map(file=><div key={file.name+file.size} className="listRow compact"><div className="stack"><span>{file.name}</span><span className="muted small">{loading ? 'в обработке' : 'ожидает загрузки'}</span></div><button className="iconGhost danger" onClick={()=>setFiles(prev=>prev.filter(f=>f!==file))}><Trash2 size={13}/></button></div>) : <div className="empty">Файлы еще не добавлены.</div>}</div>
           <div className="row gap8 wrap">
@@ -1987,6 +2015,46 @@ function TeacherAnalyticsPage({ db, session }) {
 }
 
 
+function buildPreviewReportData(db, teacherId, studentId, periodFrom, periodTo) {
+  const student = db.students?.find(s => s.id === studentId);
+  if (!student) return null;
+  const start = new Date(periodFrom); start.setHours(0,0,0,0);
+  const end = new Date(periodTo); end.setHours(23,59,59,999);
+  const worksAll = (db.works || []).filter(w => w.teacherId === teacherId && w.studentId === studentId);
+  const worksInPeriod = worksAll.filter(w => { const d = new Date(w.submittedAt); return d >= start && d <= end; });
+  const checkedWorks = worksInPeriod.filter(w => w.status === 'Проверено');
+  const scores = checkedWorks.map(w => {
+    const a = (db.assignments || []).find(x => x.id === w.assignmentId);
+    return Math.round(((w.finalScore ?? w.suggestedScore ?? 0) / (a?.maxScore || 100)) * 100);
+  });
+  const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : null;
+  const lastScore = scores.length ? scores[scores.length-1] : null;
+  let trendLabel = 'Недостаточно данных для оценки динамики';
+  if (scores.length >= 2) {
+    const earlierAvg = Math.round(scores.slice(0,-1).reduce((a,b)=>a+b,0)/(scores.length-1));
+    if (lastScore > earlierAvg + 5) trendLabel = 'Положительная';
+    else if (lastScore < earlierAvg - 5) trendLabel = 'Требует внимания';
+    else trendLabel = 'Стабильная';
+  }
+  const errorCounts = worksInPeriod.flatMap(w=>(w.aiErrors||[]).flatMap(e=>e.types||[])).reduce((acc,t)=>({...acc,[t]:(acc[t]||0)+1}),{});
+  const topErrors = Object.entries(errorCounts).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([t])=>t);
+  const recs = [];
+  if (trendLabel==='Требует внимания') recs.push('Рекомендуем уделить больше времени практическим задачам.');
+  if (topErrors.length) recs.push(`Акцент на: ${topErrors.slice(0,2).join(', ')}.`);
+  if (!recs.length) recs.push('Продолжайте в том же темпе.');
+  const buckets={'0–49':0,'50–69':0,'70–84':0,'85–100':0};
+  scores.forEach(p => { if(p<50)buckets['0–49']++; else if(p<70)buckets['50–69']++; else if(p<85)buckets['70–84']++; else buckets['85–100']++; });
+  const histogramData = Object.entries(buckets).map(([name,value])=>({name,value}));
+  const hasHistogram = scores.length > 0;
+  let shortConclusion = '';
+  if (!checkedWorks.length) shortConclusion = 'За выбранный период нет проверенных работ.';
+  else if (trendLabel==='Положительная') shortConclusion = `Положительная динамика. Средний результат: ${avg}%.`;
+  else if (trendLabel==='Требует внимания') shortConclusion = `Есть области для улучшения. Средний результат: ${avg}%. Рекомендуется дополнительная практика.`;
+  else shortConclusion = `Стабильный результат. Средний показатель: ${avg !== null ? avg+'%' : 'нет данных'}.`;
+  const teacher = (db.teachers||[]).find(t=>t.id===teacherId);
+  return { student, teacher, checkedWorksCount: checkedWorks.length, averageScore: avg !== null ? `${avg}%` : 'Нет данных', lastScore: lastScore !== null ? `${lastScore}%` : 'Нет данных', trendLabel, topErrorsList: topErrors.length ? topErrors.join('; ') : 'Не выявлено', recommendationsList: recs.join(' '), shortConclusion, histogramData, hasHistogram };
+}
+
 function TeacherReportsPage({ db, reload, notify, session }) {
   const teacherId = session.userId;
   const teacherStudents = teacherOwnedStudents(db, teacherId);
@@ -1997,6 +2065,7 @@ function TeacherReportsPage({ db, reload, notify, session }) {
   const [previewStudentId, setPreviewStudentId] = useState(teacherStudents[0]?.id || '');
   const [periodFrom, setPeriodFrom] = useState(() => new Date(Date.now() - 6 * 864e5).toISOString().slice(0, 10));
   const [periodTo, setPeriodTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [lastReportUrl, setLastReportUrl] = useState(null);
   const autoEligibleStudents = targetType === 'student'
     ? [teacherStudents.find(student => student.id === targetId)].filter(Boolean).filter(student => student.parentEmail)
     : (teacherGroups.find(group => group.id === targetId)?.studentIds || []).map(id => teacherStudents.find(student => student.id === id)).filter(Boolean).filter(student => student.parentEmail);
@@ -2004,9 +2073,12 @@ function TeacherReportsPage({ db, reload, notify, session }) {
   const previewRecipient = previewStudent?.parentEmail ? `${previewStudent.parentName || previewStudent.name} <${previewStudent.parentEmail}>` : 'Email родителя не заполнен';
   const savingDisabled = !targetId || !autoEligibleStudents.length;
   const sendingDisabled = !previewStudent?.parentEmail;
+  const previewData = previewStudentId ? buildPreviewReportData(db, teacherId, previewStudentId, periodFrom, periodTo) : null;
+  const teacher = (db.teachers||[]).find(t=>t.id===teacherId);
+  const periodLabel = `${formatDateOnly(periodFrom)} – ${formatDateOnly(periodTo)}`;
 
   return <div className="stack gap24">
-    <div><h2 className="pageTitle">Отчеты</h2><p className="muted">Автоматическую отправку можно сохранить для weekly/monthly режима, а ручной PDF-отчет формируется из превью письма для конкретного ученика.</p></div>
+    <div><h2 className="pageTitle">Отчеты</h2><p className="muted">Ручной PDF-отчет формируется по шаблону А. Превью показывает данные за выбранный период.</p></div>
     <div className="grid twoCol">
       <Card title="Настройки отправки">
         <label className="field"><span>Объект</span><div className="segmented mini"><button className={cx(targetType==='student'&&'active')} onClick={()=>{setTargetType('student'); setTargetId(teacherStudents[0]?.id||'');}}>Ученик</button><button className={cx(targetType==='group'&&'active')} onClick={()=>{setTargetType('group'); setTargetId(teacherGroups[0]?.id||'');}}>Группа</button></div></label>
@@ -2017,18 +2089,54 @@ function TeacherReportsPage({ db, reload, notify, session }) {
       </Card>
       <Card title="Превью email">
         <div className="grid twoCol">
-          <label className="field"><span>Кому</span><select className="input" value={previewStudentId} onChange={e=>setPreviewStudentId(e.target.value)}>{teacherStudents.map(student => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label>
-          <label className="field"><span>За период</span><div className="row gap8"><input className="input" type="date" value={periodFrom} onChange={e=>setPeriodFrom(e.target.value)} /><input className="input" type="date" value={periodTo} onChange={e=>setPeriodTo(e.target.value)} /></div></label>
+          <label className="field"><span>Кому</span><select className="input" value={previewStudentId} onChange={e=>{setPreviewStudentId(e.target.value);setLastReportUrl(null);}}>{teacherStudents.map(student => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label>
+          <label className="field"><span>За период</span><div className="row gap8"><input className="input" type="date" value={periodFrom} onChange={e=>{setPeriodFrom(e.target.value);setLastReportUrl(null);}} /><input className="input" type="date" value={periodTo} onChange={e=>{setPeriodTo(e.target.value);setLastReportUrl(null);}} /></div></label>
         </div>
-        <div className="previewMail">
-          <div className="mailTitle">Тема: Отчет по ученику · {new Date().toLocaleDateString('ru-RU')}</div>
+        <div className="previewMail mt12">
+          <div className="mailTitle">Тема: Отчет по ученику: {previewData?.student?.name || '—'} · {periodLabel}</div>
           <div className="mailRecipients">Получатель: {previewRecipient}</div>
-          <div className="mailRecipients">Период: {formatDateOnly(periodFrom)} - {formatDateOnly(periodTo)}</div>
-          <ul className="mailList"><li>Имя ученика</li><li>Частые типы ошибок</li><li>Гистограмма оценок</li></ul>
+          <div className="mailRecipients mt6">Здравствуйте!</div>
+          <div className="mailRecipients">Направляем краткий отчет по занятиям и проверенным работам ученика: <strong>{previewData?.student?.name || '—'}</strong>.</div>
+          <div className="mailRecipients">Период: {periodLabel} · Преподаватель: {teacher?.name || '—'}</div>
+          <div className="mailSection mt8"><strong>1. Общая динамика</strong>
+            <ul className="mailList">
+              <li>Проверено работ: {previewData?.checkedWorksCount ?? '—'}</li>
+              <li>Средний балл: {previewData?.averageScore ?? '—'}</li>
+              <li>Последний результат: {previewData?.lastScore ?? '—'}</li>
+              <li>Динамика: {previewData?.trendLabel ?? '—'}</li>
+            </ul>
+          </div>
+          <div className="mailSection mt8"><strong>2. Частые ошибки</strong>
+            <div className="muted small mt4">{previewData?.topErrorsList || 'Не выявлено'}</div>
+          </div>
+          <div className="mailSection mt8"><strong>3. Распределение оценок</strong>
+            {previewData?.hasHistogram ? (
+              <div className="reportHistogram mt8">
+                {(previewData.histogramData || []).map(bucket => (
+                  <div key={bucket.name} className="reportHistBucket">
+                    <div className="reportHistBar" style={{height: Math.max(4, (bucket.value / Math.max(...(previewData.histogramData||[]).map(b=>b.value),1)) * 60)+'px'}}></div>
+                    <div className="reportHistLabel">{bucket.name}</div>
+                    <div className="reportHistCount">{bucket.value}</div>
+                  </div>
+                ))}
+              </div>
+            ) : <div className="muted small mt4">Недостаточно данных за выбранный период</div>}
+          </div>
+          <div className="mailSection mt8"><strong>4. Рекомендации</strong>
+            <div className="muted small mt4">{previewData?.recommendationsList || '—'}</div>
+          </div>
+          <div className="mailSection mt8"><strong>Итог:</strong> {previewData?.shortConclusion || '—'}</div>
         </div>
         {sendingDisabled && <div className="pill warn mt16">Отправка недоступна, пока у выбранного ученика не заполнен Email родителя.</div>}
         <div className="row gap8 wrap mt20">
-          <button className="primaryBtn" disabled={sendingDisabled} onClick={async()=>{try { const result = await api.sendReport({ targetType: 'student', targetId: previewStudentId, teacherId, periodFrom, periodTo }); await reload(); notify({type:'success',text: result.deliveries?.[0]?.url ? 'PDF-отчет сформирован и добавлен в журнал отправок.' : 'Отчет отправлен.'}); } catch (e) { notify({ type:'error', text:e.message }); }}}>Отправить отчет</button>
+          <button className="primaryBtn" disabled={sendingDisabled} onClick={async()=>{try {
+            const result = await api.sendReport({ targetType: 'student', targetId: previewStudentId, teacherId, periodFrom, periodTo });
+            await reload();
+            const url = result.deliveries?.[0]?.url || null;
+            if (url) setLastReportUrl(url);
+            notify({type:'success',text:'PDF-отчет сформирован и добавлен в журнал отправок.'});
+          } catch (e) { notify({ type:'error', text:e.message }); }}}>Отправить отчет</button>
+          {lastReportUrl && <a className="secondaryBtn" href={lastReportUrl} target="_blank" rel="noreferrer"><FileText size={16}/> Посмотреть отчет</a>}
         </div>
       </Card>
     </div>
@@ -2072,12 +2180,26 @@ function TeacherSettingsPage({ db, reload, notify, session }) {
     notify({ type: 'success', text: 'Настройки сохранены.' });
   };
 
-  return <div className="stack gap24"><div><h2 className="pageTitle">Настройки</h2><p className="muted">Настройки собраны по разделам: профиль, предметы, уведомления и отчеты.</p></div>
-    <div className="settingsHeaderTabs">{['profile','subjects','notifications','reports'].map(key => <button key={key} className={cx('settingsTabBtn', tab===key && 'active')} onClick={()=>setTab(key)}>{key==='profile'?'Профиль':key==='subjects'?'Предметы':key==='notifications'?'Уведомления':'Отчеты'}</button>)}</div>
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t && ['profile','subjects','notifications','reports','pricing'].includes(t)) setTab(t);
+  }, [searchParams]);
+
+  const pricingPlans = [
+    { name:'Free', price:'0 ₽', features:['Пакетная проверка','Ограниченный лимит обработок','Базовое распознавание','CSV/PDF экспорт'], disabled:['Полная очередь ручной проверки','Расширенная аналитика','Отчеты'] },
+    { name:'Pro Trial', price:'30 дней бесплатно', featured:true, features:['Полный доступ ко всем функциям','Одиночная и пакетная проверка','Ученики, группы, задания','Редактирование AI-черновиков','Аналитика и отчеты'], disabled:[] },
+    { name:'Pro', price:'1 490 ₽/мес', features:['Полный кабинет преподавателя','Ученики, группы, задания','Одиночная и пакетная проверка','Комментарии ученикам','Аналитика и отчеты','Итог подтверждает преподаватель'], disabled:[] },
+  ];
+  const currentPlan = session.accessMode === 'limited' ? 'Free' : 'Pro Trial';
+
+  return <div className="stack gap24"><div><h2 className="pageTitle">Настройки</h2><p className="muted">Профиль, предметы, уведомления, отчеты и тарифы.</p></div>
+    <div className="settingsHeaderTabs">{['profile','subjects','notifications','reports','pricing'].map(key => <button key={key} className={cx('settingsTabBtn', tab===key && 'active')} onClick={()=>setTab(key)}>{key==='profile'?'Профиль':key==='subjects'?'Предметы':key==='notifications'?'Уведомления':key==='reports'?'Отчеты':'Тарифы'}</button>)}</div>
     {tab==='profile' && <Card title="Профиль"><div className="profileHero"><label className="avatarUploader circularAvatar"><input type="file" accept="image/*" onChange={e=>uploadAvatar(Array.from(e.target.files||[]))} />{profile.avatarUrl ? <img src={normalizeUrl(profile.avatarUrl)} className="avatarCoverImage" /> : <div className="avatarPlaceholderCircle"><UploadCloud size={22} /></div>}</label><div className="profileFields"><div className="grid twoCol"><label className="field"><span>Имя</span><input className="input" value={profile.name} onChange={e=>setProfile(v=>({...v,name:e.target.value}))} /></label><label className="field"><span>Email</span><input className="input" value={profile.email} onChange={e=>setProfile(v=>({...v,email:e.target.value}))} /></label><label className="field"><span>Телефон</span><input className="input" value={profile.phone} onChange={e=>setProfile(v=>({...v,phone:e.target.value}))} /></label></div></div></div><div className="modalActions nicerSettingsActions"><button className="primaryBtn" onClick={()=>saveAll(profile)}>Сохранить профиль</button></div></Card>}
     {tab==='subjects' && <Card title="Предметы"><div className="checkboxGrid">{['Математика','Физика','Химия'].map(subject => <label key={subject} className="checkRow"><input type="checkbox" checked={subjectsState.includes(subject)} onChange={e=>setSubjectsState(v=>e.target.checked?[...v,subject]:v.filter(s=>s!==subject))} /><span>{subject}</span></label>)}</div><div className="modalActions nicerSettingsActions"><button className="primaryBtn" onClick={()=>saveAll({ subjects: [...new Set(subjectsState)] })}>Сохранить предметы</button></div></Card>}
     {tab==='notifications' && <Card title="Уведомления"><div className="checkboxGrid">{Object.keys(notifications).map(key => <label key={key} className="checkRow"><input type="checkbox" checked={Boolean(notifications[key])} onChange={e=>setNotifications(v=>({...v,[key]:e.target.checked}))} /><span>{key}</span></label>)}</div><div className="modalActions nicerSettingsActions"><button className="primaryBtn" onClick={()=>saveAll({ notifications })}>Сохранить уведомления</button></div></Card>}
     {tab==='reports' && <Card title="Содержимое отчета родителям"><div className="checkboxGrid">{PARENT_REPORT_FIELDS.map(key => <label key={key} className="checkRow"><input type="checkbox" checked={Boolean(reportPreferences[key])} onChange={e=>setReportPreferences(v=>({...v,[key]:e.target.checked}))} /><span>{key}</span></label>)}</div><div className="modalActions nicerSettingsActions"><button className="primaryBtn" onClick={()=>saveAll({ reportPreferences })}>Сохранить настройки отчета</button></div></Card>}
+    {tab==='pricing' && <div><p className="muted">AI экономит время на распознавании и черновике проверки, но финальный результат всегда подтверждает преподаватель.</p><div className="grid threeCol mt16">{pricingPlans.map(plan=><Card key={plan.name} title={plan.name} actions={currentPlan===plan.name?<span className="pill info">Текущий тариф</span>:plan.featured?<span className="pill success">Рекомендуем</span>:null}><div className="price">{plan.price}</div><ul className="featureList">{plan.features.map(f=><li key={f} style={{color:'var(--text)'}}>{f}</li>)}</ul>{plan.disabled?.length?<ul className="featureList" style={{opacity:.45}}>{plan.disabled.map(f=><li key={f} style={{textDecoration:'line-through'}}>{f}</li>)}</ul>:null}</Card>)}</div></div>}
   </div>;
 }
 
@@ -2195,6 +2317,51 @@ function StudentAttachmentViewer({ files = [] }) {
   );
 }
 
+function StudentFilePreview({ files, onRemove }) {
+  const [previews, setPreviews] = useState({});
+  const [lightbox, setLightbox] = useState(null);
+
+  useEffect(() => {
+    const urls = {};
+    files.forEach(f => {
+      if (f.type.startsWith('image/')) urls[f.name + f.size] = URL.createObjectURL(f);
+    });
+    setPreviews(urls);
+    return () => { Object.values(urls).forEach(u => URL.revokeObjectURL(u)); };
+  }, [files]);
+
+  if (!files.length) return null;
+  return (
+    <>
+      <div className="previewFileList">
+        {files.map(file => {
+          const key = file.name + file.size;
+          const isImage = file.type.startsWith('image/');
+          return (
+            <div key={key} className="previewFileItem">
+              {isImage ? (
+                <img src={previews[key]} alt={file.name} className="previewFileThumb" onClick={() => setLightbox(previews[key])} />
+              ) : (
+                <div className="previewFileIcon"><FileText size={20}/></div>
+              )}
+              <div className="previewFileName">{file.name}</div>
+              <button className="iconGhost danger previewFileRemove" onClick={() => onRemove(file)} title="Удалить"><X size={12}/></button>
+            </div>
+          );
+        })}
+      </div>
+      {lightbox && (
+        <div className="carouselOverlay" onClick={() => setLightbox(null)}>
+          <div className="carouselFullscreenContent" onClick={e => e.stopPropagation()}>
+            <img src={lightbox} alt="" style={{maxWidth:'90vw',maxHeight:'86vh',borderRadius:12}} />
+            <button className="iconGhost" style={{position:'absolute',top:12,right:12}} onClick={() => setLightbox(null)}><X size={20}/></button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function StudentAssignmentDetail({ assignment, work, onClose, onUpload, readonly=false }) {
   const [files, setFiles] = useState([]);
   const deadline = assignment.deadline ? new Date(assignment.deadline) : null;
@@ -2227,9 +2394,10 @@ function StudentAssignmentDetail({ assignment, work, onClose, onUpload, readonly
           <input type="file" multiple onChange={e=>setFiles(prev=>[...prev, ...Array.from(e.target.files||[]).filter(f => !prev.some(e2=>e2.name===f.name&&e2.size===f.size))])} />
           <UploadCloud size={20}/> Добавить несколько фото/файлов
         </label>
-        {files.length > 0 && <div className="stack gap6">
-          {files.map(file => <div key={file.name+file.size} className="listRow compact"><span>{file.name}</span><button className="iconGhost danger" onClick={()=>setFiles(prev=>prev.filter(f=>f!==file))}><Trash2 size={13}/></button></div>)}
-        </div>}
+        {files.length > 0 && <>
+          <div className="sectionLabel mt12">Выбранные файлы ({files.length})</div>
+          <StudentFilePreview files={files} onRemove={file => setFiles(prev => prev.filter(f => f !== file))} />
+        </>}
         <div className="modalActions"><button className="secondaryBtn" onClick={onClose}>Закрыть</button><button className="primaryBtn" onClick={()=>onUpload(files)} disabled={!files.length}>Загрузить</button></div>
       </>}
       {(readonly || work) && <div className="modalActions"><button className="secondaryBtn" onClick={onClose}>Закрыть</button></div>}
@@ -2348,39 +2516,6 @@ function StudentTutorsPage({ db, reload, notify, session }) {
       </div>
     </Card>
 
-    <Card title="Входящие приглашения">
-      <div className="stack gap12">
-        {incomingInvites.length ? incomingInvites.map(invite => {
-          const teacher = (db.teachers || []).find(item => item.id === invite.teacherId);
-          return (
-            <div key={invite.id} className="listCard polished">
-              <div className="row between wrap gap16">
-                <div>
-                  <div className="cardTitle">{teacher?.name || 'Преподаватель'}</div>
-                  <div className="muted small mt6">{teacher?.email || 'Почта не указана'}</div>
-                </div>
-                <div className="row gap8 wrap">
-                  {invite.status === 'pending' ? (
-                    <>
-                      <button className="secondaryBtn" onClick={async () => {
-                        await api.updateTeacherInvite(invite.id, { status: 'declined' });
-                        await reload();
-                        notify({ type: 'success', text: 'Приглашение отклонено.' });
-                      }}>Отклонить</button>
-                      <button className="primaryBtn" onClick={async () => {
-                        await api.updateTeacherInvite(invite.id, { status: 'accepted' });
-                        await reload();
-                        notify({ type: 'success', text: 'Преподаватель подключен.' });
-                      }}>Принять</button>
-                    </>
-                  ) : <span className={pillClass[invite.status]}>{invite.status === 'accepted' ? 'Принято' : 'Отклонено'}</span>}
-                </div>
-              </div>
-            </div>
-          );
-        }) : <div className="empty">Новых приглашений пока нет.</div>}
-      </div>
-    </Card>
   </div>;
 }
 
@@ -2401,8 +2536,14 @@ function StudentProfilePage({ db, session, reload, notify }) {
   const assignments = assignmentsForStudent(db, student.id);
   const saveProfile = async () => {
     try {
-      await api.updateStudent(student.id, { email: form.email, phone: form.phone, parentName: form.parentName, parentEmail: form.parentEmail });
+      const updated = await api.updateStudent(student.id, { email: form.email, phone: form.phone, parentName: form.parentName, parentEmail: form.parentEmail });
       await reload();
+      // Explicit sync in case effect dependencies don't detect the change
+      setForm(prev => ({
+        ...prev,
+        parentEmail: updated?.parentEmail || updated?.parentContact || prev.parentEmail,
+        parentName: updated?.parentName || prev.parentName,
+      }));
       notify({ type: 'success', text: 'Профиль обновлен.' });
     } catch (e) {
       notify({ type: 'error', text: e.message });

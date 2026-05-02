@@ -39,8 +39,19 @@ const uploadsDir = path.join(__dirname, 'uploads');
 const aiConfig = loadAiConfig();
 const envFileExists = ['.env', '.env.local']
   .some(fileName => fs.existsSync(path.join(path.join(__dirname, '..'), fileName)));
-const pdfFontPath = ['/Library/Fonts/Arial Unicode.ttf', '/System/Library/Fonts/Supplemental/Arial Unicode.ttf']
-  .find(candidate => fs.existsSync(candidate));
+const pdfFontPath = [
+  // macOS
+  '/Library/Fonts/Arial Unicode.ttf',
+  '/System/Library/Fonts/Supplemental/Arial Unicode.ttf',
+  // Windows (SystemRoot env or default path)
+  path.join(process.env.SystemRoot || 'C:\\Windows', 'Fonts', 'arial.ttf'),
+  'C:/Windows/Fonts/arial.ttf',
+  // Linux – DejaVu (Ubuntu/Debian/Fedora)
+  '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+  '/usr/share/fonts/dejavu/DejaVuSans.ttf',
+  '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+  '/usr/share/fonts/truetype/freefont/FreeSans.ttf',
+].find(candidate => { try { return fs.existsSync(candidate); } catch { return false; } });
 
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -190,7 +201,8 @@ const getStudentParentEmail = (student = {}) => {
 const normalizeStudentParentFields = (student = {}) => {
   student.parentName = String(student.parentName || '').trim();
   student.parentEmail = getStudentParentEmail(student);
-  student.parentContact = student.parentContact ?? student.parentEmail;
+  // Keep parentContact in sync; use || so empty string is overwritten
+  student.parentContact = student.parentContact || student.parentEmail;
   return student;
 };
 const canSendToParent = (student = {}) => Boolean(getStudentParentEmail(student));
@@ -574,6 +586,8 @@ const findTeacherById = (db, teacherId) => {
 };
 
 function slotConflict(db, slots = [], ignoreStudentId = null, ignoreGroupId = null, teacherId = null) {
+  const ignoredGroup = ignoreGroupId ? db.groups.find(g => g.id === ignoreGroupId) : null;
+  const ignoredGroupStudentIds = new Set(ignoredGroup ? (ignoredGroup.studentIds || []) : []);
   const activeStudents = db.students.filter(s => s.active && s.id !== ignoreStudentId && (!teacherId || studentHasTeacher(s, teacherId)));
   const activeGroups = db.groups.filter(g => g.active && g.id !== ignoreGroupId && (!teacherId || g.teacherId === teacherId));
   for (const slot of normalizeSlots(slots)) {
@@ -582,6 +596,10 @@ function slotConflict(db, slots = [], ignoreStudentId = null, ignoreGroupId = nu
     for (const student of activeStudents) {
       for (const existing of getEffectiveStudentSlots(db, student)) {
         if (slot.day !== existing.day) continue;
+        // Skip slots that are inherited from the group we are editing
+        if (ignoreGroupId && existing.inherited && existing.sourceGroupId === ignoreGroupId) continue;
+        // Skip students who belong to the group being edited and whose only slots come from it
+        if (ignoredGroupStudentIds.has(student.id) && existing.inherited && existing.sourceGroupId === ignoreGroupId) continue;
         const existingStart = minutesFromTime(existing.time);
         const existingEnd = existingStart + durationMinutes(existing);
         if (overlap(start, end, existingStart, existingEnd)) {
@@ -729,17 +747,66 @@ const buildGradesHistogramForPeriod = (db, teacherId, studentId, period) => {
 };
 const buildParentReportFields = (db, teacherId, studentId, period) => {
   const student = db.students.find(item => item.id === studentId);
-  const works = db.works.filter(work => work.teacherId === teacherId
+  const worksInPeriod = db.works.filter(work => work.teacherId === teacherId
     && work.studentId === studentId
     && isDateWithinPeriod(work.submittedAt, period));
-  const errorCounts = works.flatMap(work => work.aiErrors || []).flatMap(error => error.types || []).reduce((acc, type) => ({ ...acc, [type]: (acc[type] || 0) + 1 }), {});
-  const topErrors = Object.entries(errorCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([type]) => type).join(', ') || 'Недостаточно данных';
+  const checkedWorks = worksInPeriod.filter(w => w.status === 'Проверено');
+  const checkedWorksCount = checkedWorks.length;
+
+  const scores = checkedWorks.map(work => {
+    const assignment = db.assignments.find(item => item.id === work.assignmentId);
+    return Math.round(((work.finalScore ?? work.suggestedScore ?? 0) / (assignment?.maxScore || 100)) * 100);
+  });
+  const averageScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+  const lastScore = scores.length ? scores[scores.length - 1] : null;
+
+  let trendLabel = 'Недостаточно данных для оценки динамики';
+  if (scores.length >= 2) {
+    const earlierAvg = Math.round(scores.slice(0, -1).reduce((a, b) => a + b, 0) / (scores.length - 1));
+    if (lastScore > earlierAvg + 5) trendLabel = 'Положительная';
+    else if (lastScore < earlierAvg - 5) trendLabel = 'Требует внимания';
+    else trendLabel = 'Стабильная';
+  }
+
+  const errorCounts = worksInPeriod.flatMap(w => (w.aiErrors || []).flatMap(e => e.types || []))
+    .reduce((acc, type) => ({ ...acc, [type]: (acc[type] || 0) + 1 }), {});
+  const topErrorEntries = Object.entries(errorCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const topErrors = topErrorEntries.map(([type]) => type);
+  const topErrorsList = topErrors.join('; ') || 'Не выявлено';
+
+  const recs = [];
+  if (trendLabel === 'Требует внимания') recs.push('Рекомендуем уделить больше времени практическим задачам.');
+  if (topErrors.length) recs.push(`Акцент на: ${topErrors.slice(0, 2).join(', ')}.`);
+  if (!recs.length) recs.push('Продолжайте в том же темпе.');
+
+  let shortConclusion = '';
+  if (!checkedWorksCount) shortConclusion = 'За выбранный период нет проверенных работ.';
+  else if (trendLabel === 'Положительная') shortConclusion = `Положительная динамика. Средний результат: ${averageScore}%.`;
+  else if (trendLabel === 'Требует внимания') shortConclusion = `Есть области для улучшения. Средний результат: ${averageScore}%. Рекомендуется дополнительная практика.`;
+  else shortConclusion = `Стабильный результат. Средний показатель: ${averageScore !== null ? averageScore + '%' : 'нет данных'}.`;
+
+  const buckets = { '0-49': 0, '50-69': 0, '70-84': 0, '85-100': 0 };
+  scores.forEach(p => {
+    if (p < 50) buckets['0-49']++;
+    else if (p < 70) buckets['50-69']++;
+    else if (p < 85) buckets['70-84']++;
+    else buckets['85-100']++;
+  });
+
   return {
     studentName: student?.name || 'Ученик',
-    frequentErrors: topErrors,
+    frequentErrors: topErrorsList,
     gradesHistogram: buildGradesHistogramForPeriod(db, teacherId, studentId, period),
     parentEmail: getStudentParentEmail(student),
     periodLabel: period.label,
+    checkedWorksCount,
+    averageScore: averageScore !== null ? `${averageScore}%` : 'Нет данных',
+    lastScore: lastScore !== null ? `${lastScore}%` : 'Нет данных',
+    trendLabel,
+    topErrorsList,
+    recommendationsList: recs.join(' '),
+    shortConclusion,
+    histogramBuckets: buckets,
   };
 };
 
@@ -759,26 +826,97 @@ function writeParentReportPdf({ student, payload, teacher, baseUrl }) {
     const safeStudentId = student?.id || 'student';
     const fileName = `parent-report-${safeStudentId}-${Date.now()}.pdf`;
     const filePath = path.join(uploadsDir, fileName);
-    const doc = new PDFDocument({ margin: 40 });
+    const doc = new PDFDocument({ margin: 48, size: 'A4' });
     const stream = fs.createWriteStream(filePath);
     stream.on('finish', () => resolve({ fileName, url: `${baseUrl}/uploads/${fileName}` }));
     stream.on('error', reject);
     doc.pipe(stream);
-    if (pdfFontPath) doc.font(pdfFontPath);
-    doc.fontSize(18).text('Отчет для родителя');
-    doc.moveDown(0.6);
-    doc.fontSize(11).text(`Преподаватель: ${teacher?.name || 'Преподаватель'}`);
-    doc.text(`Ученик: ${payload.studentName}`);
-    doc.text(`Период: ${payload.periodLabel}`);
-    doc.text(`Email родителя: ${payload.parentEmail || 'Не указан'}`);
-    doc.moveDown();
-    doc.fontSize(13).text('Частые типы ошибок', { underline: true });
+
+    if (pdfFontPath) {
+      try { doc.font(pdfFontPath); } catch { /* use built-in */ }
+    }
+
+    const hasFont = !!pdfFontPath;
+    const safe = (str) => {
+      if (hasFont) return String(str || '');
+      // Transliterate Cyrillic when no font is available so PDF is still readable
+      const map = { 'А':'A','а':'a','Б':'B','б':'b','В':'V','в':'v','Г':'G','г':'g','Д':'D','д':'d','Е':'E','е':'e','Ё':'E','ё':'e','Ж':'Zh','ж':'zh','З':'Z','з':'z','И':'I','и':'i','Й':'Y','й':'y','К':'K','к':'k','Л':'L','л':'l','М':'M','м':'m','Н':'N','н':'n','О':'O','о':'o','П':'P','п':'p','Р':'R','р':'r','С':'S','с':'s','Т':'T','т':'t','У':'U','у':'u','Ф':'F','ф':'f','Х':'Kh','х':'kh','Ц':'Ts','ц':'ts','Ч':'Ch','ч':'ch','Ш':'Sh','ш':'sh','Щ':'Shch','щ':'shch','Ъ':'','ъ':'','Ы':'Y','ы':'y','Ь':'','ь':'','Э':'E','э':'e','Ю':'Yu','ю':'yu','Я':'Ya','я':'ya','%':'%','·':'·' };
+      return String(str || '').split('').map(c => map[c] !== undefined ? map[c] : c).join('');
+    };
+
+    // Header
+    doc.fontSize(18).font(pdfFontPath || 'Helvetica-Bold').text(
+      safe(`Отчет по ученику: ${payload.studentName}`), { align: 'left' }
+    );
     doc.moveDown(0.3);
-    doc.fontSize(11).text(payload.frequentErrors);
-    doc.moveDown();
-    doc.fontSize(13).text('Гистограмма оценок', { underline: true });
+    doc.fontSize(11).font(pdfFontPath || 'Helvetica');
+    doc.text(safe(`Период: ${payload.periodLabel}`));
+    doc.text(safe(`Преподаватель: ${teacher?.name || 'Преподаватель'}`));
+    doc.text(safe(`Email родителя: ${payload.parentEmail || 'Не указан'}`));
+    doc.moveDown(0.8);
+
+    // Section 1
+    doc.fontSize(13).font(pdfFontPath || 'Helvetica-Bold').text(safe('1. Общая динамика'));
     doc.moveDown(0.3);
-    doc.fontSize(11).text(payload.gradesHistogram);
+    doc.fontSize(11).font(pdfFontPath || 'Helvetica');
+    doc.text(safe(`Проверено работ: ${payload.checkedWorksCount ?? 0}`));
+    doc.text(safe(`Средний балл: ${payload.averageScore ?? 'Нет данных'}`));
+    doc.text(safe(`Последний результат: ${payload.lastScore ?? 'Нет данных'}`));
+    doc.text(safe(`Динамика: ${payload.trendLabel ?? 'Нет данных'}`));
+    doc.moveDown(0.8);
+
+    // Section 2
+    doc.fontSize(13).font(pdfFontPath || 'Helvetica-Bold').text(safe('2. Частые ошибки'));
+    doc.moveDown(0.3);
+    doc.fontSize(11).font(pdfFontPath || 'Helvetica').text(safe(payload.topErrorsList || 'Не выявлено'));
+    doc.moveDown(0.8);
+
+    // Section 3 – histogram (drawn with PDFKit primitives)
+    doc.fontSize(13).font(pdfFontPath || 'Helvetica-Bold').text(safe('3. Распределение оценок'));
+    doc.moveDown(0.3);
+    const buckets = payload.histogramBuckets || {};
+    const bucketKeys = ['0-49', '50-69', '70-84', '85-100'];
+    const maxVal = Math.max(...bucketKeys.map(k => buckets[k] || 0), 1);
+    const barMaxHeight = 60;
+    const barWidth = 50;
+    const barGap = 20;
+    const histX = doc.page.margins.left;
+    const histBaseY = doc.y + barMaxHeight + 20;
+    const totalCount = bucketKeys.reduce((s, k) => s + (buckets[k] || 0), 0);
+    if (totalCount === 0) {
+      doc.fontSize(11).font(pdfFontPath || 'Helvetica').text(safe('Недостаточно данных за выбранный период'));
+    } else {
+      bucketKeys.forEach((key, i) => {
+        const val = buckets[key] || 0;
+        const bh = maxVal > 0 ? Math.round((val / maxVal) * barMaxHeight) : 0;
+        const bx = histX + i * (barWidth + barGap);
+        const by = histBaseY - bh;
+        doc.rect(bx, by, barWidth, bh).fill('#2563eb');
+        doc.fontSize(9).font(pdfFontPath || 'Helvetica').fillColor('#0f172a');
+        doc.text(String(val), bx, by - 14, { width: barWidth, align: 'center' });
+        doc.text(safe(key), bx, histBaseY + 4, { width: barWidth, align: 'center' });
+      });
+      doc.fillColor('#0f172a');
+      doc.y = histBaseY + 22;
+    }
+    doc.moveDown(1);
+
+    // Section 4
+    doc.fontSize(13).font(pdfFontPath || 'Helvetica-Bold').text(safe('4. Рекомендации'));
+    doc.moveDown(0.3);
+    doc.fontSize(11).font(pdfFontPath || 'Helvetica').text(safe(payload.recommendationsList || 'Нет данных'));
+    doc.moveDown(0.8);
+
+    // Conclusion
+    doc.fontSize(13).font(pdfFontPath || 'Helvetica-Bold').text(safe('Итог'));
+    doc.moveDown(0.3);
+    doc.fontSize(11).font(pdfFontPath || 'Helvetica').text(safe(payload.shortConclusion || ''));
+
+    if (!hasFont) {
+      doc.moveDown(1);
+      doc.fontSize(9).text('[PDF rendered without Cyrillic font — text was transliterated. Add a TTF font to server/fonts/ for full Unicode support.]');
+    }
+
     doc.end();
   });
 }
@@ -1686,29 +1824,56 @@ app.get('/api/reports/logs', (req, res) => {
   res.json(teacherId ? db.reportLogs.filter(item => item.teacherId === teacherId) : []);
 });
 
-app.post('/api/batch/sessions', aiRateLimit, upload.array('files', aiConfig.limits.maxBatchFiles), async (req, res, next) => {
-  try {
-    const db = readDb();
-    ensureDbDefaults(db);
-    const uploadedFiles = await buildUploadedFileDescriptors(req, req.files || []);
-    const session = {
-      id: nextId(db, 'batch', 'b'),
-      createdAt: new Date().toISOString(),
-      teacherId: req.body.teacherId || null,
-      scale: req.body.scale || '100',
-      files: uploadedFiles,
-      results: [],
-    };
-    session.results = createBatchResultsFromUploadedFiles(session, uploadedFiles);
-    db.batchSessions.unshift(session);
-    writeDb(db);
-    res.json({
-      ...session,
-      results: session.results.map(result => decorateBatchResultWithAi(db, session, result)),
-    });
-  } catch (error) {
-    next(error);
-  }
+const uploadBatchFields = multer({
+  storage,
+  limits: { files: aiConfig.limits.maxBatchFiles * 2, fileSize: aiConfig.limits.maxUploadMb * 1024 * 1024 },
+  fileFilter: (_, file, cb) => {
+    if (!allowedUploadMimeTypes.has(file.mimetype)) {
+      const error = new Error('Поддерживаются только JPG, PNG, WEBP, HEIC и PDF.');
+      error.code = 'UNSUPPORTED_FILE_TYPE';
+      cb(error);
+      return;
+    }
+    cb(null, true);
+  },
+}).fields([
+  { name: 'files', maxCount: aiConfig.limits.maxBatchFiles },
+  { name: 'assignmentFiles', maxCount: 20 },
+]);
+
+app.post('/api/batch/sessions', aiRateLimit, (req, res, next) => {
+  uploadBatchFields(req, res, async (err) => {
+    if (err) return next(err);
+    try {
+      const db = readDb();
+      ensureDbDefaults(db);
+      const solutionFiles = req.files?.files || [];
+      const aFiles = req.files?.assignmentFiles || [];
+      const uploadedFiles = await buildUploadedFileDescriptors(req, solutionFiles);
+      const uploadedAssignmentFiles = await buildUploadedFileDescriptors(req, aFiles);
+      let assignmentLinks = [];
+      try { assignmentLinks = JSON.parse(req.body.assignmentLinks || '[]'); } catch { assignmentLinks = []; }
+      const session = {
+        id: nextId(db, 'batch', 'b'),
+        createdAt: new Date().toISOString(),
+        teacherId: req.body.teacherId || null,
+        scale: req.body.scale || '100',
+        files: uploadedFiles,
+        assignmentFiles: uploadedAssignmentFiles,
+        assignmentLinks,
+        results: [],
+      };
+      session.results = createBatchResultsFromUploadedFiles(session, uploadedFiles);
+      db.batchSessions.unshift(session);
+      writeDb(db);
+      res.json({
+        ...session,
+        results: session.results.map(result => decorateBatchResultWithAi(db, session, result)),
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
 });
 
 app.post('/api/batch/sessions/:id/analyze', aiRateLimit, (req, res) => {
