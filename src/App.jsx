@@ -654,10 +654,15 @@ function Shell({ session, db, reload, logout, notify, updateSession }) {
     { path: '/teacher/analytics', label: 'Аналитика', icon: BarChart3 },
     { path: '/teacher/reports', label: 'Отчеты', icon: FileText },
   ];
+  // Count pending teacher→student invites (teacher wants to connect, student hasn't responded)
+  const studentIncomingInvites = session.role === 'student'
+    ? (db.teacherInvites || []).filter(item => item.direction === 'teacher_to_student' && item.status === 'pending' && item.studentId).length
+    : 0;
+
   const studentItems = [
     { path: '/student', label: 'Главная', icon: LayoutDashboard },
     { path: '/student/assignments', label: 'Мои задания', icon: BookOpen },
-    { path: '/student/tutors', label: 'Репетиторы', icon: Search },
+    { path: '/student/tutors', label: 'Репетиторы', icon: Search, badge: studentIncomingInvites || null },
   ];
   const navItems = session.role === 'teacher' ? teacherItems : studentItems;
 
@@ -1227,7 +1232,26 @@ function TeacherStudentsPage({ db, reload, navigate, notify, session }) {
       </div>
 
       {showAdd && <StudentModal mode="create" db={db} notify={notify} onClose={() => setShowAdd(false)} onSave={async(payload) => { try { await api.createStudent({ ...payload, teacherId }); await reload(); setShowAdd(false); notify({ type: 'success', text: 'Виртуальный ученик добавлен.' }); } catch (e) { notify({ type: 'error', text: e.message }); } }} />}
-      {editing && <StudentModal mode="edit" db={db} student={editing} notify={notify} onClose={() => setEditing(null)} onSave={async(payload) => { try { await api.updateStudent(editing.id, { ...payload, teacherId }); await reload(); setEditing(null); notify({ type: 'success', text: 'Изменения ученика сохранены.' }); } catch (e) { notify({ type: 'error', text: e.message }); } }} />}
+      {editing && <StudentModal mode="edit" db={db} student={editing} notify={notify} onClose={() => setEditing(null)} onSave={async(payload) => {
+        try {
+          // Save to teacher-local overlay — student's own view remains unchanged
+          await api.saveStudentOverlay(editing.id, {
+            teacherId,
+            display_name_override: payload.name,
+            student_email_label: payload.email,
+            student_phone_label: payload.phone,
+            parent_name_override: payload.parentName,
+            parent_email_override: payload.parentEmail,
+            level_override: payload.level,
+            schedule_slots_override: payload.lessonSlots,
+          });
+          await reload();
+          setEditing(null);
+          notify({ type: 'success', text: 'Изменения ученика сохранены.' });
+        } catch (e) {
+          notify({ type: 'error', text: e.message });
+        }
+      }} />}
       {detachingStudent && <Modal title="Удалить аккаунт" onClose={() => setDetachingStudent(null)}>
         <div className="stack gap16">
           <p className="muted">Мы удалим только связь между вами и учеником. Аккаунт ученика останется в системе, а повторное подключение будет возможно позже.</p>
@@ -1343,9 +1367,9 @@ function StudentModal({ mode, db, student, onClose, onSave, notify }) {
       <div className="slotHintLabel">Минуты</div>
       <div></div>
       <select className="input selectSmall" value={slotDraft.day} onChange={e=>setSlotDraft(v=>({...v,day:e.target.value}))}>{['ПН','ВТ','СР','ЧТ','ПТ','СБ','ВС'].map(day=><option key={day}>{day}</option>)}</select>
-      <input className="input selectSmall" type="text" value={slotDraft.time} onChange={e=>setSlotDraft(v=>({...v,time:applyTimeMask(e.target.value)}))} placeholder="ЧЧ:ММ" maxLength={5} inputMode="numeric" />
-      <input className="input selectSmall" type="text" inputMode="numeric" value={slotDraft.durationHours} onChange={e=>setSlotDraft(v=>({...v,durationHours:e.target.value}))} placeholder="0" />
-      <input className="input selectSmall" type="text" inputMode="numeric" value={slotDraft.durationMinutes} onChange={e=>setSlotDraft(v=>({...v,durationMinutes:e.target.value}))} placeholder="0" />
+      <input className="input selectSmall" type="time" value={slotDraft.time} onChange={e=>setSlotDraft(v=>({...v,time:e.target.value}))} />
+      <input className="input selectSmall" type="number" min="0" max="23" value={slotDraft.durationHours} onChange={e=>setSlotDraft(v=>({...v,durationHours:e.target.value}))} placeholder="0" />
+      <input className="input selectSmall" type="number" min="0" max="59" value={slotDraft.durationMinutes} onChange={e=>setSlotDraft(v=>({...v,durationMinutes:e.target.value}))} placeholder="0" />
       <div className="row gap8"><button className="secondaryBtn" onClick={addSlot}>Добавить слот</button><button className="ghostBtn" onClick={()=>{setShowSlotEditor(false); setSlotError('');}}>Скрыть</button></div>
     </div>}
     {!!slots.length && <div className="stack gap8 mt16">{slots.map(slot => <div key={slot.id} className={cx('listRow', (hasLocalDuplicate(slot, slot.id) || hasExternalConflict(slot)) && 'conflictRow')}><span>{slot.day} {slot.time} · {slot.durationHours || 0} ч {slot.durationMinutes || 0} мин</span><button className="iconGhost" onClick={()=>setSlots(prev=>prev.filter(s=>s.id!==slot.id))}><Trash2 size={14}/></button></div>)}</div>}
@@ -1591,13 +1615,13 @@ function AssignmentModal({ mode, db, assignment, onClose, onSave, notify, teache
   const removeLink = (id) => setForm(v => ({ ...v, links: (v.links || []).filter(l => l.id !== id) }));
   const removeAttachment = (fileId) => setForm(v => ({ ...v, attachments: (v.attachments || []).filter(a => a.id !== fileId) }));
 
-  const handleDeadlineInput = (raw) => {
-    const masked = applyDateMask(raw);
-    setForm(v => {
-      const iso = parseDDMMYYYY(masked);
-      const valid = iso && isValidRuDate(masked);
-      return { ...v, deadlineDisplay: masked, deadline: valid ? `${iso}T23:59:59` : '' };
-    });
+  const handleDeadlineInput = (isoDate) => {
+    // isoDate is YYYY-MM-DD from native date picker
+    setForm(v => ({
+      ...v,
+      deadline: isoDate ? `${isoDate}T23:59:59` : '',
+      deadlineDisplay: isoDate ? toDDMMYYYY(`${isoDate}T00:00:00`) : '',
+    }));
   };
 
   const uploadMore = async(files) => {
@@ -1639,16 +1663,11 @@ function AssignmentModal({ mode, db, assignment, onClose, onSave, notify, teache
       <label className="field"><span>Дедлайн</span>
         <input
           className="input"
-          value={form.deadlineDisplay}
+          type="date"
+          value={form.deadline ? form.deadline.slice(0, 10) : ''}
           onChange={e => handleDeadlineInput(e.target.value)}
-          placeholder="ДД.ММ.ГГГГ"
           disabled={isActive}
-          maxLength={10}
-          inputMode="numeric"
         />
-        {form.deadlineDisplay.length === 10 && !isValidRuDate(form.deadlineDisplay) && (
-          <div className="muted small mt4" style={{color:'var(--danger)'}}>Некорректная дата</div>
-        )}
       </label>
     </div>
 
@@ -2542,6 +2561,51 @@ function StudentTutorsPage({ db, reload, notify, session }) {
         }) : <div className="searchDropdownHint">Преподаватели по вашему запросу не найдены.</div>}
       </div>}
     </Card>
+
+    {!!incomingInvites.filter(i => i.status === 'pending').length && (
+      <Card title="Входящие приглашения" subtitle="Преподаватели, желающие с вами работать">
+        <div className="stack gap12">
+          {incomingInvites.filter(i => i.status === 'pending').map(invite => {
+            const teacher = (db.teachers || []).find(item => item.id === invite.teacherId);
+            return (
+              <div key={invite.id} className="listCard polished">
+                <div className="row between wrap gap16">
+                  <div>
+                    <div className="cardTitle">{teacher?.name || 'Преподаватель'}</div>
+                    <div className="muted small mt6">{teacher?.email || 'Почта не указана'}</div>
+                    {(teacher?.subjects || []).length > 0 && (
+                      <div className="chipWrap mt8">
+                        {teacher.subjects.map(s => <span key={s} className="chip">{s}</span>)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="row gap8 wrap">
+                    <button className="secondaryBtn" onClick={async () => {
+                      try {
+                        await api.updateTeacherInvite(invite.id, { status: 'declined' });
+                        await reload();
+                        notify({ type: 'success', text: 'Приглашение отклонено.' });
+                      } catch (e) {
+                        notify({ type: 'error', text: e.message });
+                      }
+                    }}>Отклонить</button>
+                    <button className="primaryBtn" onClick={async () => {
+                      try {
+                        await api.updateTeacherInvite(invite.id, { status: 'accepted' });
+                        await reload();
+                        notify({ type: 'success', text: 'Преподаватель подключён.' });
+                      } catch (e) {
+                        notify({ type: 'error', text: e.message });
+                      }
+                    }}>Принять</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+    )}
 
     <Card title="Подключенные преподаватели">
       <div className="grid twoCol">

@@ -43,7 +43,8 @@ async function callOpenAiStructuredJson({
           model,
           instructions,
           input: [{ role: 'user', content: userContent }],
-          reasoning: { effort: 'medium' },
+          // reasoning only supported by o1/o3/o4-mini — omit for gpt-4o/gpt-4o-mini
+          ...(/^o\d/.test(model) ? { reasoning: { effort: 'medium' } } : {}),
           max_output_tokens: config.openai.maxOutputTokens,
           text: {
             format: {

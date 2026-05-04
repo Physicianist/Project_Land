@@ -867,14 +867,17 @@ function writeParentReportPdf({ student, payload, teacher, baseUrl }) {
     stream.on('error', reject);
     doc.pipe(stream);
 
-    const hasFont = !!pdfFontPath;
+    // hasFont is set ONLY after successful registration to avoid silent fallback to Helvetica
+    let hasFont = false;
     if (pdfFontPath) {
       try {
         doc.registerFont('Regular', pdfFontPath);
-        if (pdfBoldFontPath && pdfBoldFontPath !== pdfFontPath) doc.registerFont('Bold', pdfBoldFontPath);
-        else doc.registerFont('Bold', pdfFontPath);
+        doc.registerFont('Bold', (pdfBoldFontPath && pdfBoldFontPath !== pdfFontPath) ? pdfBoldFontPath : pdfFontPath);
         doc.font('Regular');
-      } catch { /* fall back to built-in */ }
+        hasFont = true;
+      } catch (e) {
+        logger.warn({ fontPath: pdfFontPath, err: e.message }, '[pdf] Font registration failed, using transliteration');
+      }
     }
     const safe = (str) => {
       if (hasFont) return String(str || '');
@@ -1006,10 +1009,25 @@ const serializeBootstrap = ({ role = null, userId = null } = {}) => {
       ...invites.map(invite => invite.studentId).filter(Boolean),
     ]);
     const students = db.students.filter(student => relatedStudentIds.has(student.id));
+    // Apply teacher-specific overlays so teacher sees their own edits, student sees original
+    const studentsForTeacher = students.map(student => {
+      const ov = (db.studentOverlays || []).find(o => o.studentId === student.id && o.teacherId === userId);
+      if (!ov) return student;
+      return {
+        ...student,
+        name: ov.display_name_override || student.name,
+        email: ov.student_email_label !== undefined ? ov.student_email_label : student.email,
+        phone: ov.student_phone_label !== undefined ? ov.student_phone_label : student.phone,
+        parentName: ov.parent_name_override !== undefined ? ov.parent_name_override : student.parentName,
+        parentEmail: ov.parent_email_override !== undefined ? ov.parent_email_override : student.parentEmail,
+        level: ov.level_override !== undefined ? ov.level_override : student.level,
+        lessonSlots: ov.schedule_slots_override || student.lessonSlots,
+      };
+    });
     const groups = db.groups.filter(group => teacherOwnsGroup(group, userId));
     return {
       teachers: [teacher],
-      students,
+      students: studentsForTeacher,
       groups,
       assignments: db.assignments.filter(item => teacherOwnsAssignment(item, userId)),
       works: db.works
@@ -1025,7 +1043,7 @@ const serializeBootstrap = ({ role = null, userId = null } = {}) => {
           results: (session.results || []).map(result => decorateBatchResultWithAi(db, session, result)),
         })),
       attendanceRecords: db.attendanceRecords.filter(item => teacherOwnsAttendance(item, userId)),
-      computed: buildComputedForScope(db, students.filter(student => teacherOwnsStudent(student, userId)), groups, userId),
+      computed: buildComputedForScope(db, studentsForTeacher.filter(student => teacherOwnsStudent(student, userId)), groups, userId),
       meta: { scope: 'teacher', featureFlags: featureFlagsPayload(aiConfig) },
     };
   }
